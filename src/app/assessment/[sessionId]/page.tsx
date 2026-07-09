@@ -162,7 +162,7 @@ export default function AssessmentPage({ params }: PageProps) {
       <main className="flex min-h-screen flex-col items-center justify-center bg-[#f3f4fd] px-5 py-12 text-[#111827]">
         <section className="w-full max-w-[622px] rounded-[14px] border border-[#e3e7f2] bg-white px-[72px] py-[94px] shadow-[0_10px_34px_rgba(15,23,42,0.025)] max-sm:px-6 max-sm:py-10">
           <div className="flex items-center justify-center gap-4">
-            <WelcomeBotIcon />
+            <img alt="Evalora" className="h-[46px] w-[46px] shrink-0 object-contain" src="/evalora-mark.png" />
             <div>
               <h1 className="text-[22px] font-black tracking-[-0.02em] text-[#050505] sm:text-[24px]">Welcome to interview</h1>
               <p className="mt-2 text-[8px] font-semibold text-[#3f3f46] sm:text-[9px]">Please enter your name to continue to assessment</p>
@@ -831,20 +831,6 @@ export default function AssessmentPage({ params }: PageProps) {
 
       </section>
     </main>
-  );
-}
-
-function WelcomeBotIcon() {
-  return (
-    <svg aria-hidden="true" className="h-[46px] w-[46px] shrink-0" viewBox="0 0 52 52" fill="none">
-      <path d="M20 8L37 17.7V36.9L20 46.5L3 36.9V17.7L20 8Z" fill="#32C5F4" stroke="#151455" strokeWidth="4" strokeLinejoin="round" />
-      <path d="M8 31L18 36.5L18 45" stroke="#151455" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6 37L2 43L9 41" stroke="#151455" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M37 27L47 32.5L37 38" stroke="#151455" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="15.5" cy="23" r="2" fill="#151455" />
-      <circle cx="24.5" cy="27" r="2" fill="#151455" />
-      <path d="M14 32.5C18 35 23.5 35.4 28 33" stroke="#151455" strokeWidth="3" strokeLinecap="round" />
-    </svg>
   );
 }
 
