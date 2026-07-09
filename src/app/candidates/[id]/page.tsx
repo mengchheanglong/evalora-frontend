@@ -61,7 +61,7 @@ const quickActions: Array<{ label: string; icon: IconName; tone?: "danger" }> = 
 
 export default function CandidateDetailPage() {
   return (
-    <AppShell active="candidates" hideSidebar showPageHeader={false} title="Candidate Detail">
+    <AppShell active="candidates" showPageHeader={false} title="Candidate Detail">
       <div className="mx-auto w-full max-w-[1180px] space-y-5">
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[12px] font-semibold text-neutral-500">

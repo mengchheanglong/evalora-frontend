@@ -50,7 +50,7 @@ export default async function ReportPage({ params }: PageProps) {
   await params;
 
   return (
-    <AppShell active="candidates" hideSidebar showPageHeader={false} title="Candidate Report">
+    <AppShell active="candidates" showPageHeader={false} title="Candidate Report">
       <div className="mx-auto w-full max-w-[1180px] space-y-4">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
