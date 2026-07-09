@@ -1,96 +1,263 @@
+import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { ButtonLink } from "@/components/button-link";
-import { Icon } from "@/components/icons";
-import { reviewerNotes, reportSections } from "@/lib/mock-data";
+import { Icon, type IconName } from "@/components/icons";
 
 type PageProps = {
   params: Promise<{ sessionId: string }>;
 };
 
+const competencyBreakdown = [
+  { label: "Technical Skill", value: 80 },
+  { label: "Problem Solving", value: 85 },
+  { label: "Communication", value: 70 },
+  { label: "Leadership", value: 90 },
+  { label: "Work Style", value: 65 },
+  { label: "Adaptability", value: 60 },
+  { label: "Ownership", value: 90 },
+];
+
+const moduleAnalysis = [
+  { label: "AI Interview Chat", value: 90 },
+  { label: "Coding Assessment", value: 85 },
+  { label: "Behavioral Assessment", value: 70 },
+  { label: "Leadership Scenario", value: 90 },
+];
+
+const signals: Array<{ label: string; icon: IconName; color: string }> = [
+  { label: "Strategic thinker", icon: "sparkle", color: "bg-violet-50 text-violet-700" },
+  { label: "Strong ownership", icon: "shield", color: "bg-emerald-50 text-emerald-700" },
+  { label: "Clear technical reasoning", icon: "code", color: "bg-indigo-50 text-indigo-700" },
+  { label: "Moderate leadership confidence", icon: "users", color: "bg-amber-50 text-amber-700" },
+  { label: "Collaborative under pressure", icon: "message", color: "bg-purple-50 text-purple-700" },
+  { label: "Needs more concise communication", icon: "question", color: "bg-red-50 text-red-600" },
+];
+
+const behaviorPatterns: Array<{ label: string; value: string; icon: IconName }> = [
+  { label: "Decision Style", value: "Analytical", icon: "sparkle" },
+  { label: "Work Preference", value: "Hybrid / Team-oriented", icon: "users" },
+  { label: "Stress Response", value: "Stable", icon: "trend" },
+  { label: "Learning Style", value: "Hands-on", icon: "clipboard" },
+  { label: "Initiative Level", value: "High", icon: "paperPlane" },
+];
+
+const evidenceQuotes = [
+  "I chose a modular backend structure to keep the API maintainable as the project scaled.",
+  "When deadlines tighten, I usually re-prioritize tasks and communicate trade-offs early.",
+  "If two team members disagree, I would align them on goals first, then guide a practical decision.",
+];
+
 export default async function ReportPage({ params }: PageProps) {
-  const { sessionId } = await params;
+  await params;
 
   return (
-    <AppShell
-      active="reports"
-      actions={<ButtonLink href={`/assessment/${sessionId}`} variant="outline">Open Session</ButtonLink>}
-      description="Evidence-based candidate report for human reviewers. AI feedback is advisory and does not make final hiring decisions."
-      title="Candidate report"
-    >
-      <section className="grid gap-6 xl:grid-cols-[360px_1fr]">
-        <aside className="space-y-6">
-          <article className="card p-6">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">Session {sessionId}</p>
-            <h2 className="mt-3 text-3xl font-black">Daniel Lee</h2>
-            <p className="mt-2 text-neutral-600">Frontend Developer Assessment</p>
-            <div className="mt-6 rounded-[8px] bg-[#05084f] p-6 text-white">
-              <p className="text-sm font-semibold text-slate-200">Overall score</p>
-              <p className="mt-2 text-5xl font-black">4.2/5</p>
-              <p className="mt-3 text-sm text-slate-300">Completed July 9, 2026</p>
+    <AppShell active="candidates" hideSidebar showPageHeader={false} title="Candidate Report">
+      <div className="mx-auto w-full max-w-[1180px] space-y-4">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[30px] font-black tracking-[-0.04em] text-neutral-950">Candidate Report</h1>
+            <p className="mt-2 text-[13px] text-neutral-600">AI-supported assessment summary and extracted candidate insights.</p>
+          </div>
+          <Link className="inline-flex h-9 items-center rounded-[6px] border border-neutral-200 bg-white px-4 text-[12px] font-semibold text-neutral-700 transition hover:bg-neutral-50" href="/candidates/david-lee">
+            ← Back to candidate
+          </Link>
+        </header>
+
+        <section className="card grid gap-6 p-6 md:grid-cols-[140px_1fr_180px_260px] md:items-center">
+          <div className="mx-auto size-[122px] overflow-hidden rounded-full border-2 border-fuchsia-300 p-1 md:mx-0">
+            <img alt="Chim Lina" className="h-full w-full rounded-full object-cover" src="https://randomuser.me/api/portraits/women/44.jpg" />
+          </div>
+
+          <div>
+            <h2 className="text-[24px] font-black tracking-[-0.03em] text-neutral-950">Chim Lina</h2>
+            <div className="mt-5 grid max-w-[380px] gap-3 text-[12px] sm:grid-cols-[110px_1fr]">
+              <ReportMeta icon="building" label="Target Role" value="Software Engineer" />
+              <ReportMeta icon="clipboard" label="Assessment" value="Software Engineer Assessment" />
+              <ReportMeta icon="check" label="Status" value="Completed" valueClass="rounded bg-sky-100 px-2 py-1 text-sky-700" />
             </div>
-          </article>
+          </div>
 
-          <article className="card p-6">
-            <h2 className="text-xl font-black">Reviewer notes</h2>
-            <ul className="mt-5 space-y-4">
-              {reviewerNotes.map((note) => (
-                <li className="flex gap-3 text-sm leading-6 text-neutral-700" key={note}>
-                  <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-sky-100 text-blue-700">
-                    <Icon name="check" size={14} />
-                  </span>
-                  {note}
-                </li>
-              ))}
-            </ul>
-          </article>
-        </aside>
+          <div className="flex justify-center">
+            <ScoreRing score={82} />
+          </div>
 
-        <div className="space-y-6">
-          <section className="rounded-[8px] border border-amber-200 bg-amber-50 p-5 text-amber-800">
-            <h2 className="font-black">Advisory notice</h2>
-            <p className="mt-2 leading-7">
-              AI feedback supports review by a human interviewer. Evalora does not make final hiring decisions and does not diagnose personality, medical, or mental-health traits.
-            </p>
-          </section>
+          <div>
+            <p className="text-[14px] font-semibold text-neutral-900">Recommendation</p>
+            <span className="mt-3 inline-flex rounded-[5px] bg-gradient-to-r from-indigo-600 to-fuchsia-400 px-4 py-2 text-[12px] font-bold text-white">Strong Potential</span>
+            <div className="mt-5 flex gap-3 rounded-[8px] bg-violet-50 p-3 text-[12px] leading-5 text-neutral-700">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-[7px] bg-violet-100 text-violet-600">
+                <Icon name="sparkle" size={18} />
+              </span>
+              Profile synthesized from interview, coding, behavioral, and leadership modules. Human reviewers should validate final fit.
+            </div>
+          </div>
+        </section>
 
-          <section className="grid gap-5 md:grid-cols-2">
-            {reportSections.map((section) => (
-              <article className="card p-6" key={section.title}>
-                <div className="flex items-start justify-between gap-4">
-                  <h2 className="text-xl font-black">{section.title}</h2>
-                  <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-black text-blue-700">{section.score}</span>
+        <section className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+          <ReportCard title="1. Core Competency Breakdown">
+            <div className="space-y-3">
+              {competencyBreakdown.map((item) => <MetricBar key={item.label} label={item.label} value={item.value} />)}
+            </div>
+          </ReportCard>
+
+          <ReportCard title="2. AI Extracted Candidate Signals">
+            <div className="grid grid-cols-2 gap-3">
+              {signals.map((signal) => (
+                <div className={`rounded-[8px] p-3 text-[11px] font-semibold leading-4 ${signal.color}`} key={signal.label}>
+                  <Icon className="mb-2" name={signal.icon} size={18} />
+                  {signal.label}
                 </div>
-                <p className="mt-4 leading-7 text-neutral-700">{section.body}</p>
-              </article>
-            ))}
-          </section>
+              ))}
+            </div>
+          </ReportCard>
 
-          <section className="card p-6">
-            <h2 className="text-xl font-black">Evidence from responses</h2>
-            <div className="mt-5 grid gap-4 lg:grid-cols-3">
-              {[
-                "Explained a performance fix using measurement before and after release.",
-                "Described collaboration with design and backend partners during ambiguity.",
-                "Outlined a leadership escalation path focused on customer impact.",
-              ].map((item) => (
-                <blockquote className="rounded-[8px] bg-neutral-50 p-4 text-sm leading-6 text-neutral-700" key={item}>
-                  "{item}"
+          <ReportCard title="3. Capability Map">
+            <CapabilityMap />
+          </ReportCard>
+
+          <ReportCard title="4. Behavioral Pattern Analysis">
+            <div className="space-y-2">
+              {behaviorPatterns.map((pattern) => (
+                <div className="flex items-center justify-between gap-3 rounded-[7px] bg-violet-50 px-3 py-2 text-[11px]" key={pattern.label}>
+                  <span className="flex items-center gap-2 font-semibold text-neutral-700">
+                    <Icon className="text-indigo-500" name={pattern.icon} size={15} />
+                    {pattern.label}
+                  </span>
+                  <span className="max-w-[86px] text-right font-bold text-emerald-600">{pattern.value}</span>
+                </div>
+              ))}
+            </div>
+          </ReportCard>
+
+          <ReportCard title="5. Module Analysis">
+            <div className="space-y-4 pt-8">
+              {moduleAnalysis.map((item) => <MetricBar key={item.label} label={item.label} value={item.value} />)}
+            </div>
+          </ReportCard>
+
+          <ReportCard title="6. Evidence Extracted from Responses">
+            <div className="space-y-3">
+              {evidenceQuotes.map((quote) => (
+                <blockquote className="rounded-[8px] bg-violet-50 p-3 text-[11px] leading-5 text-neutral-700" key={quote}>
+                  <span className="mr-2 text-[20px] font-black text-indigo-500">“</span>{quote}”
                 </blockquote>
               ))}
             </div>
-          </section>
+          </ReportCard>
 
-          <section className="card p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-black">Human review</h2>
-                <p className="mt-2 text-neutral-600">Add context from interviews, work samples, or team-specific criteria before making a hiring decision.</p>
-              </div>
-              <ButtonLink href="/dashboard">Back to dashboard</ButtonLink>
+          <ReportCard title="7. AI Summary">
+            <p className="text-[11px] leading-5 text-neutral-700">
+              Dara demonstrates strong technical reasoning, problem solving, and a high sense of ownership. They approach challenges analytically and communicate ideas clearly in most scenarios. Collaboration under pressure and initiative are notable strengths. Growth opportunities exist in communication conciseness and building stronger leadership confidence in ambiguous situations. Overall, Dara shows strong potential as a valuable contributor and future leader.
+            </p>
+          </ReportCard>
+
+          <ReportCard title="8. Reviewer Notes">
+            <textarea
+              className="min-h-[125px] w-full resize-none rounded-[6px] border border-neutral-200 p-3 text-[12px] outline-none transition placeholder:text-neutral-400 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50"
+              placeholder="Write your notes about the candidate..."
+            />
+            <p className="mt-1 text-right text-[10px] text-neutral-400">0 / 1000 characters</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button className="rounded-[6px] border border-neutral-200 bg-white px-3 py-2 text-[12px] font-semibold text-neutral-700 transition hover:bg-neutral-50" type="button">← Export report</button>
+              <button className="rounded-[6px] bg-primary px-3 py-2 text-[12px] font-bold text-white transition hover:bg-primary-600" type="button">Save</button>
             </div>
-          </section>
-        </div>
-      </section>
+          </ReportCard>
+        </section>
+      </div>
     </AppShell>
+  );
+}
+
+function ReportCard({ children, title }: { children: React.ReactNode; title: string }) {
+  return (
+    <article className="card min-h-[190px] p-4">
+      <h2 className="mb-4 text-[14px] font-bold text-neutral-950">{title}</h2>
+      {children}
+    </article>
+  );
+}
+
+function ReportMeta({ icon, label, value, valueClass }: { icon: IconName; label: string; value: string; valueClass?: string }) {
+  return (
+    <>
+      <span className="flex items-center gap-2 font-semibold text-neutral-600">
+        <Icon name={icon} size={13} /> {label}
+      </span>
+      <span className={`w-fit font-bold text-neutral-950 ${valueClass ?? ""}`}>{value}</span>
+    </>
+  );
+}
+
+function MetricBar({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="grid grid-cols-[82px_1fr_28px] items-center gap-2 text-[10px] font-semibold text-neutral-800">
+      <span>{label}</span>
+      <div className="h-[5px] overflow-hidden rounded-full bg-neutral-100">
+        <div className="h-full rounded-full bg-sky-400" style={{ width: `${value}%` }} />
+      </div>
+      <span className="text-right">{value}%</span>
+    </div>
+  );
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const radius = 50;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <div className="relative size-[150px]">
+      <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" fill="none" r={radius} stroke="#f3e8ff" strokeWidth="10" />
+        <circle
+          cx="60"
+          cy="60"
+          fill="none"
+          r={radius}
+          stroke="url(#report-score-gradient)"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - score / 100)}
+          strokeLinecap="round"
+          strokeWidth="10"
+        />
+        <defs>
+          <linearGradient id="report-score-gradient" x1="0" x2="1" y1="0" y2="1">
+            <stop stopColor="#c026d3" />
+            <stop offset="1" stopColor="#6366f1" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className="text-[34px] font-black text-purple-950">{score}%</span>
+        <span className="text-[10px] text-neutral-500">Over all score</span>
+      </div>
+    </div>
+  );
+}
+
+function CapabilityMap() {
+  return (
+    <div className="flex items-center justify-center">
+      <svg className="h-[145px] w-[145px]" viewBox="0 0 160 160">
+        <polygon fill="#faf5ff" points="80,12 139,46 139,114 80,148 21,114 21,46" stroke="#a855f7" strokeWidth="1" />
+        <polygon fill="none" points="80,38 116,59 116,101 80,122 44,101 44,59" stroke="#ddd6fe" strokeDasharray="3 3" />
+        <polygon fill="#8b5cf633" points="80,26 126,55 120,103 80,133 39,104 34,55" stroke="#7c3aed" strokeWidth="2" />
+        <line stroke="#ddd6fe" x1="80" x2="80" y1="12" y2="148" />
+        <line stroke="#ddd6fe" x1="21" x2="139" y1="46" y2="114" />
+        <line stroke="#ddd6fe" x1="139" x2="21" y1="46" y2="114" />
+        {[
+          [80, 26],
+          [126, 55],
+          [120, 103],
+          [80, 133],
+          [39, 104],
+          [34, 55],
+        ].map(([x, y]) => <circle cx={x} cy={y} fill="#7c3aed" key={`${x}-${y}`} r="3" />)}
+        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="80" y="9">Technical</text>
+        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="143" y="45">Communication</text>
+        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="143" y="119">Adaptability</text>
+        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="80" y="157">Leadership</text>
+        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="18" y="119">Problem Solving</text>
+        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="17" y="45">Ownership</text>
+      </svg>
+    </div>
   );
 }
