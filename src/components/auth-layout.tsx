@@ -30,34 +30,34 @@ const trustItems = [
   },
 ];
 
-export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[430px] pt-[283px] lg:ml-[154px]" }: AuthLayoutProps) {
+export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[250px] pt-[70px] lg:ml-[88px]" }: AuthLayoutProps) {
   return (
     <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-2">
       <aside className="relative hidden min-h-screen bg-primary-50 lg:block">
-        <EvaloraLogo className="absolute left-[108px] top-[44px]" href="/" />
+        <EvaloraLogo className="absolute left-[60px] top-[26px]" href="/" size="auth" />
 
-        <div className="absolute left-[108px] top-[150px] max-w-xl">
-          {headline && <div className="mb-[24px] text-[36px] font-black leading-[43px] tracking-[-0.02em] text-neutral-950">{headline}</div>}
-          <p className="max-w-[420px] text-[16px] leading-[20px] text-neutral-600">{lead}</p>
-          <div className="mt-[31px] space-y-[31px]">
+        <div className="absolute left-[60px] top-[106px] max-w-[315px]">
+          {headline && <div className="mb-[23px] text-[25px] font-black leading-[39px] tracking-[-0.02em] text-neutral-950">{headline}</div>}
+          <p className="max-w-[265px] text-[10px] leading-[12px] text-neutral-600">{lead}</p>
+          <div className="mt-[19px] space-y-[20px]">
             {trustItems.map((item) => (
-              <div className="flex items-center gap-[22px]" key={item.title}>
-                <span className={`inline-flex size-[74px] shrink-0 items-center justify-center rounded-full ${item.tint}`}>
-                  <Icon name={item.icon} size={34} />
+              <div className="flex items-center gap-[14px]" key={item.title}>
+                <span className={`inline-flex size-[44px] shrink-0 items-center justify-center rounded-full ${item.tint}`}>
+                  <Icon name={item.icon} size={20} />
                 </span>
                 <div>
-                  <h2 className="text-[16px] font-bold leading-5">{item.title}</h2>
-                  <p className="mt-[12px] text-[16px] leading-5 text-neutral-950">{item.body}</p>
+                  <h2 className="text-[10px] font-bold leading-[13px]">{item.title}</h2>
+                  <p className="mt-[7px] text-[10px] leading-[12px] text-neutral-950">{item.body}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="absolute bottom-[22px] left-0 right-0 text-center text-[16px] text-neutral-500">&copy; 2026 Evalora. All rights reserved.</p>
+        <p className="absolute bottom-[9px] left-0 right-0 text-center text-[10px] text-neutral-500">&copy; 2026 Evalora. All rights reserved.</p>
       </aside>
 
-      <section className="min-h-screen px-5 py-10 sm:px-8 lg:px-0 lg:py-0">
+      <section className="min-h-screen px-5 py-8 sm:px-8 lg:px-0 lg:py-0">
         <div className={`w-full ${panelClassName}`}>{children}</div>
       </section>
     </main>
@@ -66,7 +66,7 @@ export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[
 
 export function AuthDivider() {
   return (
-    <div className="flex items-center gap-[19px] text-[16px] text-neutral-500">
+    <div className="flex items-center gap-[14px] text-[10px] text-neutral-500">
       <span className="h-px flex-1 bg-neutral-400" />
       <span>or continue with</span>
       <span className="h-px flex-1 bg-neutral-400" />

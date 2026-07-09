@@ -1,14 +1,96 @@
 @import "tailwindcss";
 
+/*
+ * ============================================================================
+ * EVALORA DESIGN TOKENS
+ * ============================================================================
+ * This `@theme` block is the single source of truth for color, typography,
+ * radius, and shadow tokens used across the app. Tailwind v4 turns every
+ * token below into a real utility class (and a CSS variable on `:root`),
+ * so components should consume them instead of hardcoding hex values or
+ * one-off pixel sizes wherever possible.
+ *
+ *   --color-primary-500   ->  bg-primary-500 / text-primary-500 / border-primary-500 / ...
+ *   --text-h1              ->  text-h1  (sets font-size + line-height together)
+ *   --radius-card           ->  rounded-card
+ *
+ * Full usage guidance and rationale: docs/DESIGN-SYSTEM.md
+ * ============================================================================
+ */
+@theme {
+  /* ---- Brand blue: buttons, links, checkboxes, focus rings ------------- */
+  --color-primary-50: #eef4ff;
+  --color-primary-100: #bfeeff;
+  --color-primary-300: #8bd8f1;
+  --color-primary-400: #38c6e9;
+  --color-primary-500: #2fb2e4;
+  --color-primary-600: #229fd0;
+  --color-primary-700: #005cff;
+  --color-primary: #2fb2e4;
+
+  /* ---- Deep navy: dark surfaces, dark button variant -------------------- */
+  --color-navy-700: #0c1268;
+  --color-navy-900: #05084f;
+  --color-navy: #05084f;
+
+  /* ---- Accent tint used on the landing "Ready to hire smarter" panel --- */
+  --color-lavender-50: #f5f1ff;
+
+  /* ---- Neutral surfaces distinct from Tailwind's gray/neutral scale ---- */
+  --color-surface: #f7f7f7;
+  --color-surface-soft: #f5f5f5;
+  --color-surface-tint: #fbfdff;
+  --color-canvas: #f6f8fb;
+  --color-ink-900: #0d1220;
+
+  /* ---- Data visualization (dashboard + analytics charts) --------------- */
+  --color-chart-teal-500: #15c7a8;
+  --color-chart-teal-600: #00a98f;
+  --color-chart-mint-400: #75d8c8;
+  --color-chart-grid: #eceff3;
+  --color-chart-axis: #d9dee8;
+
+  /* ---- Typography -------------------------------------------------------
+   * Status/semantic colors (success, info, warning, highlight) intentionally
+   * reuse Tailwind's built-in emerald / sky / amber / violet palettes rather
+   * than adding brand-specific tokens - see docs/DESIGN-SYSTEM.md.
+   */
+  --font-sans: Arial, Helvetica, sans-serif;
+
+  --text-display: 4rem; /* 64px hero headline */
+  --text-display--line-height: 1.08;
+
+  --text-h1: 2.25rem; /* 36px section / auth headings */
+  --text-h1--line-height: 2.6875rem;
+
+  --text-h2: 1.5rem; /* 24px card-level headings */
+  --text-h2--line-height: 1.75rem;
+
+  --text-h3: 1.0625rem; /* 17px feature/step titles */
+  --text-h3--line-height: 1.25rem;
+
+  --text-label: 1.25rem; /* 20px form field labels */
+  --text-label--line-height: 1.5rem;
+
+  --text-body-lg: 1.375rem; /* 22px auth sub-copy */
+  --text-body-lg--line-height: 1.5rem;
+
+  --text-body: 1rem; /* 16px base copy */
+  --text-body--line-height: 1.5rem;
+
+  --text-caption: 0.8125rem; /* 13px nav links, button labels */
+  --text-caption--line-height: 1rem;
+
+  --text-micro: 0.6875rem; /* 11px feature card descriptions */
+  --text-micro--line-height: 0.8125rem;
+
+  /* ---- Radius & shadow ---------------------------------------------------*/
+  --radius-card: 8px;
+  --shadow-card: 0 18px 50px rgba(15, 23, 42, 0.06);
+}
+
 :root {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --muted: #6b7280;
-  --primary: #2fb2e4;
-  --primary-dark: #05084f;
-  --surface: #f7f7f7;
-  --border: #e5e7eb;
 }
 
 * {
@@ -21,9 +103,9 @@ html {
 
 body {
   margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-white, #ffffff);
+  color: var(--color-neutral-950);
+  font-family: var(--font-sans);
 }
 
 a {
@@ -39,35 +121,36 @@ select {
 }
 
 .card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-neutral-200);
   background: rgba(255, 255, 255, 0.96);
-  border-radius: 8px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .soft-card {
-  background: #f5f5f5;
-  border-radius: 8px;
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-card);
 }
 
 .form-field {
-  min-height: 64px;
+  min-height: 38px;
   width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   border: 1px solid transparent;
-  background: #f7f7f7;
-  padding: 0 24px;
-  color: #111827;
+  background: var(--color-surface);
+  padding: 0 12px;
+  color: var(--color-neutral-900);
+  font-size: 10px;
   outline: none;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
 .form-field::placeholder {
-  color: #6b7280;
+  color: var(--color-neutral-500);
 }
 
 .form-field:focus {
-  border-color: #8bd8f1;
+  border-color: var(--color-primary-300);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(47, 178, 228, 0.14);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary-500) 14%, transparent);
 }
