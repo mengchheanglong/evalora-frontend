@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { use, useState, useEffect } from "react";
 import { Button } from "@/components/button-link";
+import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
 import { EvaloraLogo } from "@/components/logo";
 
@@ -12,7 +15,7 @@ type CandidateModule = {
   subtitle: string;
   duration: string;
   icon: IconName;
-  state: "completed" | "active" | "ready";
+  stepIndex: number;
 };
 
 const candidate = {
@@ -28,28 +31,28 @@ const modules: CandidateModule[] = [
     subtitle: "Interactive preliminary screening",
     duration: "15 min",
     icon: "message",
-    state: "active",
+    stepIndex: 1,
   },
   {
     title: "Coding Assessment",
     subtitle: "Technical problem solving",
     duration: "25 min",
     icon: "code",
-    state: "ready",
+    stepIndex: 2,
   },
   {
     title: "Behavioral Questions",
     subtitle: "Core competency evaluation",
     duration: "10 min",
     icon: "sparkle",
-    state: "ready",
+    stepIndex: 3,
   },
   {
     title: "Leadership Scenario",
     subtitle: "Situational judgement",
     duration: "10 min",
     icon: "users",
-    state: "ready",
+    stepIndex: 4,
   },
 ];
 
@@ -59,561 +62,715 @@ const interviewTips = [
   "Avoid confidential employer or customer data.",
 ];
 
-const behavioralOptions = [
-  "Start working immediately without asking questions",
-  "Re-prioritize tasks and discuss with the team",
-  "Ask for clarification before making changes",
-  "Wait until the manager gives more instructions",
-];
+export default function AssessmentPage({ params }: PageProps) {
+  const { sessionId } = use(params);
 
-export default async function AssessmentPage({ params }: PageProps) {
-  const { sessionId } = await params;
+  // Flow Step:
+  // 0: Start Panel
+  // 1: AI Interview Chat
+  // 2: Coding Assessment
+  // 3: Behavioral Questions
+  // 4: Leadership Scenario
+  // 5: Final Submission Panel
+  // 6: Success Splash
+  const [currentStep, setCurrentStep] = useState<number>(0);
 
-  return (
-    <main className="min-h-screen bg-[#f8f9ff] text-[#0b1c30]">
-      <CandidateHeader sessionId={sessionId} />
+  // Timer state: 42 minutes 18 seconds = 2538 seconds
+  const [timeLeft, setTimeLeft] = useState<number>(2538);
 
-      <section className="mx-auto w-full max-w-[1280px] px-5 pb-24 pt-8 sm:px-8 lg:px-12">
-        <StartPanel />
-        <ModuleProgress />
+  useEffect(() => {
+    if (currentStep === 0 || currentStep === 6) return;
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [currentStep]);
 
-        <div className="mt-8 space-y-8">
-          <AIInterviewModule />
-          <CodingAssessmentModule />
-          <BehavioralAssessmentModule />
-          <LeadershipScenarioModule />
-          <FinalSubmissionPanel sessionId={sessionId} />
-        </div>
-      </section>
-    </main>
-  );
-}
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
-function CandidateHeader({ sessionId }: { sessionId: string }) {
-  return (
-    <header className="sticky top-0 z-40 border-b border-[#d3e4fe] bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-4 px-5 sm:px-8 lg:px-12">
-        <EvaloraLogo compact href="#" />
-        <div className="hidden h-6 w-px bg-neutral-200 sm:block" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-bold text-[#0b1c30] sm:text-[18px]">{candidate.assessment}</p>
-          <p className="hidden text-[12px] font-semibold text-neutral-500 sm:block">Invite session: {sessionId}</p>
-        </div>
+  // AI Interview state
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: "ai" | "candidate"; text: string }>>([
+    { sender: "ai", text: "Hello. Let's begin the technical assessment. Tell me about a technical project you built and the main challenge you faced." },
+    { sender: "candidate", text: "I built a Next.js and Node.js application for a logistics team. The hardest part was keeping real-time driver location updates fast without overloading the server." },
+    { sender: "ai", text: "Good. What trade-off did you make when choosing your backend architecture for those real-time updates?" }
+  ]);
+  const [aiTyping, setAiTyping] = useState(false);
+  const [aiInputValue, setAiInputValue] = useState("");
 
-        <div className="ml-auto flex items-center gap-3">
-          <div className="hidden rounded-full bg-[#eff4ff] px-3 py-1.5 text-right text-[12px] font-bold text-[#4648d4] md:block">
-            <span className="block uppercase tracking-wider text-[#464554]">Progress</span>
-            Module 1 of 4
+  const handleSendAiMessage = () => {
+    if (!aiInputValue.trim()) return;
+    const userMsg = aiInputValue.trim();
+    setChatMessages((prev) => [...prev, { sender: "candidate", text: userMsg }]);
+    setAiInputValue("");
+    setAiTyping(true);
+
+    setTimeout(() => {
+      setAiTyping(false);
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: "That's a very practical design choice. In a production system, how would you scale this architecture to support tens of thousands of concurrent active drivers?" }
+      ]);
+    }, 1500);
+  };
+
+  // Behavioral questions states
+  const [deadlineAnswer, setDeadlineAnswer] = useState<number>(1); // Index 1 is default checked
+  const [collaborationValue, setCollaborationValue] = useState<number>(3); // 1-5 slider
+  const [priorityExplanation, setPriorityExplanation] = useState<string>("");
+  const [behavioralSaving, setBehavioralSaving] = useState(false);
+
+  const handleBehavioralChange = (updater: () => void) => {
+    updater();
+    setBehavioralSaving(true);
+    setTimeout(() => setBehavioralSaving(false), 800);
+  };
+
+  const getBehavioralCompletedCount = () => {
+    let count = 0;
+    if (deadlineAnswer !== null) count++;
+    if (collaborationValue !== null) count++;
+    if (priorityExplanation.trim().length > 0) count++;
+    return count;
+  };
+
+  // Leadership Scenario state
+  const [leadershipResponse, setLeadershipResponse] = useState<string>("");
+  const [leadershipSaving, setLeadershipSaving] = useState(false);
+
+  const handleLeadershipChange = (val: string) => {
+    setLeadershipResponse(val);
+    setLeadershipSaving(true);
+    setTimeout(() => setLeadershipSaving(false), 800);
+  };
+
+  if (currentStep === 6) {
+    return (
+      <main className="min-h-screen bg-[#f8f9ff] flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white rounded-[24px] border border-[#d3e4fe] shadow-[0_20px_60px_rgba(15,23,42,0.06)] p-8">
+          <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+            <Icon name="check" size={40} />
+          </span>
+          <h1 className="mt-6 text-[28px] font-black text-[#0b1c30] tracking-tight">Assessment Submitted!</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-[#464554]">
+            Thank you, your responses have been successfully submitted for review. Authorized reviewers can now generate your candidate evaluation report.
+          </p>
+          <div className="mt-8 p-4 rounded-xl bg-slate-50 border border-neutral-100 text-left text-[13px] text-[#464554] space-y-2">
+            <div className="flex justify-between"><span className="font-semibold">Candidate:</span> {candidate.name}</div>
+            <div className="flex justify-between"><span className="font-semibold">Role:</span> {candidate.role}</div>
+            <div className="flex justify-between"><span className="font-semibold">Session ID:</span> {sessionId}</div>
           </div>
-          <TimerChip />
-          <button className="hidden h-10 items-center gap-2 rounded-[8px] bg-[#4648d4] px-4 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] sm:inline-flex" type="button">
-            Submit Assessment
-          </button>
-          <button aria-label="Help" className="inline-flex size-10 items-center justify-center rounded-full border border-[#d3e4fe] bg-white text-neutral-700 transition hover:text-[#4648d4]" type="button">
-            <Icon name="question" size={20} />
-          </button>
+          <p className="mt-6 text-[12px] font-semibold text-neutral-400">You may close this tab or window now.</p>
         </div>
-      </div>
-    </header>
-  );
-}
+      </main>
+    );
+  }
 
-function TimerChip() {
   return (
-    <div className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 text-[13px] font-black text-red-700">
-      <Icon name="clock" size={17} />
-      42:18
-    </div>
-  );
-}
+    <main className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] flex flex-col">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-40 border-b border-[#d3e4fe] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-4 px-5 sm:px-8 lg:px-12">
+          <EvaloraLogo compact href="#" />
+          <div className="hidden h-6 w-px bg-neutral-200 sm:block" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14px] font-bold text-[#0b1c30] sm:text-[18px]">{candidate.assessment}</p>
+            <p className="hidden text-[12px] font-semibold text-neutral-500 sm:block">Invite session: {sessionId}</p>
+          </div>
 
-function StartPanel() {
-  return (
-    <section className="mx-auto max-w-[880px] overflow-hidden rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)]">
-      <div className="h-2 bg-gradient-to-r from-[#4648d4] to-[#8b5cf6]" />
-      <div className="px-6 py-8 sm:px-10 sm:py-10">
-        <div className="text-center">
-          <p className="text-[12px] font-black uppercase tracking-[0.22em] text-[#4648d4]">Secure candidate assessment</p>
-          <h1 className="mt-3 text-[34px] font-black leading-tight tracking-[-0.03em] text-[#0b1c30] sm:text-[42px]">
-            {candidate.assessment}
-          </h1>
-          <p className="mt-3 text-[17px] leading-7 text-[#464554]">You are joining from an invitation link. Complete each module and submit when finished.</p>
+          <div className="ml-auto flex items-center gap-3">
+            {currentStep > 0 && currentStep < 5 && (
+              <div className="hidden rounded-full bg-[#eff4ff] px-4 py-1.5 text-right text-[11px] font-bold text-[#4648d4] md:block">
+                <span className="block uppercase tracking-wider text-[#464554] text-[9px]">Progress</span>
+                Module {currentStep} of 4
+              </div>
+            )}
+            {currentStep > 0 && (
+              <div className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 text-[13px] font-black text-red-700">
+                <Icon name="clock" size={17} />
+                {formatTime(timeLeft)}
+              </div>
+            )}
+            {currentStep > 0 && currentStep < 5 && (
+              <button
+                onClick={() => setCurrentStep(5)}
+                className="hidden h-10 items-center gap-2 rounded-[8px] bg-[#4648d4] px-4 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] sm:inline-flex"
+                type="button"
+              >
+                Submit Assessment
+              </button>
+            )}
+            <button aria-label="Help" className="inline-flex size-10 items-center justify-center rounded-full border border-[#d3e4fe] bg-white text-neutral-700 transition hover:text-[#4648d4]" type="button">
+              <Icon name="question" size={20} />
+            </button>
+          </div>
         </div>
+      </header>
 
-        <div className="mt-8 grid gap-4 rounded-[16px] border border-[#d3e4fe] bg-[#f8f9ff] p-4 sm:grid-cols-2">
-          <InfoPill icon="user" label="Candidate" value={candidate.name} />
-          <InfoPill icon="clock" label="Estimated duration" value={candidate.duration} />
-        </div>
+      {/* Module Progress Navigation (Sticky sub-bar) */}
+      {currentStep > 0 && (
+        <nav aria-label="Assessment modules" className="sticky top-16 z-30 border-b border-[#d3e4fe]/60 bg-white/90 p-3 backdrop-blur shadow-sm">
+          <div className="mx-auto max-w-[1280px] px-2 sm:px-4 lg:px-8">
+            <div className="grid gap-2 grid-cols-5">
+              {modules.map((module) => {
+                const active = currentStep === module.stepIndex;
+                const completed = currentStep > module.stepIndex;
+                return (
+                  <button
+                    key={module.title}
+                    onClick={() => setCurrentStep(module.stepIndex)}
+                    className={`flex items-center gap-2.5 rounded-[10px] px-3 py-2 transition text-left ${
+                      active
+                        ? "bg-[#4648d4] text-white shadow-sm"
+                        : completed
+                          ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100/50 border border-emerald-100"
+                          : "bg-[#f8f9ff] text-[#464554] hover:bg-[#eff4ff]"
+                    }`}
+                  >
+                    <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full ${
+                      active
+                        ? "bg-white/20"
+                        : completed
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-[#e1e0ff] text-[#4648d4]"
+                    }`}>
+                      {completed ? <Icon name="check" size={14} /> : <Icon name={module.icon} size={15} />}
+                    </span>
+                    <span className="hidden md:inline min-w-0">
+                      <span className="block truncate text-[12px] font-black">{module.title}</span>
+                      <span className={`block text-[10px] font-semibold ${active ? "text-white/75" : "text-[#767586]"}`}>Module {module.stepIndex}</span>
+                    </span>
+                  </button>
+                );
+              })}
 
-        <div className="mt-8">
-          <h2 className="text-[22px] font-black text-[#0b1c30]">Assessment Modules</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {modules.map((module) => (
-              <div className="rounded-[14px] border border-[#d3e4fe] bg-[#eff4ff] p-4 transition hover:shadow-[0_10px_32px_rgba(15,23,42,0.06)]" key={module.title}>
-                <div className="flex items-start gap-4">
-                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                    <Icon name={module.icon} size={22} />
-                  </span>
+              {/* Final Submit Tab */}
+              <button
+                onClick={() => setCurrentStep(5)}
+                className={`flex items-center gap-2.5 rounded-[10px] px-3 py-2 transition text-left ${
+                  currentStep === 5
+                    ? "bg-[#4648d4] text-white shadow-sm"
+                    : "bg-[#f8f9ff] text-[#464554] hover:bg-[#eff4ff]"
+                }`}
+              >
+                <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full ${
+                  currentStep === 5 ? "bg-white/20" : "bg-neutral-200 text-neutral-600"
+                }`}>
+                  <Icon name="check" size={15} />
+                </span>
+                <span className="hidden md:inline min-w-0">
+                  <span className="block truncate text-[12px] font-black">Submit</span>
+                  <span className={`block text-[10px] font-semibold ${currentStep === 5 ? "text-white/75" : "text-[#767586]"}`}>Finish</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </nav>
+      )}
+
+      {/* Main Panel Content Area */}
+      <section className="flex-1 mx-auto w-full max-w-[1280px] px-5 py-8 sm:px-8 lg:px-12 flex flex-col justify-center">
+
+        {/* STEP 0: Welcome / Start Panel */}
+        {currentStep === 0 && (
+          <section className="mx-auto max-w-[880px] w-full overflow-hidden rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)]">
+            <div className="h-2 bg-gradient-to-r from-[#4648d4] to-[#8b5cf6]" />
+            <div className="px-6 py-8 sm:px-10 sm:py-10">
+              <div className="text-center">
+                <p className="text-[12px] font-black uppercase tracking-[0.22em] text-[#4648d4]">Secure candidate assessment</p>
+                <h1 className="mt-3 text-[34px] font-black leading-tight tracking-[-0.03em] text-[#0b1c30] sm:text-[42px]">
+                  {candidate.assessment}
+                </h1>
+                <p className="mt-3 text-[17px] leading-7 text-[#464554]">You are joining from an invitation link. Complete each module and submit when finished.</p>
+              </div>
+
+              <div className="mt-8 grid gap-4 rounded-[16px] border border-[#d3e4fe] bg-[#f8f9ff] p-4 sm:grid-cols-2">
+                <div className="flex items-center justify-center gap-3 rounded-[10px] bg-white px-4 py-3 text-center sm:justify-start sm:text-left shadow-sm">
+                  <Icon className="text-[#4648d4]" name="user" size={20} />
                   <div>
-                    <h3 className="text-[15px] font-black text-[#0b1c30]">{module.title}</h3>
-                    <p className="mt-1 text-[13px] leading-5 text-[#464554]">{module.subtitle}</p>
-                    <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-[#4648d4]">{module.duration}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#464554]">Candidate</p>
+                    <p className="text-[15px] font-black text-[#0b1c30]">{candidate.name}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-center gap-3 rounded-[10px] bg-white px-4 py-3 text-center sm:justify-start sm:text-left shadow-sm">
+                  <Icon className="text-[#4648d4]" name="clock" size={20} />
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#464554]">Estimated duration</p>
+                    <p className="text-[15px] font-black text-[#0b1c30]">{candidate.duration}</p>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="mt-8 rounded-[16px] bg-[#eaf1ff] p-5">
-          <p className="flex items-center gap-2 text-[14px] font-black text-[#0b1c30]">
-            <Icon className="text-[#4648d4]" name="question" size={18} /> Important Instructions
-          </p>
-          <ul className="mt-4 grid gap-3 text-[14px] leading-6 text-[#464554] sm:grid-cols-2">
-            {[
-              "Make sure you have a stable internet connection.",
-              "Read each prompt carefully before continuing.",
-              "Your progress should be saved before moving modules.",
-              "AI feedback supports human review and is not a final hiring decision.",
-            ].map((instruction) => (
-              <li className="flex items-start gap-2" key={instruction}>
-                <Icon className="mt-1 shrink-0 text-[#4648d4]" name="check" size={15} />
-                <span>{instruction}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+              <div className="mt-8">
+                <h2 className="text-[22px] font-black text-[#0b1c30]">Assessment Modules</h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {modules.map((module) => (
+                    <div className="rounded-[14px] border border-[#d3e4fe] bg-[#eff4ff] p-4 transition hover:shadow-[0_10px_32px_rgba(15,23,42,0.06)]" key={module.title}>
+                      <div className="flex items-start gap-4">
+                        <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
+                          <Icon name={module.icon} size={22} />
+                        </span>
+                        <div>
+                          <h3 className="text-[15px] font-black text-[#0b1c30]">{module.title}</h3>
+                          <p className="mt-1 text-[13px] leading-5 text-[#464554]">{module.subtitle}</p>
+                          <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-[#4648d4]">{module.duration}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-        <div className="mx-auto mt-8 max-w-sm">
-          <div className="mb-2 flex justify-between text-[12px] font-black uppercase tracking-wider text-[#464554]">
-            <span>Progress</span>
-            <span className="text-[#4648d4]">0 of 4 modules completed</span>
-          </div>
-          <div className="flex h-2 overflow-hidden rounded-full bg-[#dce9ff]">
-            {modules.map((module) => (
-              <span className={`flex-1 border-r border-white last:border-r-0 ${module.state === "completed" ? "bg-[#4648d4]" : "bg-[#d3e4fe]"}`} key={module.title} />
-            ))}
-          </div>
-          <Button className="mt-6 h-12 w-full rounded-[8px] !bg-[#4648d4] !text-[15px] !text-white hover:!bg-[#6063ee]" type="button">
-            Start Assessment
-            <Icon name="chevron" size={16} className="-rotate-90" />
-          </Button>
-        </div>
-      </div>
-    </section>
-  );
-}
+              <div className="mt-8 rounded-[16px] bg-[#eaf1ff] p-5">
+                <p className="flex items-center gap-2 text-[14px] font-black text-[#0b1c30]">
+                  <Icon className="text-[#4648d4]" name="question" size={18} /> Important Instructions
+                </p>
+                <ul className="mt-4 grid gap-3 text-[14px] leading-6 text-[#464554] sm:grid-cols-2">
+                  {[
+                    "Make sure you have a stable internet connection.",
+                    "Read each prompt carefully before continuing.",
+                    "Your progress is saved automatically during the assessment.",
+                    "AI feedback supports review and is not a final hiring decision.",
+                  ].map((instruction) => (
+                    <li className="flex items-start gap-2" key={instruction}>
+                      <Icon className="mt-1 shrink-0 text-[#4648d4]" name="check" size={15} />
+                      <span>{instruction}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-function InfoPill({ icon, label, value }: { icon: IconName; label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-center gap-3 rounded-[10px] bg-white px-4 py-3 text-center sm:justify-start sm:text-left">
-      <Icon className="text-[#4648d4]" name={icon} size={20} />
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#464554]">{label}</p>
-        <p className="text-[15px] font-black text-[#0b1c30]">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function ModuleProgress() {
-  return (
-    <nav aria-label="Assessment modules" className="sticky top-16 z-30 mt-6 rounded-[16px] border border-[#d3e4fe] bg-white/95 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur">
-      <div className="grid gap-2 md:grid-cols-4">
-        {modules.map((module, index) => {
-          const active = module.state === "active";
-          return (
-            <a
-              className={`flex items-center gap-3 rounded-[12px] px-3 py-3 transition ${
-                active ? "bg-[#4648d4] text-white shadow-sm" : "bg-[#f8f9ff] text-[#464554] hover:bg-[#eff4ff]"
-              }`}
-              href={`#module-${index + 1}`}
-              key={module.title}
-            >
-              <span className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full ${active ? "bg-white/20" : "bg-[#e1e0ff] text-[#4648d4]"}`}>
-                <Icon name={module.icon} size={17} />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-black">{module.title}</span>
-                <span className={`block text-[11px] font-semibold ${active ? "text-white/75" : "text-[#767586]"}`}>Module {index + 1}</span>
-              </span>
-            </a>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
-function CandidateModuleCard({ children, eyebrow, icon, index, title }: { children: ReactNode; eyebrow: string; icon: IconName; index: number; title: string }) {
-  return (
-    <section className="rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)]" id={`module-${index}`}>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d3e4fe] px-5 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-            <Icon name={icon} size={21} />
-          </span>
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">{eyebrow}</p>
-            <h2 className="text-[22px] font-black tracking-[-0.02em] text-[#0b1c30]">{title}</h2>
-          </div>
-        </div>
-        <StatusBadge index={index} />
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function StatusBadge({ index }: { index: number }) {
-  return (
-    <span className="inline-flex h-8 items-center rounded-full bg-[#eff4ff] px-3 text-[12px] font-black text-[#4648d4]">
-      Module {index} of 4
-    </span>
-  );
-}
-
-function AIInterviewModule() {
-  return (
-    <CandidateModuleCard eyebrow="Interactive screening" icon="message" index={1} title="AI Interview Chat">
-      <div className="grid gap-5 p-5 lg:grid-cols-[1fr_310px] sm:p-6">
-        <section className="overflow-hidden rounded-[18px] border border-[#d3e4fe] bg-[#fafbff]">
-          <div className="flex items-center gap-3 border-b border-[#d3e4fe] bg-white px-5 py-4">
-            <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-              <Icon name="sparkle" size={20} />
-            </span>
-            <div>
-              <h3 className="text-[16px] font-black text-[#0b1c30]">Technical Interviewer</h3>
-              <p className="text-[12px] font-semibold text-[#464554]">Evalora AI model</p>
+              <div className="mx-auto mt-8 max-w-sm">
+                <Button
+                  onClick={() => setCurrentStep(1)}
+                  className="h-12 w-full rounded-[8px] !bg-[#4648d4] !text-[15px] !text-white hover:!bg-[#6063ee]"
+                  type="button"
+                >
+                  Start Assessment
+                  <Icon name="chevron" size={16} className="-rotate-90" />
+                </Button>
+              </div>
             </div>
-          </div>
+          </section>
+        )}
 
-          <div className="space-y-5 px-5 py-6">
-            <ChatBubble kind="ai">Hello. Let&apos;s begin the technical assessment. Tell me about a technical project you built and the main challenge you faced.</ChatBubble>
-            <ChatBubble kind="candidate">I built a Next.js and Node.js application for a logistics team. The hardest part was keeping real-time driver location updates fast without overloading the server.</ChatBubble>
-            <ChatBubble kind="ai">Good. What trade-off did you make when choosing your backend architecture for those real-time updates?</ChatBubble>
-            <div className="flex items-center gap-3">
-              <span className="inline-flex size-8 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                <Icon name="sparkle" size={15} />
-              </span>
-              <div className="rounded-2xl border border-[#d3e4fe] bg-white px-5 py-3 text-[#4648d4] shadow-sm">•••</div>
+        {/* STEP 1: AI Interview Chat */}
+        {currentStep === 1 && (
+          <section className="mx-auto max-w-[1000px] w-full rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#d3e4fe] px-6 py-4">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
+                  <Icon name="message" size={21} />
+                </span>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Module 1 of 4</p>
+                  <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">AI Interview Chat</h2>
+                </div>
+              </div>
+              <span className="text-[13px] font-bold text-neutral-400">15 min duration</span>
             </div>
-          </div>
 
-          <div className="border-t border-[#d3e4fe] bg-white p-4">
-            <label className="flex min-h-[64px] items-center gap-3 rounded-[16px] border border-[#c7c4d7] bg-white px-4 shadow-sm focus-within:border-[#4648d4] focus-within:ring-4 focus-within:ring-[#e1e0ff]">
-              <span className="sr-only">Interview response</span>
-              <textarea className="min-h-[44px] flex-1 resize-none bg-transparent py-3 text-[15px] outline-none placeholder:text-neutral-400" placeholder="Type your detailed response..." />
-              <button className="inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#4648d4] text-white" type="button">
-                <Icon name="paperPlane" size={18} />
+            <div className="grid gap-5 p-5 lg:grid-cols-[1fr_310px] sm:p-6">
+              <div className="flex flex-col overflow-hidden rounded-[18px] border border-[#d3e4fe] bg-[#fafbff]">
+                <div className="flex items-center gap-3 border-b border-[#d3e4fe] bg-white px-5 py-4">
+                  <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
+                    <Icon name="sparkle" size={20} />
+                  </span>
+                  <div>
+                    <h3 className="text-[16px] font-black text-[#0b1c30]">Technical Interviewer</h3>
+                    <p className="text-[12px] font-semibold text-[#464554]">Evalora AI model</p>
+                  </div>
+                </div>
+
+                <div className="flex-1 space-y-5 px-5 py-6 min-h-[300px] max-h-[450px] overflow-y-auto">
+                  {chatMessages.map((msg, idx) => {
+                    const isCandidate = msg.sender === "candidate";
+                    return (
+                      <div className={`flex gap-3 ${isCandidate ? "justify-end" : "justify-start"}`} key={idx}>
+                        {!isCandidate && (
+                          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
+                            <Icon name="sparkle" size={15} />
+                          </span>
+                        )}
+                        <div className={`max-w-[70%] rounded-2xl p-4 text-[14px] leading-6 shadow-sm ${
+                          isCandidate
+                            ? "rounded-tr-sm bg-[#4648d4] text-white"
+                            : "rounded-tl-sm border border-[#d3e4fe] border-l-[3px] border-l-[#8b5cf6] bg-white text-[#0b1c30]"
+                        }`}>
+                          {msg.text}
+                        </div>
+                        {isCandidate && (
+                          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#4648d4] text-[13px] font-black text-white">
+                            C
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {aiTyping && (
+                    <div className="flex gap-3 justify-start">
+                      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
+                        <Icon name="sparkle" size={15} />
+                      </span>
+                      <div className="rounded-2xl border border-[#d3e4fe] bg-white px-5 py-3 text-[#4648d4] shadow-sm font-bold">
+                        Thinking...
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-[#d3e4fe] bg-white p-4">
+                  <div className="flex min-h-[64px] items-center gap-3 rounded-[16px] border border-[#c7c4d7] bg-white px-4 shadow-sm focus-within:border-[#4648d4] focus-within:ring-4 focus-within:ring-[#e1e0ff]">
+                    <textarea
+                      value={aiInputValue}
+                      onChange={(e) => setAiInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendAiMessage();
+                        }
+                      }}
+                      className="min-h-[44px] flex-1 resize-none bg-transparent py-3 text-[14px] outline-none placeholder:text-neutral-400"
+                      placeholder="Type your detailed response..."
+                    />
+                    <button
+                      onClick={handleSendAiMessage}
+                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#4648d4] text-white transition hover:bg-[#6063ee]"
+                      type="button"
+                    >
+                      <Icon name="paperPlane" size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm h-fit">
+                <h3 className="flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
+                  <Icon className="text-amber-600" name="question" size={18} /> Interview Tips
+                </h3>
+                <div className="mt-4 space-y-4">
+                  {interviewTips.map((tip) => (
+                    <div className="flex gap-3" key={tip}>
+                      <Icon className="mt-0.5 shrink-0 text-[#4648d4]" name="check" size={16} />
+                      <p className="text-[13px] leading-5 text-[#464554]">{tip}</p>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+            </div>
+
+            {/* Step Actions */}
+            <div className="border-t border-[#d3e4fe] p-4 bg-neutral-50 flex justify-between">
+              <button
+                onClick={() => setCurrentStep(0)}
+                className="h-11 rounded-[8px] border border-neutral-300 bg-white px-5 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
+              >
+                Back to Welcome
               </button>
-            </label>
-          </div>
-        </section>
+              <button
+                onClick={() => setCurrentStep(2)}
+                className="h-11 rounded-[8px] bg-[#4648d4] px-6 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] flex items-center gap-2"
+              >
+                Next: Coding Assessment
+                <Icon name="chevron" size={16} className="-rotate-90" />
+              </button>
+            </div>
+          </section>
+        )}
 
-        <aside className="rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm">
-          <h3 className="flex items-center gap-2 text-[16px] font-black text-[#0b1c30]">
-            <Icon className="text-[#904900]" name="question" size={18} /> Interview Tips
-          </h3>
-          <div className="mt-5 space-y-4">
-            {interviewTips.map((tip) => (
-              <div className="flex gap-3" key={tip}>
-                <Icon className="mt-0.5 shrink-0 text-[#4648d4]" name="check" size={16} />
-                <p className="text-[14px] leading-6 text-[#464554]">{tip}</p>
+        {/* STEP 2: Coding Assessment */}
+        {currentStep === 2 && (
+          <CandidateCodingAssessment
+            sessionId={sessionId}
+            onBack={() => setCurrentStep(1)}
+            onContinue={() => setCurrentStep(3)}
+          />
+        )}
+
+        {/* STEP 3: Behavioral Assessment */}
+        {currentStep === 3 && (
+          <section className="mx-auto max-w-[1000px] w-full rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#d3e4fe] px-6 py-4">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
+                  <Icon name="sparkle" size={21} />
+                </span>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Module 3 of 4</p>
+                  <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">Behavioral Assessment</h2>
+                </div>
               </div>
-            ))}
-          </div>
-        </aside>
-      </div>
-    </CandidateModuleCard>
-  );
-}
-
-function ChatBubble({ children, kind }: { children: ReactNode; kind: "ai" | "candidate" }) {
-  const isCandidate = kind === "candidate";
-  return (
-    <div className={`flex gap-3 ${isCandidate ? "justify-end" : "justify-start"}`}>
-      {!isCandidate && (
-        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-          <Icon name="sparkle" size={15} />
-        </span>
-      )}
-      <div className={`max-w-[760px] rounded-2xl p-4 text-[15px] leading-7 shadow-sm ${isCandidate ? "rounded-tr-sm bg-[#4648d4] text-white" : "rounded-tl-sm border border-[#d3e4fe] border-l-[3px] border-l-[#8b5cf6] bg-white text-[#0b1c30]"}`}>
-        {children}
-      </div>
-      {isCandidate && <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#4648d4] text-[13px] font-black text-white">C</span>}
-    </div>
-  );
-}
-
-function CodingAssessmentModule() {
-  return (
-    <CandidateModuleCard eyebrow="Technical problem solving" icon="code" index={2} title="Coding Assessment">
-      <div className="grid min-h-[620px] gap-0 overflow-hidden rounded-b-[24px] lg:grid-cols-[0.92fr_1.08fr]">
-        <section className="border-b border-[#d3e4fe] bg-white p-6 lg:border-b-0 lg:border-r">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-[32px] font-black tracking-[-0.03em] text-[#0b1c30]">Two Sum</h3>
-              <div className="mt-4 h-0.5 w-14 rounded-full bg-[#4648d4]" />
+              <span className="text-[13px] font-bold text-neutral-400">10 min duration</span>
             </div>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[13px] font-black text-emerald-700">Easy</span>
-          </div>
 
-          <div className="mt-8 space-y-5 text-[16px] leading-8 text-[#0b1c30]">
-            <p>Given an array of integers <code className="rounded bg-[#eff4ff] px-1.5 py-0.5">nums</code> and an integer <code className="rounded bg-[#eff4ff] px-1.5 py-0.5">target</code>, return indices of the two numbers such that they add up to target.</p>
-            <p>You may assume that each input has exactly one solution, and you may not use the same element twice.</p>
-            <p>You can return the answer in any order.</p>
-          </div>
+            <div className="grid gap-6 p-5 lg:grid-cols-[1fr_340px] sm:p-6">
+              <div className="space-y-6">
 
-          <div className="mt-8 space-y-5">
-            <CodeInfoBlock title="Example 1">
-              <p>Input: nums = [2,7,11,15], target = 9</p>
-              <p>Output: [0,1]</p>
-              <p className="mt-1 text-[#464554]">Because nums[0] + nums[1] == 9.</p>
-            </CodeInfoBlock>
-            <CodeInfoBlock title="Constraints">
-              <ul className="list-inside list-disc space-y-1">
-                <li>2 &lt;= nums.length &lt;= 10⁴</li>
-                <li>-10⁹ &lt;= nums[i] &lt;= 10⁹</li>
-                <li>Exactly one valid solution exists</li>
-              </ul>
-            </CodeInfoBlock>
-          </div>
+                {/* Question 1 */}
+                <section className="rounded-[18px] border border-[#d3e4fe] border-l-[#8b5cf6] border-l-2 bg-white p-5 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-start gap-4">
+                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6063ee] text-[16px] font-black text-white">1</span>
+                    <h3 className="text-[20px] font-black leading-7 tracking-[-0.02em] text-[#0b1c30]">When a deadline suddenly changes, what do you usually do first?</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      "Start working immediately without asking questions",
+                      "Re-prioritize tasks and discuss with the team",
+                      "Ask for clarification before making changes",
+                      "Wait until the manager gives more instructions",
+                    ].map((option, index) => (
+                      <label
+                        className={`flex min-h-[58px] cursor-pointer items-center gap-3 rounded-[10px] border px-4 transition ${
+                          deadlineAnswer === index ? "border-[#4648d4] bg-slate-50" : "border-[#c7c4d7] bg-white hover:border-[#4648d4]"
+                        }`}
+                        key={option}
+                      >
+                        <input
+                          type="radio"
+                          name="deadline-response"
+                          checked={deadlineAnswer === index}
+                          onChange={() => handleBehavioralChange(() => setDeadlineAnswer(index))}
+                          className="size-5 accent-[#4648d4]"
+                        />
+                        <span className="text-[14px] font-medium text-[#0b1c30]">{String.fromCharCode(65 + index)}. {option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </section>
 
-          <div className="mt-8">
-            <h4 className="text-[22px] font-black text-[#0b1c30]">Test Cases</h4>
-            <div className="mt-4 flex gap-3">
-              <TestCaseButton label="Case 1" state="passed" />
-              <TestCaseButton label="Case 2" state="failed" />
+                {/* Question 2 */}
+                <section className="rounded-[18px] border border-[#d3e4fe] border-l-[#8b5cf6] border-l-2 bg-white p-5 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-start gap-4">
+                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6063ee] text-[16px] font-black text-white">2</span>
+                    <h3 className="text-[20px] font-black leading-7 tracking-[-0.02em] text-[#0b1c30]">I prefer working...</h3>
+                  </div>
+                  <div className="px-4 py-6">
+                    <div className="mb-6 flex justify-between text-[11px] font-bold text-[#0b1c30]">
+                      <span>1: Independently</span>
+                      <span>3: Mixed</span>
+                      <span>5: With a team</span>
+                    </div>
+                    <div className="relative flex items-center justify-between">
+                      <div className="absolute left-5 right-5 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#dce9ff]" />
+                      <div className="absolute left-5 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#4648d4]" style={{ right: `${100 - ((collaborationValue - 1) * 25)}%` }} />
+                      {[1, 2, 3, 4, 5].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => handleBehavioralChange(() => setCollaborationValue(val))}
+                          className={`relative z-10 inline-flex size-11 items-center justify-center rounded-full border-2 text-[14px] font-black shadow-sm transition ${
+                            val === collaborationValue
+                              ? "border-[#4648d4] bg-[#4648d4] text-white"
+                              : "border-[#c7c4d7] bg-white text-[#464554] hover:border-[#4648d4]"
+                          }`}
+                        >
+                          {val}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Question 3 */}
+                <section className="rounded-[18px] border border-[#d3e4fe] border-l-[#8b5cf6] border-l-2 bg-white p-5 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-start gap-4">
+                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6063ee] text-[16px] font-black text-white">3</span>
+                    <h3 className="text-[20px] font-black leading-7 tracking-[-0.02em] text-[#0b1c30]">Describe a time you had to adjust priorities because multiple tasks were urgent.</h3>
+                  </div>
+                  <textarea
+                    value={priorityExplanation}
+                    onChange={(e) => handleBehavioralChange(() => setPriorityExplanation(e.target.value))}
+                    className="min-h-[120px] w-full resize-y rounded-[10px] border border-[#c7c4d7] bg-white p-4 text-[14px] outline-none transition placeholder:text-neutral-400 focus:border-[#4648d4] focus:ring-4 focus:ring-[#e1e0ff]"
+                    placeholder="Type your response here..."
+                  />
+                </section>
+              </div>
+
+              <aside className="h-fit rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm">
+                <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#464554]">Module Progress</p>
+                <div className="mt-5 flex items-center justify-between text-[13px] font-bold text-[#0b1c30]">
+                  <span>Questions completed</span>
+                  <span className="text-[#4648d4]">{getBehavioralCompletedCount()} / 3</span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#dce9ff]">
+                  <div
+                    className="h-full rounded-full bg-[#4648d4] transition-all duration-300"
+                    style={{ width: `${(getBehavioralCompletedCount() / 3) * 100}%` }}
+                  />
+                </div>
+                <div className="mt-6 flex items-center gap-3 rounded-[10px] bg-[#eaf1ff] p-4 text-[14px] font-medium text-[#464554]">
+                  <Icon className="text-emerald-600" name="check" size={19} />
+                  <span>
+                    {behavioralSaving ? "Saving responses..." : "Responses saved automatically"}
+                  </span>
+                </div>
+              </aside>
             </div>
-            <div className="mt-4 rounded-[14px] border border-red-200 bg-red-50 p-4">
-              <p className="flex items-center gap-2 text-[14px] font-black text-red-700"><Icon name="clock" size={16} /> Failed</p>
-              <div className="mt-4 grid gap-3 text-[13px] md:grid-cols-2">
-                <TestValue label="Input" value="nums = [3,2,4], target = 6" />
-                <TestValue label="Expected" value="[1,2]" />
-                <TestValue label="Output" value="[0,1]" wide />
+
+            {/* Step Actions */}
+            <div className="border-t border-[#d3e4fe] p-4 bg-neutral-50 flex justify-between">
+              <button
+                onClick={() => setCurrentStep(2)}
+                className="h-11 rounded-[8px] border border-neutral-300 bg-white px-5 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
+              >
+                Previous Module
+              </button>
+              <button
+                onClick={() => setCurrentStep(4)}
+                className="h-11 rounded-[8px] bg-[#4648d4] px-6 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] flex items-center gap-2"
+              >
+                Next: Leadership Scenario
+                <Icon name="chevron" size={16} className="-rotate-90" />
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* STEP 4: Leadership Scenario */}
+        {currentStep === 4 && (
+          <section className="mx-auto max-w-[1000px] w-full rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#d3e4fe] px-6 py-4">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
+                  <Icon name="users" size={21} />
+                </span>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Module 4 of 4</p>
+                  <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">Leadership Scenario</h2>
+                </div>
+              </div>
+              <span className="text-[13px] font-bold text-neutral-400">10 min duration</span>
+            </div>
+
+            <div className="grid gap-6 p-5 lg:grid-cols-[1fr_330px] sm:p-6">
+              <section className="rounded-[18px] border border-[#d3e4fe] bg-[#f8f9ff] p-6">
+                <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Scenario</p>
+                <h3 className="mt-3 text-[22px] font-black tracking-[-0.02em] text-[#0b1c30]">Two teams disagree on release priority</h3>
+                <p className="mt-4 text-[15px] leading-7 text-[#464554]">
+                  A release is at risk because product and engineering disagree on what should ship first. The candidate should explain how they would align the group, protect customer impact, and communicate next steps.
+                  Answer based on your real experience.
+                </p>
+                <textarea
+                  value={leadershipResponse}
+                  onChange={(e) => handleLeadershipChange(e.target.value)}
+                  className="mt-6 min-h-[200px] w-full resize-y rounded-[12px] border border-[#c7c4d7] bg-white p-4 text-[14px] outline-none transition placeholder:text-neutral-400 focus:border-[#4648d4] focus:ring-4 focus:ring-[#e1e0ff]"
+                  placeholder="Write your leadership response here..."
+                />
+                <div className="mt-2 text-right text-[11px] text-[#464554]">
+                  {leadershipSaving ? "Saving progress..." : "Progress saved automatically"}
+                </div>
+              </section>
+
+              <aside className="space-y-4">
+                <div className="rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm">
+                  <p className="text-[15px] font-black text-[#0b1c30]">What reviewers look for</p>
+                  <ul className="mt-4 space-y-3 text-[13px] text-[#464554]">
+                    {[
+                      "Clarifies shared goal",
+                      "Communicates trade-offs",
+                      "Escalates calmly",
+                      "Protects customer impact"
+                    ].map((item) => (
+                      <li className="flex items-center gap-2" key={item}>
+                        <Icon className="text-[#4648d4]" name="check" size={15} /> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-5 text-[13px] leading-5 text-amber-900">
+                  <p className="font-black">Before continuing</p>
+                  <p className="mt-2">Use work-safe examples only. Do not share private company, customer, or salary information.</p>
+                </div>
+              </aside>
+            </div>
+
+            {/* Step Actions */}
+            <div className="border-t border-[#d3e4fe] p-4 bg-neutral-50 flex justify-between">
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="h-11 rounded-[8px] border border-neutral-300 bg-white px-5 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
+              >
+                Previous Module
+              </button>
+              <button
+                onClick={() => setCurrentStep(5)}
+                className="h-11 rounded-[8px] bg-[#4648d4] px-6 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] flex items-center gap-2"
+              >
+                Review & Submit
+                <Icon name="chevron" size={16} className="-rotate-90" />
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* STEP 5: Final Submission Panel */}
+        {currentStep === 5 && (
+          <section className="mx-auto max-w-[880px] w-full rounded-[24px] border border-[#d3e4fe] bg-white p-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-10">
+            <span className="mx-auto inline-flex size-20 items-center justify-center rounded-full bg-[#dce9ff] text-emerald-600 shadow-[0_0_45px_rgba(16,185,129,0.22)]">
+              <Icon name="check" size={42} />
+            </span>
+            <h2 className="mt-5 text-[30px] font-black tracking-[-0.03em] text-[#0b1c30]">Ready to submit?</h2>
+            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-6 text-[#464554]">
+              Review your answers before final submission. After submission, your access link will close and authorized reviewers can generate the candidate report.
+            </p>
+
+            <div className="mx-auto mt-8 grid max-w-2xl gap-4 rounded-[18px] border border-[#d3e4fe] bg-[#f8f9ff] p-5 text-left sm:grid-cols-2">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Candidate</p>
+                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
+                  <Icon className="text-[#767586]" name="user" size={17} /> {candidate.name}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Assessment</p>
+                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
+                  <Icon className="text-[#767586]" name="clipboard" size={17} /> {candidate.assessment}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Completed modules</p>
+                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
+                  <Icon className="text-[#767586]" name="check" size={17} /> 4 / 4
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Session</p>
+                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
+                  <Icon className="text-[#767586]" name="clock" size={17} /> {sessionId}
+                </p>
               </div>
             </div>
-          </div>
-        </section>
 
-        <section className="flex min-h-[620px] flex-col bg-[#1e1e1e] text-slate-100">
-          <div className="flex h-12 items-center justify-between border-b border-white/10 bg-[#2d2d2d] px-4">
-            <button className="rounded-[7px] border border-white/15 bg-white/10 px-3 py-1.5 text-[13px] font-semibold text-white" type="button">JavaScript (Node.js)</button>
-            <div className="flex items-center gap-2">
-              <button className="inline-flex h-8 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[13px] font-semibold text-white" type="button"><Icon name="paperPlane" size={14} /> Run Code</button>
-              <button className="inline-flex h-8 items-center gap-2 rounded-[7px] bg-[#4648d4] px-3 text-[13px] font-bold text-white" type="button"><Icon name="check" size={14} /> Submit</button>
+            <div className="mt-8 rounded-[14px] bg-[#eaf1ff] p-4 text-[13px] leading-6 text-[#464554]">
+              Your responses will be reviewed by a human interviewer. AI feedback supports review and is not the final hiring decision.
             </div>
-          </div>
-          <pre className="flex-1 overflow-auto p-6 font-mono text-[14px] leading-7 text-slate-200">{`function twoSum(nums, target) {
-  const map = new Map();
 
-  for (let i = 0; i < nums.length; i++) {
-    const complement = target - nums[i];
-
-    if (map.has(complement)) {
-      return [map.get(complement), i];
-    }
-
-    map.set(nums[i], i);
-  }
-
-  return [];
-}`}</pre>
-          <div className="border-t border-white/10 bg-[#252525] p-4">
-            <p className="flex items-center gap-2 text-[13px] font-bold text-emerald-400"><Icon name="check" size={15} /> Run finished successfully</p>
-            <p className="mt-2 text-[12px] text-slate-400">Runtime: 120ms · Memory: 42.8MB</p>
-            <pre className="mt-3 rounded-[8px] border border-white/10 bg-[#1e1e1e] p-3 text-[12px] leading-6 text-slate-300">{`stdout:
-> Initializing hash map...
-> Case 1 passed
-> Case 2 failed: expected [1,2]`}</pre>
-          </div>
-        </section>
-      </div>
-    </CandidateModuleCard>
-  );
-}
-
-function CodeInfoBlock({ children, title }: { children: ReactNode; title: string }) {
-  return (
-    <div className="rounded-r-[12px] border-l-[3px] border-l-[#8b5cf6] bg-[#eff4ff] p-4 font-mono text-[14px] leading-7 text-[#0b1c30]">
-      <p className="mb-2 text-[12px] font-black uppercase tracking-wider text-[#464554]">{title}</p>
-      {children}
-    </div>
-  );
-}
-
-function TestCaseButton({ label, state }: { label: string; state: "passed" | "failed" }) {
-  const passed = state === "passed";
-  return (
-    <button className={`inline-flex h-10 items-center gap-2 rounded-[8px] border px-4 text-[14px] font-bold ${passed ? "border-emerald-200 bg-white text-emerald-700" : "border-red-200 bg-white text-red-700"}`} type="button">
-      {label} <Icon name={passed ? "check" : "clock"} size={15} />
-    </button>
-  );
-}
-
-function TestValue({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
-  return (
-    <div className={wide ? "md:col-span-2" : ""}>
-      <p className="mb-1 text-[11px] font-black uppercase tracking-wider text-[#464554]">{label}</p>
-      <div className="rounded-[8px] border border-red-200 bg-white p-3 font-mono text-[13px] text-[#0b1c30]">{value}</div>
-    </div>
-  );
-}
-
-function BehavioralAssessmentModule() {
-  return (
-    <CandidateModuleCard eyebrow="Work style and collaboration" icon="sparkle" index={3} title="Behavioral Assessment">
-      <div className="grid gap-6 p-5 lg:grid-cols-[1fr_340px] sm:p-6">
-        <div className="space-y-6">
-          <QuestionCard number={1} title="When a deadline suddenly changes, what do you usually do first?">
-            <div className="space-y-3">
-              {behavioralOptions.map((option, index) => (
-                <label className="flex min-h-[58px] cursor-pointer items-center gap-3 rounded-[10px] border border-[#c7c4d7] bg-white px-4 transition hover:border-[#4648d4]" key={option}>
-                  <input className="size-5 accent-[#4648d4]" defaultChecked={index === 1} name="deadline-response" type="radio" />
-                  <span className="text-[15px] font-medium text-[#0b1c30]">{String.fromCharCode(65 + index)}. {option}</span>
-                </label>
-              ))}
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <button
+                onClick={() => setCurrentStep(4)}
+                className="h-12 rounded-[8px] border border-neutral-300 bg-white px-6 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
+              >
+                Back to Leadership
+              </button>
+              <button
+                onClick={() => setCurrentStep(6)}
+                className="h-12 rounded-[8px] bg-[#4648d4] px-8 text-[14px] font-bold text-white hover:bg-[#6063ee] transition flex items-center gap-2"
+                type="button"
+              >
+                Submit assessment
+                <Icon name="check" size={17} />
+              </button>
             </div>
-          </QuestionCard>
+            <p className="mt-5 text-[11px] font-semibold text-[#767586]">No dashboard account is required for candidates. You may close this page after submission.</p>
+          </section>
+        )}
 
-          <QuestionCard number={2} title="I prefer working...">
-            <div className="px-4 py-6">
-              <div className="mb-6 flex justify-between text-[12px] font-bold text-[#0b1c30]">
-                <span>1: Independently</span>
-                <span>3: Mixed</span>
-                <span>5: With a team</span>
-              </div>
-              <div className="relative flex items-center justify-between">
-                <div className="absolute left-5 right-5 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#dce9ff]" />
-                <div className="absolute left-5 right-1/2 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#4648d4]" />
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button className={`relative z-10 inline-flex size-12 items-center justify-center rounded-full border-2 text-[15px] font-black shadow-sm ${value === 3 ? "border-[#4648d4] bg-[#4648d4] text-white" : "border-[#c7c4d7] bg-white text-[#464554]"}`} key={value} type="button">
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </QuestionCard>
-
-          <QuestionCard number={3} title="Describe a time you had to adjust priorities because multiple tasks were urgent.">
-            <textarea className="min-h-[150px] w-full resize-y rounded-[10px] border border-[#c7c4d7] bg-white p-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-[#4648d4] focus:ring-4 focus:ring-[#e1e0ff]" placeholder="Type your response here..." />
-          </QuestionCard>
-        </div>
-
-        <aside className="h-fit rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm lg:sticky lg:top-40">
-          <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#464554]">Module Progress</p>
-          <div className="mt-5 flex items-center justify-between text-[14px] font-bold text-[#0b1c30]">
-            <span>Behavioral questions completed</span>
-            <span className="text-[#4648d4]">3 / 8</span>
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#dce9ff]">
-            <div className="h-full w-[38%] rounded-full bg-[#4648d4]" />
-          </div>
-          <div className="mt-6 flex items-center gap-3 rounded-[10px] bg-[#eaf1ff] p-4 text-[15px] font-medium text-[#464554]">
-            <Icon className="text-emerald-600" name="check" size={19} /> Responses saved automatically
-          </div>
-        </aside>
-      </div>
-    </CandidateModuleCard>
-  );
-}
-
-function QuestionCard({ children, number, title }: { children: ReactNode; number: number; title: string }) {
-  return (
-    <section className="rounded-[18px] border border-[#d3e4fe] border-l-[#8b5cf6] border-l-2 bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-5 flex items-start gap-4">
-        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6063ee] text-[16px] font-black text-white">{number}</span>
-        <h3 className="text-[22px] font-black leading-8 tracking-[-0.02em] text-[#0b1c30]">{title}</h3>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function LeadershipScenarioModule() {
-  return (
-    <CandidateModuleCard eyebrow="Situational judgement" icon="users" index={4} title="Leadership Scenario">
-      <div className="grid gap-6 p-5 lg:grid-cols-[1fr_330px] sm:p-6">
-        <section className="rounded-[18px] border border-[#d3e4fe] bg-[#f8f9ff] p-6">
-          <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Scenario</p>
-          <h3 className="mt-3 text-[24px] font-black tracking-[-0.02em] text-[#0b1c30]">Two teams disagree on release priority</h3>
-          <p className="mt-4 text-[16px] leading-8 text-[#464554]">
-            A release is at risk because product and engineering disagree on what should ship first. The candidate should explain how they would align the group, protect customer impact, and communicate next steps.
-          </p>
-          <textarea className="mt-6 min-h-[220px] w-full resize-y rounded-[12px] border border-[#c7c4d7] bg-white p-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-[#4648d4] focus:ring-4 focus:ring-[#e1e0ff]" placeholder="Write your leadership response here..." />
-        </section>
-
-        <aside className="space-y-4">
-          <RubricCard title="What reviewers look for" items={["Clarifies shared goal", "Communicates trade-offs", "Escalates calmly", "Protects customer impact"]} />
-          <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-5 text-[14px] leading-6 text-amber-900">
-            <p className="font-black">Before continuing</p>
-            <p className="mt-2">Use work-safe examples only. Do not share private company, customer, or salary information.</p>
-          </div>
-        </aside>
-      </div>
-    </CandidateModuleCard>
-  );
-}
-
-function RubricCard({ items, title }: { items: string[]; title: string }) {
-  return (
-    <div className="rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm">
-      <p className="text-[16px] font-black text-[#0b1c30]">{title}</p>
-      <ul className="mt-4 space-y-3 text-[14px] text-[#464554]">
-        {items.map((item) => (
-          <li className="flex items-center gap-2" key={item}>
-            <Icon className="text-[#4648d4]" name="check" size={15} /> {item}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function FinalSubmissionPanel({ sessionId }: { sessionId: string }) {
-  return (
-    <section className="rounded-[24px] border border-[#d3e4fe] bg-white p-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-8">
-      <span className="mx-auto inline-flex size-20 items-center justify-center rounded-full bg-[#dce9ff] text-emerald-600 shadow-[0_0_45px_rgba(16,185,129,0.22)]">
-        <Icon name="check" size={42} />
-      </span>
-      <h2 className="mt-5 text-[32px] font-black tracking-[-0.03em] text-[#0b1c30]">Ready to submit?</h2>
-      <p className="mx-auto mt-3 max-w-2xl text-[16px] leading-7 text-[#464554]">
-        Review your answers before final submission. After submission, your access link should close and authorized reviewers can generate the candidate report.
-      </p>
-
-      <div className="mx-auto mt-7 grid max-w-3xl gap-4 rounded-[18px] border border-[#d3e4fe] bg-[#f8f9ff] p-5 text-left sm:grid-cols-2">
-        <SummaryItem icon="user" label="Candidate" value={candidate.name} />
-        <SummaryItem icon="clipboard" label="Assessment" value={candidate.assessment} />
-        <SummaryItem icon="check" label="Completed modules" value="4 / 4" />
-        <SummaryItem icon="clock" label="Session" value={sessionId} />
-      </div>
-
-      <div className="mt-7 rounded-[14px] bg-[#eaf1ff] p-4 text-[14px] leading-6 text-[#464554]">
-        Your assessment will be reviewed using Evalora&apos;s structured evaluation system. The organization may contact you after reviewing your report.
-      </div>
-
-      <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-        <Button className="h-12 rounded-[8px] border-[#c7c4d7] !text-[14px]" type="button" variant="outline">
-          Save progress
-        </Button>
-        <Button className="h-12 rounded-[8px] !bg-[#4648d4] px-8 !text-[14px] !text-white hover:!bg-[#6063ee]" type="button">
-          Submit assessment
-          <Icon name="check" size={17} />
-        </Button>
-      </div>
-      <p className="mt-5 text-[12px] font-semibold text-[#767586]">No dashboard account is required for candidates. You may close this page after submission.</p>
-    </section>
-  );
-}
-
-function SummaryItem({ icon, label, value }: { icon: IconName; label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#464554]">{label}</p>
-      <p className="mt-2 flex items-center gap-2 text-[16px] font-black text-[#0b1c30]">
-        <Icon className="text-[#767586]" name={icon} size={17} /> {value}
-      </p>
-    </div>
+      </section>
+    </main>
   );
 }
