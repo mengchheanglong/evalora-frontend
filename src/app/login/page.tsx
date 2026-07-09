@@ -4,7 +4,10 @@ import { GoogleIcon } from "@/components/icons";
 
 export default function LoginPage() {
   return (
-    <AuthLayout lead="Evalora helps you evaluate candidates fairly and accurately with AI-powered assessments across multiple skills and traits.">
+    <AuthLayout
+      headline={<><span className="block">Assess Smarter,</span><span className="block"><span className="text-primary">Hire</span> Better.</span></>}
+      lead="Evalora helps you evaluate candidates fairly and accurately with AI-powered assessments across multiple skills and traits."
+    >
       <form className="space-y-[19px]">
         <label className="block">
           <span className="text-[20px] font-bold leading-6">Email</span>
@@ -18,13 +21,13 @@ export default function LoginPage() {
 
         <div className="flex items-center pt-[24px] text-[16px] text-neutral-600">
           <label className="inline-flex items-center gap-[11px]">
-            <input className="size-[32px] rounded-[8px] border border-neutral-300 accent-[#2fb2e4]" type="checkbox" />
+            <input className="size-[32px] rounded-card border border-neutral-300 accent-primary" type="checkbox" />
             Remember me
           </label>
         </div>
 
-        <Button aria-label="Log in" className="mt-[27px] h-[65px] w-full text-lg" type="submit">
-          <span className="sr-only">Log in</span>
+        <Button className="mt-[27px] h-[65px] w-full text-[16px]" type="submit">
+          Log in
         </Button>
 
         <div className="pt-[31px]">

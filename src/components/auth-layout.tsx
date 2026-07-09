@@ -5,10 +5,17 @@ import { Icon } from "@/components/icons";
 type AuthLayoutProps = {
   children: ReactNode;
   lead: string;
+  headline?: ReactNode;
   panelClassName?: string;
 };
 
 const trustItems = [
+  {
+    title: "AI-Powered",
+    body: "Smart evaluations and insights driven by advanced AI.",
+    icon: "sparkle" as const,
+    tint: "bg-pink-200 text-fuchsia-500",
+  },
   {
     title: "Secure & Reliable",
     body: "Enterprise-grade security to protect your data.",
@@ -23,19 +30,16 @@ const trustItems = [
   },
 ];
 
-export function AuthLayout({ children, lead, panelClassName = "max-w-[430px] pt-[283px] lg:ml-[154px]" }: AuthLayoutProps) {
+export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[430px] pt-[283px] lg:ml-[154px]" }: AuthLayoutProps) {
   return (
     <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-2">
-      <aside className="relative hidden min-h-screen bg-[#eef4ff] lg:block">
+      <aside className="relative hidden min-h-screen bg-primary-50 lg:block">
         <EvaloraLogo className="absolute left-[108px] top-[44px]" href="/" />
 
-        <div className="absolute left-[108px] top-[330px] max-w-xl">
+        <div className="absolute left-[108px] top-[150px] max-w-xl">
+          {headline && <div className="mb-[24px] text-[36px] font-black leading-[43px] tracking-[-0.02em] text-neutral-950">{headline}</div>}
           <p className="max-w-[420px] text-[16px] leading-[20px] text-neutral-600">{lead}</p>
           <div className="mt-[31px] space-y-[31px]">
-            <span className="inline-flex size-[74px] items-center justify-center rounded-full bg-pink-200 text-fuchsia-500">
-              <Icon name="sparkle" size={34} />
-            </span>
-
             {trustItems.map((item) => (
               <div className="flex items-center gap-[22px]" key={item.title}>
                 <span className={`inline-flex size-[74px] shrink-0 items-center justify-center rounded-full ${item.tint}`}>

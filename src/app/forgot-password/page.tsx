@@ -4,17 +4,26 @@ import { GoogleIcon, Icon } from "@/components/icons";
 
 export default function ForgotPasswordPage() {
   return (
-    <AuthLayout lead="Your new password must be different from previously used passwords." panelClassName="max-w-[455px] pt-[141px] lg:ml-[155px]">
-      <form className="space-y-[37px] text-center">
+    <AuthLayout
+      headline={<><span className="block">We&apos;ve got you</span><span className="block text-primary">secure password.</span></>}
+      lead="Your new password must be different from previously used passwords."
+      panelClassName="max-w-[455px] pt-[84px] lg:ml-[141px]"
+    >
+      <form className="space-y-[28px] text-center">
         <Icon className="mx-auto text-blue-700" name="lock" size={104} />
         <div>
           <h1 className="mt-[26px] text-[36px] font-black leading-[43px] tracking-normal">Forgot your password?</h1>
-          <p className="mx-auto mt-[27px] max-w-[420px] text-[22px] leading-[24px] text-neutral-600">
+          <p className="mx-auto mt-[20px] max-w-[380px] text-[20px] leading-[22px] text-neutral-600">
             No worries! Enter your work email and we&apos;ll send you a link to reset your password.
           </p>
         </div>
 
-        <Button className="mt-[87px] h-[65px] w-[430px] text-[16px]" type="submit">
+        <label className="block pt-[1px] text-left">
+          <span className="text-[20px] font-bold leading-6">Email</span>
+          <input className="form-field mt-[15px] h-[65px]" placeholder="Enter your email" type="email" />
+        </label>
+
+        <Button className="h-[65px] w-[430px] text-[16px]" type="submit">
           Send reset link
         </Button>
 
@@ -27,8 +36,8 @@ export default function ForgotPasswordPage() {
           Sign in with google
         </Button>
 
-        <p className="flex items-center justify-center gap-2 pt-[6px] text-[16px] text-neutral-400">
-          <Icon name="lock" size={18} />
+        <p className="flex items-center justify-center gap-2 pt-[6px] text-[12px] text-neutral-400">
+          <Icon name="lock" size={16} />
           We&apos;ll never share your email with anyone else.
         </p>
       </form>
