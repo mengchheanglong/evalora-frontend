@@ -25,17 +25,17 @@ export function EvaloraLogo({ className = "", href, compact = false, size = "def
   const isAuth = size === "auth";
   const content = (
     <>
-      <LogoMark className={compact ? "size-10" : isAuth ? "size-[42px]" : ""} />
+      <LogoMark className={compact ? "size-10" : isAuth ? "size-[52px]" : ""} />
       {!compact && (
         <span className="leading-tight">
-          <span className={`block font-bold tracking-[-0.01em] text-neutral-950 ${isAuth ? "text-[14px] leading-[17px]" : "text-2xl"}`}>Evalora</span>
-          <span className={`block text-neutral-500 ${isAuth ? "text-[11px] leading-[13px]" : "text-base"}`}>AI Candidate Assessment Platform</span>
+          <span className={`block font-bold tracking-[-0.01em] text-neutral-950 ${isAuth ? "text-[16px] leading-[19px]" : "text-2xl"}`}>Evalora</span>
+          <span className={`block text-neutral-500 ${isAuth ? "text-[12px] leading-[15px]" : "text-base"}`}>AI Candidate Assessment Platform</span>
         </span>
       )}
     </>
   );
 
-  const classes = `inline-flex items-center ${isAuth ? "gap-[7px]" : "gap-3"} ${className}`;
+  const classes = `inline-flex items-center ${isAuth ? "gap-[9px]" : "gap-3"} ${className}`;
 
   if (href) {
     return (
