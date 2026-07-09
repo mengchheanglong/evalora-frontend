@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, type FormEvent } from "react";
 import { Button } from "@/components/button-link";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
@@ -66,6 +66,7 @@ export default function AssessmentPage({ params }: PageProps) {
   const { sessionId } = use(params);
 
   // Flow Step:
+  // -1: Candidate name entry
   // 0: Start Panel
   // 1: AI Interview Chat
   // 2: Coding Assessment
@@ -73,13 +74,14 @@ export default function AssessmentPage({ params }: PageProps) {
   // 4: Leadership Scenario
   // 5: Final Submission Panel
   // 6: Success Splash
-  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [currentStep, setCurrentStep] = useState<number>(-1);
+  const [candidateName, setCandidateName] = useState("");
 
   // Timer state: 42 minutes 18 seconds = 2538 seconds
   const [timeLeft, setTimeLeft] = useState<number>(2538);
 
   useEffect(() => {
-    if (currentStep === 0 || currentStep === 6) return;
+    if (currentStep <= 0 || currentStep === 6) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
@@ -147,6 +149,63 @@ export default function AssessmentPage({ params }: PageProps) {
     setTimeout(() => setLeadershipSaving(false), 800);
   };
 
+  const displayCandidateName = candidateName.trim() || candidate.name;
+
+  const handleWelcomeContinue = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!candidateName.trim()) return;
+    setCurrentStep(0);
+  };
+
+  if (currentStep === -1) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-[#f3f4fd] px-5 py-12 text-[#111827]">
+        <section className="w-full max-w-[622px] rounded-[14px] border border-[#e3e7f2] bg-white px-[72px] py-[94px] shadow-[0_10px_34px_rgba(15,23,42,0.025)] max-sm:px-6 max-sm:py-10">
+          <div className="flex items-center justify-center gap-4">
+            <WelcomeBotIcon />
+            <div>
+              <h1 className="text-[22px] font-black tracking-[-0.02em] text-[#050505] sm:text-[24px]">Welcome to interview</h1>
+              <p className="mt-2 text-[8px] font-semibold text-[#3f3f46] sm:text-[9px]">Please enter your name to continue to assessment</p>
+            </div>
+          </div>
+
+          <form className="mt-10" onSubmit={handleWelcomeContinue}>
+            <label className="text-[14px] font-bold text-[#050505]" htmlFor="candidate-name">
+              Your Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              className="mt-4 h-[44px] w-full rounded-[7px] border border-transparent bg-[#f7f7f8] px-4 text-[12px] font-medium text-neutral-900 outline-none transition placeholder:text-[#8b8b95] focus:border-[#2fb2e4] focus:bg-white focus:ring-4 focus:ring-sky-100"
+              id="candidate-name"
+              onChange={(event) => setCandidateName(event.target.value)}
+              placeholder="Enter your full name"
+              required
+              type="text"
+              value={candidateName}
+            />
+
+            <button
+              className="mt-4 flex h-[43px] w-full items-center justify-center gap-1 rounded-[6px] bg-[#2fb2e4] text-[12px] font-black text-white transition hover:bg-[#229fd0] focus:outline-none focus:ring-4 focus:ring-sky-100"
+              type="submit"
+            >
+              Continue to interview <span aria-hidden="true">→</span>
+            </button>
+          </form>
+
+          <p className="mt-12 flex items-center justify-center gap-1.5 text-center text-[11px] font-medium text-[#52525b]">
+            <Icon name="lock" size={12} />
+            Your information is kept confidential and used only for this assessment.
+          </p>
+        </section>
+
+        <section className="mt-9 grid w-full max-w-[622px] gap-6 text-[#050505] sm:grid-cols-3 sm:gap-0">
+          <WelcomeFeature icon="shield" title="Secure & Private" description="Your information is protected." />
+          <WelcomeFeature bordered icon="clock" title="30–60 Minutes" description="Complete at your own pace." />
+          <WelcomeFeature bordered icon="clipboard" title="Multiple Sections" description="AI, coding, behavioral, and communication." />
+        </section>
+      </main>
+    );
+  }
+
   if (currentStep === 6) {
     return (
       <main className="min-h-screen bg-[#f8f9ff] flex flex-col items-center justify-center p-6 text-center">
@@ -159,7 +218,7 @@ export default function AssessmentPage({ params }: PageProps) {
             Thank you, your responses have been successfully submitted for review. Authorized reviewers can now generate your candidate evaluation report.
           </p>
           <div className="mt-8 p-4 rounded-xl bg-slate-50 border border-neutral-100 text-left text-[13px] text-[#464554] space-y-2">
-            <div className="flex justify-between"><span className="font-semibold">Candidate:</span> {candidate.name}</div>
+            <div className="flex justify-between"><span className="font-semibold">Candidate:</span> {displayCandidateName}</div>
             <div className="flex justify-between"><span className="font-semibold">Role:</span> {candidate.role}</div>
             <div className="flex justify-between"><span className="font-semibold">Session ID:</span> {sessionId}</div>
           </div>
@@ -772,5 +831,33 @@ export default function AssessmentPage({ params }: PageProps) {
 
       </section>
     </main>
+  );
+}
+
+function WelcomeBotIcon() {
+  return (
+    <svg aria-hidden="true" className="h-[46px] w-[46px] shrink-0" viewBox="0 0 52 52" fill="none">
+      <path d="M20 8L37 17.7V36.9L20 46.5L3 36.9V17.7L20 8Z" fill="#32C5F4" stroke="#151455" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M8 31L18 36.5L18 45" stroke="#151455" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 37L2 43L9 41" stroke="#151455" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M37 27L47 32.5L37 38" stroke="#151455" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="15.5" cy="23" r="2" fill="#151455" />
+      <circle cx="24.5" cy="27" r="2" fill="#151455" />
+      <path d="M14 32.5C18 35 23.5 35.4 28 33" stroke="#151455" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function WelcomeFeature({ bordered = false, description, icon, title }: { bordered?: boolean; description: string; icon: IconName; title: string }) {
+  return (
+    <div className={`flex items-start gap-4 ${bordered ? "sm:border-l sm:border-[#cfd3df] sm:pl-6" : ""}`}>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#d9d4ff] text-[#5d4dff]">
+        <Icon name={icon} size={18} />
+      </span>
+      <div>
+        <h2 className="text-[11px] font-black text-[#050505]">{title}</h2>
+        <p className="mt-3 max-w-[150px] text-[11px] font-medium leading-4 text-[#050505]">{description}</p>
+      </div>
+    </div>
   );
 }
