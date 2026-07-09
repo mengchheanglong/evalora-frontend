@@ -1,31 +1,43 @@
-import Link from "next/link";
+import { AuthDivider, AuthLayout } from "@/components/auth-layout";
+import { Button } from "@/components/button-link";
+import { GoogleIcon } from "@/components/icons";
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-10">
-      <section className="card w-full max-w-md p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-indigo-600">Evalora</p>
-        <h1 className="mt-3 text-3xl font-bold text-slate-950">Login</h1>
-        <p className="mt-2 text-sm text-slate-600">Connect this form to `/api/auth/login` when auth is implemented.</p>
+    <AuthLayout lead="Evalora helps you evaluate candidates fairly and accurately with AI-powered assessments across multiple skills and traits.">
+      <form className="space-y-[19px]">
+        <label className="block">
+          <span className="text-[20px] font-bold leading-6">Email</span>
+          <input className="form-field mt-[15px]" placeholder="Enter your email" type="email" />
+        </label>
 
-        <form className="mt-8 space-y-4">
-          <label className="block text-sm font-semibold text-slate-700">
-            Email
-            <input className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" type="email" placeholder="candidate@example.com" />
-          </label>
-          <label className="block text-sm font-semibold text-slate-700">
-            Password
-            <input className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" type="password" placeholder="••••••••" />
-          </label>
-          <button className="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white" type="button">
-            Continue
-          </button>
-        </form>
+        <label className="block">
+          <span className="text-[20px] font-bold leading-6">Password</span>
+          <input className="form-field mt-[15px]" placeholder="Enter your password" type="password" />
+        </label>
 
-        <Link className="mt-6 block text-center text-sm font-semibold text-indigo-700" href="/">
-          Back to home
-        </Link>
-      </section>
-    </main>
+        <div className="flex items-center pt-[24px] text-[16px] text-neutral-600">
+          <label className="inline-flex items-center gap-[11px]">
+            <input className="size-[32px] rounded-[8px] border border-neutral-300 accent-[#2fb2e4]" type="checkbox" />
+            Remember me
+          </label>
+        </div>
+
+        <Button aria-label="Log in" className="mt-[27px] h-[65px] w-full text-lg" type="submit">
+          <span className="sr-only">Log in</span>
+        </Button>
+
+        <div className="pt-[31px]">
+        <AuthDivider />
+        </div>
+
+        <Button className="h-[66px] w-full border-neutral-400 text-[16px] font-medium" variant="outline">
+          <GoogleIcon />
+          Sign in with google
+        </Button>
+
+        <p className="pt-[24px] text-center text-[16px] text-neutral-500">Don&apos;t have an account?</p>
+      </form>
+    </AuthLayout>
   );
 }

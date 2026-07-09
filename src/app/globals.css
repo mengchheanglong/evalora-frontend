@@ -2,14 +2,21 @@
 
 :root {
   color-scheme: light;
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --muted: #64748b;
-  --primary: #4f46e5;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --muted: #6b7280;
+  --primary: #2fb2e4;
+  --primary-dark: #05084f;
+  --surface: #f7f7f7;
+  --border: #e5e7eb;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -24,9 +31,43 @@ a {
   text-decoration: none;
 }
 
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
 .card {
-  border: 1px solid #e2e8f0;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 1rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
+}
+
+.soft-card {
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.form-field {
+  min-height: 64px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #f7f7f7;
+  padding: 0 24px;
+  color: #111827;
+  outline: none;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.form-field::placeholder {
+  color: #6b7280;
+}
+
+.form-field:focus {
+  border-color: #8bd8f1;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(47, 178, 228, 0.14);
 }
