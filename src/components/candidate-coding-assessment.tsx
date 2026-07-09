@@ -308,163 +308,200 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
   }
 
   return (
-    <section className="w-full overflow-hidden rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)]">
-      <CodingModuleHeader eyebrow="Module 2 of 4" sessionId={sessionId} title="Coding Assessment" />
-
-      <div className="border-b border-[#d3e4fe] bg-white px-4 py-3 sm:px-6">
-        <ChallengeNavigator
-          activeIndex={activeIndex}
-          questions={CODING_QUESTIONS}
-          results={results}
-          onSelect={goToQuestion}
-        />
-      </div>
-
-      <div className="grid min-h-[610px] lg:grid-cols-[0.92fr_1.08fr]">
-        <section className="border-b border-[#d3e4fe] bg-white p-5 lg:border-b-0 lg:border-r sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Question {activeIndex + 1} of {totalQuestions}</p>
-              <h3 className="mt-1 text-[30px] font-black tracking-[-0.03em] text-[#0b1c30]">{activeQuestion.title}</h3>
-              <div className="mt-3 h-0.5 w-14 rounded-full bg-[#4648d4]" />
-            </div>
-            <DifficultyBadge difficulty={activeQuestion.difficulty} />
-          </div>
-
-          <div className="mt-6 rounded-[14px] border border-[#d3e4fe] bg-[#eff4ff] p-4">
-            <p className="flex items-center gap-2 text-[13px] font-black text-[#0b1c30]">
-              <Icon className="text-[#4648d4]" name="question" size={16} /> How this coding module works
+    <section className="w-full overflow-hidden rounded-[18px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)]">
+      <div className="grid min-h-[720px] lg:grid-cols-[248px_minmax(0,1fr)]">
+        <aside className="border-b border-[#d3e4fe] bg-[#f8f9ff] p-5 lg:border-b-0 lg:border-r">
+          <div className="mb-6">
+            <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">Evalora</h2>
+            <p className="mt-1 text-[12px] font-semibold leading-5 text-[#767586]">
+              Coding Assessment · {totalQuestions} challenges
             </p>
-            <ul className="mt-3 grid gap-2 text-[13px] leading-5 text-[#464554]">
-              <li>Read the prompt and use the provided function signature.</li>
-              <li>Run checks your code against visible sample tests.</li>
-              <li>Submit grades hidden test cases and records the result for review.</li>
-            </ul>
+            <p className="mt-3 rounded-[10px] border border-[#d3e4fe] bg-white px-3 py-2 text-[11px] font-bold text-[#464554]">
+              Session: <span className="text-[#4648d4]">{sessionId}</span>
+            </p>
           </div>
 
-          <div className="mt-6 space-y-4 text-[14px] leading-7 text-[#0b1c30]">
-            {activeQuestion.prompt.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
+          <ChallengeNavigator
+            activeIndex={activeIndex}
+            questions={CODING_QUESTIONS}
+            results={results}
+            onSelect={goToQuestion}
+          />
+
+          <div className="mt-6 rounded-[14px] border border-[#d3e4fe] bg-white p-4">
+            <div className="mb-2 flex justify-between text-[11px] font-black uppercase tracking-wider text-[#464554]">
+              <span>Progress</span>
+              <span className="text-[#4648d4]">{answeredCount}/{totalQuestions}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#dce9ff]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#4648d4] to-[#8b5cf6] transition-all"
+                style={{ width: `${Math.max(4, Math.round((answeredCount / totalQuestions) * 100))}%` }}
+              />
+            </div>
+            <p className="mt-3 text-[11px] leading-5 text-[#767586]">
+              Run checks samples. Submit grades hidden tests for reviewer evidence.
+            </p>
           </div>
+        </aside>
 
-          <div className="mt-6 space-y-4">
-            <CodeInfoBlock title="Function signature">
-              <code>{activeQuestion.functionSignature}</code>
-            </CodeInfoBlock>
-
+        <main className="min-w-0 bg-white">
+          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d3e4fe] px-5 py-4">
             <div>
-              <h4 className="text-[18px] font-black text-[#0b1c30]">Visible Test Cases</h4>
-              <div className="mt-3 overflow-hidden rounded-[12px] border border-[#d3e4fe]">
-                <table className="w-full border-collapse text-left text-[13px]">
-                  <thead className="bg-[#eff4ff] text-[#464554]">
-                    <tr>
-                      <th className="border-b border-[#d3e4fe] px-4 py-3 font-black uppercase tracking-wider">Input</th>
-                      <th className="border-b border-[#d3e4fe] px-4 py-3 font-black uppercase tracking-wider">Expected Output</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeQuestion.examples.map((example) => (
-                      <tr className="border-b border-[#d3e4fe] last:border-b-0" key={`${example.input}-${example.expectedOutput}`}>
-                        <td className="px-4 py-3 align-top font-mono text-[12px] text-[#0b1c30]">{example.input}</td>
-                        <td className="px-4 py-3 align-top font-mono text-[12px] text-[#0b1c30]">
-                          {example.expectedOutput}
-                          {example.explanation ? <p className="mt-1 font-sans text-[12px] leading-5 text-[#464554]">{example.explanation}</p> : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4648d4]">Coding Assessment</p>
+              <h3 className="mt-1 text-[26px] font-black tracking-[-0.03em] text-[#0b1c30]">
+                {activeIndex + 1}. {activeQuestion.title}
+              </h3>
             </div>
-
-            <CodeInfoBlock title="Constraints">
-              <ul className="list-inside list-disc space-y-1">
-                {activeQuestion.constraints.map((constraint) => (
-                  <li key={constraint}>{constraint}</li>
-                ))}
-              </ul>
-            </CodeInfoBlock>
-          </div>
-        </section>
-
-        <section className="flex min-h-[610px] flex-col bg-[#1e1e1e] text-slate-100">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#2d2d2d] px-4 py-3">
-            <select
-              className="h-9 rounded-[7px] border border-white/15 bg-white/10 px-3 text-[12px] font-semibold text-white outline-none"
-              onChange={(event) => setLanguage(event.target.value)}
-              value={language}
-            >
-              <option className="bg-[#2d2d2d]">JavaScript (Node.js)</option>
-              <option className="bg-[#2d2d2d]">TypeScript (Node.js)</option>
-            </select>
-
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
-                disabled={running || submitting}
-                onClick={resetCurrentQuestion}
-                type="button"
-              >
-                Reset
-              </button>
-              <button
-                className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
-                disabled={running || submitting}
-                onClick={runCurrentCode}
-                type="button"
-              >
-                <Icon name="paperPlane" size={13} /> {running ? "Running…" : "Run"}
-              </button>
-              <button
-                className="inline-flex h-9 items-center gap-2 rounded-[7px] bg-[#4648d4] px-3 text-[12px] font-bold text-white transition hover:bg-[#6063ee] disabled:opacity-50"
-                disabled={running || submitting}
-                onClick={submitCurrentCode}
-                type="button"
-              >
-                <Icon name="check" size={13} /> {submitting ? "Submitting…" : activeResult ? "Resubmit" : "Submit"}
-              </button>
+              <DifficultyBadge difficulty={activeQuestion.difficulty} />
+              <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[12px] font-black text-red-700">25:00</span>
+              <span className="rounded-full bg-[#eff4ff] px-3 py-1 text-[12px] font-black text-[#4648d4]">
+                {answeredCount}/{totalQuestions} answered
+              </span>
             </div>
+          </header>
+
+          <div className="grid min-h-[590px] lg:grid-cols-[0.94fr_1.06fr]">
+            <section className="border-b border-[#d3e4fe] p-5 lg:border-b-0 lg:border-r lg:p-6">
+              <h4 className="text-[13px] font-black uppercase tracking-[0.12em] text-[#0b1c30]">Introduction</h4>
+              <p className="mt-2 text-[14px] leading-7 text-[#464554]">
+                This is a short test of your coding skills. Read the problem, write your solution in the editor, run the visible samples, then submit for hidden tests.
+              </p>
+
+              <h4 className="mt-6 text-[13px] font-black uppercase tracking-[0.12em] text-[#0b1c30]">Problem Statement</h4>
+              <div className="mt-3 space-y-4 text-[14px] leading-7 text-[#0b1c30]">
+                {activeQuestion.prompt.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+
+              <CodeInfoBlock title="Function signature">
+                <code>{activeQuestion.functionSignature}</code>
+              </CodeInfoBlock>
+
+              <div className="mt-6">
+                <h4 className="text-[13px] font-black uppercase tracking-[0.12em] text-[#0b1c30]">Test Cases</h4>
+                <div className="mt-3 overflow-hidden rounded-[12px] border border-[#d3e4fe]">
+                  <table className="w-full border-collapse text-left text-[13px]">
+                    <thead className="bg-[#eff4ff] text-[#464554]">
+                      <tr>
+                        <th className="border-b border-[#d3e4fe] px-4 py-3 font-black uppercase tracking-wider">Input</th>
+                        <th className="border-b border-[#d3e4fe] px-4 py-3 font-black uppercase tracking-wider">Expected Output</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeQuestion.examples.map((example) => (
+                        <tr className="border-b border-[#d3e4fe] last:border-b-0" key={`${example.input}-${example.expectedOutput}`}>
+                          <td className="px-4 py-3 align-top font-mono text-[12px] text-[#0b1c30]">{example.input}</td>
+                          <td className="px-4 py-3 align-top font-mono text-[12px] text-[#0b1c30]">
+                            {example.expectedOutput}
+                            {example.explanation ? <p className="mt-1 font-sans text-[12px] leading-5 text-[#464554]">{example.explanation}</p> : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <CodeInfoBlock title="Constraints">
+                <ul className="list-inside list-disc space-y-1">
+                  {activeQuestion.constraints.map((constraint) => (
+                    <li key={constraint}>{constraint}</li>
+                  ))}
+                </ul>
+              </CodeInfoBlock>
+            </section>
+
+            <section className="flex min-h-[590px] flex-col bg-[#1e1e1e] text-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#2d2d2d] px-4 py-3">
+                <select
+                  className="h-9 rounded-[7px] border border-white/15 bg-white/10 px-3 text-[12px] font-semibold text-white outline-none"
+                  onChange={(event) => setLanguage(event.target.value)}
+                  value={language}
+                >
+                  <option className="bg-[#2d2d2d]">JavaScript (Node.js)</option>
+                  <option className="bg-[#2d2d2d]">TypeScript (Node.js)</option>
+                </select>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
+                    disabled={running || submitting}
+                    onClick={resetCurrentQuestion}
+                    type="button"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
+                    disabled={running || submitting}
+                    onClick={runCurrentCode}
+                    type="button"
+                  >
+                    <Icon name="paperPlane" size={13} /> {running ? "Running…" : "Run"}
+                  </button>
+                  <button
+                    className="inline-flex h-9 items-center gap-2 rounded-[7px] bg-[#4648d4] px-3 text-[12px] font-bold text-white transition hover:bg-[#6063ee] disabled:opacity-50"
+                    disabled={running || submitting}
+                    onClick={submitCurrentCode}
+                    type="button"
+                  >
+                    <Icon name="check" size={13} /> {submitting ? "Submitting…" : activeResult ? "Resubmit" : "Submit"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative flex-1">
+                <div className="pointer-events-none absolute left-0 top-0 hidden h-full w-12 select-none border-r border-white/5 bg-[#191919] py-6 text-right font-mono text-[12px] leading-6 text-slate-600 sm:block">
+                  {activeCode.split("\n").map((_, index) => (
+                    <div className="pr-3" key={index}>{index + 1}</div>
+                  ))}
+                </div>
+                <textarea
+                  className="h-full min-h-[390px] w-full resize-none bg-[#1e1e1e] p-6 font-mono text-[13px] leading-6 text-slate-100 outline-none selection:bg-[#4648d4]/40 placeholder:text-slate-500 sm:pl-16"
+                  onChange={(event) => setActiveCode(event.target.value)}
+                  spellCheck={false}
+                  value={activeCode}
+                />
+              </div>
+
+              <TerminalPanel terminal={terminal} />
+            </section>
           </div>
 
-          <div className="relative flex-1">
-            <div className="pointer-events-none absolute left-0 top-0 hidden h-full w-12 select-none border-r border-white/5 bg-[#191919] py-6 text-right font-mono text-[12px] leading-6 text-slate-600 sm:block">
-              {activeCode.split("\n").map((_, index) => (
-                <div className="pr-3" key={index}>{index + 1}</div>
-              ))}
-            </div>
-            <textarea
-              className="h-full min-h-[410px] w-full resize-none bg-[#1e1e1e] p-6 font-mono text-[13px] leading-6 text-slate-100 outline-none selection:bg-[#4648d4]/40 placeholder:text-slate-500 sm:pl-16"
-              onChange={(event) => setActiveCode(event.target.value)}
-              spellCheck={false}
-              value={activeCode}
-            />
-          </div>
-
-          <TerminalPanel terminal={terminal} />
-        </section>
+          <footer className="flex flex-col gap-4 border-t border-[#d3e4fe] bg-[#f8f9ff] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              className="h-10 rounded-[8px] border border-[#d3e4fe] bg-white px-4 text-[13px] font-bold text-[#464554] transition hover:border-[#4648d4] hover:text-[#4648d4]"
+              onClick={() => {
+                if (activeIndex === 0) {
+                  onBack();
+                  return;
+                }
+                goToQuestion(activeIndex - 1);
+              }}
+              type="button"
+            >
+              {activeIndex === 0 ? "Previous module" : "Previous"}
+            </button>
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#4648d4] px-5 text-[13px] font-bold text-white shadow-sm transition hover:bg-[#6063ee]"
+              onClick={() => {
+                if (allAnswered || activeIndex === totalQuestions - 1) {
+                  setView("results");
+                  return;
+                }
+                goToQuestion(activeIndex + 1);
+              }}
+              type="button"
+            >
+              {allAnswered ? "View Results" : activeIndex === totalQuestions - 1 ? "Finish & View Results" : "Next"}
+              <Icon className="-rotate-90" name="chevron" size={15} />
+            </button>
+          </footer>
+        </main>
       </div>
-
-      <CodingFooter
-        primaryLabel={allAnswered ? "View coding results" : activeIndex === totalQuestions - 1 ? "Finish coding module" : "Next challenge"}
-        secondaryLabel={activeIndex === 0 ? "Previous module" : "Previous challenge"}
-        progress={answeredCount / totalQuestions}
-        progressLabel={`${answeredCount}/${totalQuestions} submitted`}
-        onPrimary={() => {
-          if (allAnswered || activeIndex === totalQuestions - 1) {
-            setView("results");
-            return;
-          }
-          goToQuestion(activeIndex + 1);
-        }}
-        onSecondary={() => {
-          if (activeIndex === 0) {
-            onBack();
-            return;
-          }
-          goToQuestion(activeIndex - 1);
-        }}
-      />
     </section>
   );
 }
@@ -502,7 +539,7 @@ function ChallengeNavigator({
   results: Record<string, CodingResult>;
 }) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
+    <nav className="grid gap-2" aria-label="Coding challenges">
       {questions.map((question, index) => {
         const result = results[question.id];
         const active = activeIndex === index;
@@ -510,14 +547,14 @@ function ChallengeNavigator({
 
         return (
           <button
-            className={`flex min-w-[210px] items-center gap-3 rounded-[12px] border px-3 py-3 text-left transition ${
+            className={`flex w-full items-center gap-3 rounded-[12px] border px-3 py-3 text-left transition ${
               active
                 ? "border-[#4648d4] bg-[#4648d4] text-white shadow-sm"
                 : passed
                   ? "border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
                   : result
                     ? "border-red-200 bg-red-50 text-red-900 hover:bg-red-100"
-                    : "border-[#d3e4fe] bg-[#f8f9ff] text-[#0b1c30] hover:bg-[#eff4ff]"
+                    : "border-[#d3e4fe] bg-white text-[#0b1c30] hover:bg-[#eff4ff]"
             }`}
             key={question.id}
             onClick={() => onSelect(index)}
@@ -536,14 +573,17 @@ function ChallengeNavigator({
             >
               {passed ? <Icon name="check" size={15} /> : result ? "!" : index + 1}
             </span>
-            <span className="min-w-0">
+            <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-black">{question.title}</span>
               <span className={`block text-[11px] font-bold capitalize ${active ? "text-white/75" : "text-[#767586]"}`}>{question.difficulty}</span>
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${active ? "bg-white/20 text-white" : "bg-[#eff4ff] text-[#4648d4]"}`}>
+              {question.difficulty[0]}
             </span>
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
