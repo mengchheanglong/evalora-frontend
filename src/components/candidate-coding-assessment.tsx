@@ -309,16 +309,12 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
 
   return (
     <section className="w-full overflow-hidden rounded-[18px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)]">
-      <div className="grid min-h-[720px] lg:grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="border-b border-[#d3e4fe] bg-[#f8f9ff] p-5 lg:border-b-0 lg:border-r">
-          <div className="mb-6">
-            <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">Evalora</h2>
-            <p className="mt-1 text-[12px] font-semibold leading-5 text-[#767586]">
-              Coding Assessment · {totalQuestions} challenges
-            </p>
-            <p className="mt-3 rounded-[10px] border border-[#d3e4fe] bg-white px-3 py-2 text-[11px] font-bold text-[#464554]">
-              Session: <span className="text-[#4648d4]">{sessionId}</span>
-            </p>
+      <div className="grid min-h-[650px] lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="border-b border-[#d3e4fe] bg-[#fbfcff] p-4 lg:border-b-0 lg:border-r">
+          <div className="mb-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#4648d4]">Challenges</p>
+            <h2 className="mt-1 text-[18px] font-black tracking-[-0.02em] text-[#0b1c30]">Coding module</h2>
+            <p className="mt-1 truncate text-[11px] font-semibold text-[#767586]">Session {sessionId}</p>
           </div>
 
           <ChallengeNavigator
@@ -328,7 +324,7 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
             onSelect={goToQuestion}
           />
 
-          <div className="mt-6 rounded-[14px] border border-[#d3e4fe] bg-white p-4">
+          <div className="mt-4 rounded-[12px] border border-[#d3e4fe] bg-white p-3">
             <div className="mb-2 flex justify-between text-[11px] font-black uppercase tracking-wider text-[#464554]">
               <span>Progress</span>
               <span className="text-[#4648d4]">{answeredCount}/{totalQuestions}</span>
@@ -339,17 +335,15 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
                 style={{ width: `${Math.max(4, Math.round((answeredCount / totalQuestions) * 100))}%` }}
               />
             </div>
-            <p className="mt-3 text-[11px] leading-5 text-[#767586]">
-              Run checks samples. Submit grades hidden tests for reviewer evidence.
-            </p>
+            <p className="mt-2 text-[11px] leading-5 text-[#767586]">Submit when each answer is ready.</p>
           </div>
         </aside>
 
         <main className="min-w-0 bg-white">
-          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d3e4fe] px-5 py-4">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d3e4fe] px-5 py-3">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4648d4]">Coding Assessment</p>
-              <h3 className="mt-1 text-[26px] font-black tracking-[-0.03em] text-[#0b1c30]">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#4648d4]">Question {activeIndex + 1} of {totalQuestions}</p>
+              <h3 className="mt-1 text-[22px] font-black tracking-[-0.03em] text-[#0b1c30]">
                 {activeIndex + 1}. {activeQuestion.title}
               </h3>
             </div>
@@ -362,14 +356,9 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
             </div>
           </header>
 
-          <div className="grid min-h-[590px] lg:grid-cols-[0.94fr_1.06fr]">
-            <section className="border-b border-[#d3e4fe] p-5 lg:border-b-0 lg:border-r lg:p-6">
-              <h4 className="text-[13px] font-black uppercase tracking-[0.12em] text-[#0b1c30]">Introduction</h4>
-              <p className="mt-2 text-[14px] leading-7 text-[#464554]">
-                This is a short test of your coding skills. Read the problem, write your solution in the editor, run the visible samples, then submit for hidden tests.
-              </p>
-
-              <h4 className="mt-6 text-[13px] font-black uppercase tracking-[0.12em] text-[#0b1c30]">Problem Statement</h4>
+          <div className="grid min-h-[530px] lg:grid-cols-[0.86fr_1.14fr]">
+            <section className="border-b border-[#d3e4fe] p-5 lg:border-b-0 lg:border-r">
+              <h4 className="text-[12px] font-black uppercase tracking-[0.1em] text-[#0b1c30]">Problem</h4>
               <div className="mt-3 space-y-4 text-[14px] leading-7 text-[#0b1c30]">
                 {activeQuestion.prompt.map((paragraph) => (
                   <p key={paragraph}>{paragraph}</p>
@@ -381,7 +370,7 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
               </CodeInfoBlock>
 
               <div className="mt-6">
-                <h4 className="text-[13px] font-black uppercase tracking-[0.12em] text-[#0b1c30]">Test Cases</h4>
+                <h4 className="text-[12px] font-black uppercase tracking-[0.1em] text-[#0b1c30]">Test cases</h4>
                 <div className="mt-3 overflow-hidden rounded-[12px] border border-[#d3e4fe]">
                   <table className="w-full border-collapse text-left text-[13px]">
                     <thead className="bg-[#eff4ff] text-[#464554]">
@@ -414,10 +403,10 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
               </CodeInfoBlock>
             </section>
 
-            <section className="flex min-h-[590px] flex-col bg-[#1e1e1e] text-slate-100">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#2d2d2d] px-4 py-3">
+            <section className="flex min-h-[530px] flex-col bg-[#1e1e1e] text-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#2d2d2d] px-3 py-2">
                 <select
-                  className="h-9 rounded-[7px] border border-white/15 bg-white/10 px-3 text-[12px] font-semibold text-white outline-none"
+                  className="h-8 rounded-[7px] border border-white/15 bg-white/10 px-3 text-[12px] font-semibold text-white outline-none"
                   onChange={(event) => setLanguage(event.target.value)}
                   value={language}
                 >
@@ -427,7 +416,7 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button
-                    className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
+                    className="inline-flex h-8 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
                     disabled={running || submitting}
                     onClick={resetCurrentQuestion}
                     type="button"
@@ -435,7 +424,7 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
                     Reset
                   </button>
                   <button
-                    className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
+                    className="inline-flex h-8 items-center gap-2 rounded-[7px] border border-white/20 px-3 text-[12px] font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
                     disabled={running || submitting}
                     onClick={runCurrentCode}
                     type="button"
@@ -443,7 +432,7 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
                     <Icon name="paperPlane" size={13} /> {running ? "Running…" : "Run"}
                   </button>
                   <button
-                    className="inline-flex h-9 items-center gap-2 rounded-[7px] bg-[#4648d4] px-3 text-[12px] font-bold text-white transition hover:bg-[#6063ee] disabled:opacity-50"
+                    className="inline-flex h-8 items-center gap-2 rounded-[7px] bg-[#4648d4] px-3 text-[12px] font-bold text-white transition hover:bg-[#6063ee] disabled:opacity-50"
                     disabled={running || submitting}
                     onClick={submitCurrentCode}
                     type="button"
@@ -460,7 +449,7 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
                   ))}
                 </div>
                 <textarea
-                  className="h-full min-h-[390px] w-full resize-none bg-[#1e1e1e] p-6 font-mono text-[13px] leading-6 text-slate-100 outline-none selection:bg-[#4648d4]/40 placeholder:text-slate-500 sm:pl-16"
+                  className="h-full min-h-[350px] w-full resize-none bg-[#1e1e1e] p-5 font-mono text-[13px] leading-6 text-slate-100 outline-none selection:bg-[#4648d4]/40 placeholder:text-slate-500 sm:pl-16"
                   onChange={(event) => setActiveCode(event.target.value)}
                   spellCheck={false}
                   value={activeCode}
@@ -471,7 +460,7 @@ export function CandidateCodingAssessment({ sessionId, onBack, onContinue }: Can
             </section>
           </div>
 
-          <footer className="flex flex-col gap-4 border-t border-[#d3e4fe] bg-[#f8f9ff] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <footer className="flex flex-col gap-3 border-t border-[#d3e4fe] bg-[#f8f9ff] p-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               className="h-10 rounded-[8px] border border-[#d3e4fe] bg-white px-4 text-[13px] font-bold text-[#464554] transition hover:border-[#4648d4] hover:text-[#4648d4]"
               onClick={() => {
@@ -547,9 +536,9 @@ function ChallengeNavigator({
 
         return (
           <button
-            className={`flex w-full items-center gap-3 rounded-[12px] border px-3 py-3 text-left transition ${
+            className={`flex w-full items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4648d4]/40 ${
               active
-                ? "border-[#4648d4] bg-[#4648d4] text-white shadow-sm"
+                ? "border-[#bfc8ff] bg-[#eef2ff] text-[#0b1c30] shadow-none"
                 : passed
                   ? "border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
                   : result
@@ -563,7 +552,7 @@ function ChallengeNavigator({
             <span
               className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[13px] font-black ${
                 active
-                  ? "bg-white/20 text-white"
+                  ? "bg-[#d9defd] text-[#4648d4]"
                   : passed
                     ? "bg-emerald-100 text-emerald-700"
                     : result
@@ -574,11 +563,8 @@ function ChallengeNavigator({
               {passed ? <Icon name="check" size={15} /> : result ? "!" : index + 1}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-black">{question.title}</span>
-              <span className={`block text-[11px] font-bold capitalize ${active ? "text-white/75" : "text-[#767586]"}`}>{question.difficulty}</span>
-            </span>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${active ? "bg-white/20 text-white" : "bg-[#eff4ff] text-[#4648d4]"}`}>
-              {question.difficulty[0]}
+              <span className="block truncate text-[12px] font-black">{question.title}</span>
+              <span className={`block text-[11px] font-bold capitalize ${active ? "text-[#4648d4]" : "text-[#767586]"}`}>{question.difficulty}</span>
             </span>
           </button>
         );
