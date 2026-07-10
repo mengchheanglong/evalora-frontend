@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { handleMockBackendRequest } from "@/lib/mock-backend";
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/$/, "");
 const SESSION_COOKIE = "evalora_session";
 const AUTH_RESPONSE_PATHS = new Set(["auth/login", "auth/register"]);
+const USE_MOCK_BACKEND = process.env.NEXT_PUBLIC_USE_MOCK_BACKEND !== "false";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
@@ -39,6 +41,10 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
   }
 
   const relativePath = path.map(encodeURIComponent).join("/");
+  if (USE_MOCK_BACKEND) {
+    return handleMockBackendRequest(request, relativePath);
+  }
+
   const target = `${BACKEND_URL}/${relativePath}${request.nextUrl.search}`;
   const headers = new Headers({ Accept: "application/json" });
   const contentType = request.headers.get("content-type");
