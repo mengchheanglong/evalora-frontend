@@ -2,6 +2,10 @@
 
 Standalone Next.js + TypeScript frontend for Evalora.
 
+## AI agent start rule
+
+Before any AI agent changes this repository, read `AGENTS.md` first.
+
 ## Run locally
 
 ```bash

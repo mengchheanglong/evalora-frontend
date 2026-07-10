@@ -24,6 +24,10 @@ Frontend code should read the backend URL from `NEXT_PUBLIC_API_URL` and default
 | POST | `/auth/login` | Log in and receive token/user info. |
 | POST | `/auth/logout` | End session/token client-side or server-side when implemented. |
 | GET | `/auth/me` | Return current authenticated user. |
+| POST | `/auth/password/forgot` | Request a password reset link for a work email. |
+| POST | `/auth/password/reset` | Reset password with token, password, and password confirmation. |
+| POST | `/auth/verify-email` | Verify an email address with token or one-time code. |
+| POST | `/auth/verification/resend` | Resend an email verification message. |
 
 ## Assessment templates
 
@@ -83,6 +87,9 @@ Frontend code should read the backend URL from `NEXT_PUBLIC_API_URL` and default
 | --- | --- | --- |
 | GET | `/analytics/summary` | Dashboard counts and score summary. |
 | GET | `/analytics/activity` | Recent activity feed. |
+| GET | `/analytics/module-performance` | Average module performance for technical, behavioral, leadership, and communication modules. |
+| GET | `/analytics/score-distribution` | Distribution of report scores across completed sessions. |
+| GET | `/analytics/themes` | Common strengths and improvement themes extracted from reports. |
 
 ## DTO alignment checklist
 

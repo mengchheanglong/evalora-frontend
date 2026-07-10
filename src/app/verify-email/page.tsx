@@ -1,0 +1,43 @@
+import { AuthLayout } from "@/components/auth-layout";
+import { Button } from "@/components/button-link";
+import { GmailIcon, Icon } from "@/components/icons";
+
+export default function VerifyEmailPage() {
+  return (
+    <AuthLayout
+      headline={<><span className="block">One last step to</span><span className="block text-primary">get you started</span></>}
+      lead="Please verify your email address to activate your account and start using Evalora."
+      panelClassName="max-w-[320px] pt-[58px] lg:ml-[88px]"
+    >
+      <section className="space-y-[16px] text-center">
+        <Icon className="mx-auto text-blue-700" name="mail" size={70} />
+        <div>
+          <h1 className="mt-[17px] text-[28px] font-black leading-[34px] tracking-normal">Verify your email</h1>
+          <p className="mx-auto mt-[13px] max-w-[310px] text-[14px] leading-[17px] text-neutral-600">We&apos;ve sent a verification link to</p>
+          <p className="mt-[8px] text-[12px] font-bold text-neutral-950">limpotkolbotey@gmail.com</p>
+        </div>
+
+        <div className="mx-auto flex h-[76px] w-full items-center justify-center rounded-card bg-primary-50 px-5 text-center text-[12px] leading-[15px] text-neutral-500">
+          <p>
+            Click the link in the email to verify your account.
+            <br />
+            The link will expire in 15 minutes.
+          </p>
+        </div>
+
+        <Button className="h-[46px] w-full rounded-[5px] border-neutral-400 !text-[12px] font-medium" variant="outline">
+          <GmailIcon />
+          Open Gmail
+        </Button>
+
+        <div className="space-y-[6px] text-[12px] text-neutral-500">
+          <p>Didn&apos;t receive the email?</p>
+          <p>
+            <button className="font-bold text-blue-700" type="button">Resend email</button>{" "}
+            <span>(00:45)</span>
+          </p>
+        </div>
+      </section>
+    </AuthLayout>
+  );
+}
