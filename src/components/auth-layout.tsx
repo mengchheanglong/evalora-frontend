@@ -30,34 +30,37 @@ const trustItems = [
   },
 ];
 
-export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[320px] pt-[70px] lg:ml-[88px]" }: AuthLayoutProps) {
+export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[420px]" }: AuthLayoutProps) {
   return (
-    <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-2">
-      <aside className="relative hidden min-h-screen bg-primary-50 lg:block">
-        <EvaloraLogo className="absolute left-[60px] top-[26px]" href="/" size="auth" />
+    <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-[minmax(360px,0.92fr)_minmax(520px,1.08fr)]">
+      <aside className="flex bg-primary-50 px-7 py-8 sm:px-10 lg:min-h-screen lg:px-[58px] lg:py-[34px]">
+        <div className="flex w-full flex-col lg:max-w-[400px]">
+          <EvaloraLogo href="/" size="auth" />
 
-        <div className="absolute left-[60px] top-[112px] max-w-[380px]">
-          {headline && <div className="mb-[25px] text-[30px] font-black leading-[44px] tracking-[-0.02em] text-neutral-950">{headline}</div>}
-          <p className="max-w-[310px] text-[12px] leading-[15px] text-neutral-600">{lead}</p>
-          <div className="mt-[24px] space-y-[23px]">
+          <div className="mt-12 max-w-[360px] lg:mt-[54px]">
+            {headline && <div className="mb-5 text-[28px] font-black leading-[1.35] tracking-[-0.01em] text-neutral-950 sm:text-[30px]">{headline}</div>}
+            <p className="max-w-[315px] text-[12px] leading-[15px] text-neutral-600">{lead}</p>
+          </div>
+
+          <div className="mt-6 space-y-5 lg:mt-[22px] lg:space-y-[20px]">
             {trustItems.map((item) => (
-              <div className="flex items-center gap-[16px]" key={item.title}>
-                <span className={`inline-flex size-[52px] shrink-0 items-center justify-center rounded-full ${item.tint}`}>
-                  <Icon name={item.icon} size={24} />
+              <div className="flex items-center gap-[15px]" key={item.title}>
+                <span className={`inline-flex size-[50px] shrink-0 items-center justify-center rounded-full ${item.tint}`}>
+                  <Icon name={item.icon} size={22} />
                 </span>
                 <div>
                   <h2 className="text-[12px] font-bold leading-[15px]">{item.title}</h2>
-                  <p className="mt-[8px] text-[12px] leading-[15px] text-neutral-950">{item.body}</p>
+                  <p className="mt-[6px] text-[12px] leading-[15px] text-neutral-950">{item.body}</p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
 
-        <p className="absolute bottom-[12px] left-0 right-0 text-center text-[11px] text-neutral-500">&copy; 2026 Evalora. All rights reserved.</p>
+          <p className="mt-10 text-center text-[11px] text-neutral-500 lg:mt-auto">&copy; 2026 Evalora. All rights reserved.</p>
+        </div>
       </aside>
 
-      <section className="min-h-screen px-5 py-8 sm:px-8 lg:px-0 lg:py-0">
+      <section className="flex min-h-[620px] items-center justify-center px-6 py-10 sm:px-8 lg:min-h-screen lg:px-10 lg:py-12">
         <div className={`w-full ${panelClassName}`}>{children}</div>
       </section>
     </main>

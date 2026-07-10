@@ -51,25 +51,25 @@ export default async function ReportPage({ params }: PageProps) {
 
   return (
     <AppShell active="candidates" showPageHeader={false} title="Candidate Report">
-      <div className="mx-auto w-full max-w-[1180px] space-y-4">
+      <div className="-mt-3 w-full max-w-[1200px] space-y-3">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-[30px] font-black tracking-[-0.04em] text-neutral-950">Candidate Report</h1>
-            <p className="mt-2 text-[13px] text-neutral-600">AI-supported assessment summary and extracted candidate insights.</p>
+            <h1 className="text-[28px] font-bold tracking-[-0.02em] text-neutral-950">Candidate Report</h1>
+            <p className="mt-1.5 text-[12px] font-medium text-neutral-600">AI-supported assessment summary and extracted candidate insights.</p>
           </div>
-          <Link className="inline-flex h-9 items-center rounded-[6px] border border-neutral-200 bg-white px-4 text-[12px] font-semibold text-neutral-700 transition hover:bg-neutral-50" href="/candidates/david-lee">
-            ← Back to candidate
+          <Link className="inline-flex h-8 items-center rounded-[7px] border border-neutral-200 bg-white px-3 text-[12px] font-medium text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900" href="/candidates/david-lee">
+            &larr; Back to report
           </Link>
         </header>
 
-        <section className="card grid gap-6 p-6 md:grid-cols-[140px_1fr_180px_260px] md:items-center">
-          <div className="mx-auto size-[122px] overflow-hidden rounded-full border-2 border-fuchsia-300 p-1 md:mx-0">
+        <section className="card grid w-full gap-5 p-5 shadow-none sm:p-6 lg:grid-cols-[150px_minmax(260px,1fr)_210px_280px] lg:items-center">
+          <div className="mx-auto size-[132px] overflow-hidden rounded-full border-2 border-fuchsia-300 p-1 lg:mx-0">
             <img alt="Chim Lina" className="h-full w-full rounded-full object-cover" src="https://randomuser.me/api/portraits/women/44.jpg" />
           </div>
 
-          <div>
-            <h2 className="text-[24px] font-black tracking-[-0.03em] text-neutral-950">Chim Lina</h2>
-            <div className="mt-5 grid max-w-[380px] gap-3 text-[12px] sm:grid-cols-[110px_1fr]">
+          <div className="text-center lg:text-left">
+            <h2 className="text-[23px] font-bold tracking-[-0.02em] text-neutral-950">Chim Lina</h2>
+            <div className="mx-auto mt-5 grid max-w-[420px] gap-x-5 gap-y-3 text-[11px] sm:grid-cols-[105px_1fr] lg:mx-0">
               <ReportMeta icon="building" label="Target Role" value="Software Engineer" />
               <ReportMeta icon="clipboard" label="Assessment" value="Software Engineer Assessment" />
               <ReportMeta icon="check" label="Status" value="Completed" valueClass="rounded bg-sky-100 px-2 py-1 text-sky-700" />
@@ -82,8 +82,8 @@ export default async function ReportPage({ params }: PageProps) {
 
           <div>
             <p className="text-[14px] font-semibold text-neutral-900">Recommendation</p>
-            <span className="mt-3 inline-flex rounded-[5px] bg-gradient-to-r from-indigo-600 to-fuchsia-400 px-4 py-2 text-[12px] font-bold text-white">Strong Potential</span>
-            <div className="mt-5 flex gap-3 rounded-[8px] bg-violet-50 p-3 text-[12px] leading-5 text-neutral-700">
+            <span className="mt-3 inline-flex rounded-[5px] bg-gradient-to-r from-indigo-600 to-fuchsia-400 px-4 py-1.5 text-[11px] font-bold text-white">Strong Potential</span>
+            <div className="mt-5 flex gap-3 rounded-[8px] bg-violet-50 p-3 text-[11px] leading-4 text-neutral-700">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-[7px] bg-violet-100 text-violet-600">
                 <Icon name="sparkle" size={18} />
               </span>
@@ -138,7 +138,7 @@ export default async function ReportPage({ params }: PageProps) {
             <div className="space-y-3">
               {evidenceQuotes.map((quote) => (
                 <blockquote className="rounded-[8px] bg-violet-50 p-3 text-[11px] leading-5 text-neutral-700" key={quote}>
-                  <span className="mr-2 text-[20px] font-black text-indigo-500">“</span>{quote}”
+                  <span className="mr-2 text-[20px] font-black text-indigo-500">&quot;</span>{quote}&quot;
                 </blockquote>
               ))}
             </div>
@@ -157,7 +157,7 @@ export default async function ReportPage({ params }: PageProps) {
             />
             <p className="mt-1 text-right text-[10px] text-neutral-400">0 / 1000 characters</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button className="rounded-[6px] border border-neutral-200 bg-white px-3 py-2 text-[12px] font-semibold text-neutral-700 transition hover:bg-neutral-50" type="button">← Export report</button>
+              <button className="rounded-[6px] border border-neutral-200 bg-white px-3 py-2 text-[12px] font-semibold text-neutral-700 transition hover:bg-neutral-50" type="button">&larr; Export report</button>
               <button className="rounded-[6px] bg-primary px-3 py-2 text-[12px] font-bold text-white transition hover:bg-primary-600" type="button">Save</button>
             </div>
           </ReportCard>
@@ -169,8 +169,8 @@ export default async function ReportPage({ params }: PageProps) {
 
 function ReportCard({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <article className="card min-h-[190px] p-4">
-      <h2 className="mb-4 text-[14px] font-bold text-neutral-950">{title}</h2>
+    <article className="card min-h-[250px] p-4 shadow-none">
+      <h2 className="mb-4 text-[13px] font-bold leading-4 text-neutral-950">{title}</h2>
       {children}
     </article>
   );
@@ -189,7 +189,7 @@ function ReportMeta({ icon, label, value, valueClass }: { icon: IconName; label:
 
 function MetricBar({ label, value }: { label: string; value: number }) {
   return (
-    <div className="grid grid-cols-[82px_1fr_28px] items-center gap-2 text-[10px] font-semibold text-neutral-800">
+    <div className="grid grid-cols-[92px_1fr_30px] items-center gap-2 text-[10px] font-semibold text-neutral-800">
       <span>{label}</span>
       <div className="h-[5px] overflow-hidden rounded-full bg-neutral-100">
         <div className="h-full rounded-full bg-sky-400" style={{ width: `${value}%` }} />
@@ -204,7 +204,7 @@ function ScoreRing({ score }: { score: number }) {
   const circumference = 2 * Math.PI * radius;
 
   return (
-    <div className="relative size-[150px]">
+    <div className="relative size-[162px]">
       <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120">
         <circle cx="60" cy="60" fill="none" r={radius} stroke="#f3e8ff" strokeWidth="10" />
         <circle
@@ -236,7 +236,7 @@ function ScoreRing({ score }: { score: number }) {
 function CapabilityMap() {
   return (
     <div className="flex items-center justify-center">
-      <svg className="h-[145px] w-[145px]" viewBox="0 0 160 160">
+      <svg className="h-[160px] w-[160px]" viewBox="0 0 160 160">
         <polygon fill="#faf5ff" points="80,12 139,46 139,114 80,148 21,114 21,46" stroke="#a855f7" strokeWidth="1" />
         <polygon fill="none" points="80,38 116,59 116,101 80,122 44,101 44,59" stroke="#ddd6fe" strokeDasharray="3 3" />
         <polygon fill="#8b5cf633" points="80,26 126,55 120,103 80,133 39,104 34,55" stroke="#7c3aed" strokeWidth="2" />
