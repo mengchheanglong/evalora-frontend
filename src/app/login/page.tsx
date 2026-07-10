@@ -1,55 +1,78 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { useAuth } from "@/components/auth-provider";
 import { AuthDivider, AuthLayout } from "@/components/auth-layout";
-import { Button } from "@/components/button-link";
-import { GoogleIcon } from "@/components/icons";
+import { Icon } from "@/components/icons";
+import { InlineAlert } from "@/components/ui-states";
+import { getErrorMessage } from "@/lib/api";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      await login({ email, password });
+      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      router.replace(returnTo?.startsWith("/") ? returnTo : "/dashboard");
+      router.refresh();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to sign in."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <AuthLayout
-      headline={<><span className="block">Assess Smarter,</span><span className="block"><span className="text-primary">Hire</span> Better.</span></>}
-      lead="Evalora helps you evaluate candidates fairly and accurately with AI-powered assessments across multiple skills and traits."
+      headline={<><span className="block">Clear evidence.</span><span className="block text-[#149bc8]">Better interviews.</span></>}
+      lead="Run structured assessments, review evidence in context, and keep every hiring decision human-led."
     >
-      <form className="space-y-[14px]">
-        <div className="pb-[24px] text-center">
-          <h1 className="text-[28px] font-black leading-[34px] tracking-[-0.02em]">Welcome back!</h1>
-          <p className="mt-[13px] text-[14px] leading-[17px] text-neutral-600">Sign in to continue to your account.</p>
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        <div>
+          <p className="text-[11px] font-bold uppercase text-[#118bb5]">Workspace sign in</p>
+          <h1 className="mt-2 text-[32px] font-black leading-tight text-[#151922]">Welcome back</h1>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">Use your interviewer or administrator account.</p>
         </div>
 
+        {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+
         <label className="block">
-          <span className="text-[14px] font-bold leading-[17px]">Email</span>
-          <input className="form-field mt-[9px] h-[46px]" placeholder="Enter your email" type="email" />
+          <span className="text-[12px] font-bold text-neutral-800">Work email</span>
+          <span className="relative mt-2 block">
+            <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" name="mail" size={16} />
+            <input autoComplete="email" autoFocus className="control h-12 pl-10" onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" required type="email" value={email} />
+          </span>
         </label>
 
         <label className="block">
-          <span className="text-[14px] font-bold leading-[17px]">Password</span>
-          <input className="form-field mt-[9px] h-[46px]" placeholder="Enter your password" type="password" />
+          <span className="text-[12px] font-bold text-neutral-800">Password</span>
+          <span className="relative mt-2 block">
+            <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" name="lock" size={16} />
+            <input autoComplete="current-password" className="control h-12 pl-10" minLength={8} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required type="password" value={password} />
+          </span>
         </label>
 
-        <div className="flex items-center justify-between pt-[16px] text-[12px] text-neutral-600">
-          <label className="inline-flex items-center gap-[9px]">
-            <input className="size-[22px] rounded-[5px] border border-neutral-300 accent-primary" type="checkbox" />
-            Remember me
-          </label>
-          <Link className="font-bold text-blue-700" href="/forgot-password">
-            Forgot password?
-          </Link>
-        </div>
+        <button className="button-primary h-12 w-full" disabled={submitting} type="submit">
+          {submitting ? <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : null}
+          {submitting ? "Signing in" : "Sign in"}
+        </button>
 
-        <Button className="mt-[18px] h-[46px] w-full rounded-[5px] !text-[12px]" type="submit">
-          Sign in
-        </Button>
+        <AuthDivider label="New to Evalora?" />
+        <Link className="button-secondary h-12 w-full" href="/register">Create a workspace</Link>
 
-        <div className="pt-[18px]">
-          <AuthDivider />
-        </div>
-
-        <Button className="h-[46px] w-full rounded-[5px] border-neutral-400 !text-[12px] font-medium" variant="outline">
-          <GoogleIcon />
-          Sign in with google
-        </Button>
-
-        <p className="pt-[15px] text-center text-[12px] text-neutral-500">
-          Don&apos;t have an account? <Link className="font-bold text-blue-700" href="/register">Sign up</Link>
+        <p className="rounded-[6px] bg-neutral-50 px-4 py-3 text-center text-[11px] leading-5 text-neutral-500">
+          Candidates open assessments from their private invitation link and do not need a platform account.
         </p>
       </form>
     </AuthLayout>

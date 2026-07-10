@@ -1,10 +1,10 @@
 # Evalora Frontend
 
-Standalone Next.js + TypeScript frontend for Evalora.
+Production-oriented Next.js + TypeScript frontend for Evalora's interviewer workspace and private candidate assessment flow.
 
 ## AI agent start rule
 
-Before any AI agent changes this repository, read `AGENTS.md` first.
+Before changing this repository, read `AGENTS.md` and the product documents it references.
 
 ## Run locally
 
@@ -13,33 +13,40 @@ pnpm install
 pnpm dev
 ```
 
-Local URL: <http://localhost:3000>
+Frontend: <http://localhost:3010>
 
-## Environment variables
+The backend should be running at <http://localhost:4000/api>.
 
-Create `.env.local` when needed:
+## Environment
+
+Create `.env.local` only when the API is not using the local default:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ```
 
-Do not commit `.env.local`.
+Browser requests go through the same-origin route handler at `/api/backend/*`. Login and registration tokens are stored in an HttpOnly cookie by that boundary; bearer tokens are not exposed to client components.
 
-## Current routes
+## Integrated product routes
 
-- `/` — landing page.
-- `/login` — login form scaffold.
-- `/dashboard` — organization/admin dashboard scaffold.
-- `/assessment/[sessionId]` — candidate assessment flow scaffold.
-- `/reports/[sessionId]` — candidate report scaffold.
+- `/` - product overview.
+- `/login`, `/register` - workspace authentication.
+- `/dashboard` - live pipeline, report readiness, and module performance.
+- `/templates`, `/templates/create` - template list and builder.
+- `/assessment`, `/assessment/create` - interviewer session list and invitation creation.
+- `/assessment/[accessCode]` - private candidate assessment, autosave, AI follow-up, coding workspace, review, and submission.
+- `/candidates`, `/candidates/[sessionId]` - candidate progress and response evidence.
+- `/reports/[sessionId]` - advisory report and reviewer notes.
+- `/analytics` - organization-scoped performance and evidence themes.
 
 ## Source of truth
 
-- `AGENTS.md` — frontend agent/team alignment.
-- `docs/SRS.md` — product requirements.
-- `docs/API-CONTRACT.md` — backend API contract.
-- `docs/ROUTES.md` — frontend routes.
-- `docs/UX-FLOW.md` — candidate UX flow.
+- `AGENTS.md` - frontend agent/team alignment.
+- `docs/SRS.md` - product requirements.
+- `docs/API-CONTRACT.md` - backend API contract.
+- `docs/ROUTES.md` - frontend route ownership and dependencies.
+- `docs/UX-FLOW.md` - candidate assessment UX.
+- `docs/AI-EVALUATION-RUBRICS.md` - advisory AI language and safety.
 
 ## Verification
 
@@ -49,6 +56,4 @@ pnpm typecheck
 pnpm build
 ```
 
-## Separate repository note
-
-This folder is intentionally self-contained so it can be pushed to its own GitHub repository independently from the backend.
+This repository is intentionally independent from the backend repository.

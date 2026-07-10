@@ -55,7 +55,7 @@
    * reuse Tailwind's built-in emerald / sky / amber / violet palettes rather
    * than adding brand-specific tokens - see docs/DESIGN-SYSTEM.md.
    */
-  --font-sans: Arial, Helvetica, sans-serif;
+  --font-sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --text-display: 4rem; /* 64px hero headline */
   --text-display--line-height: 1.08;
@@ -95,6 +95,7 @@
 
 * {
   box-sizing: border-box;
+  letter-spacing: 0 !important;
 }
 
 html {
@@ -103,9 +104,11 @@ html {
 
 body {
   margin: 0;
-  background: var(--color-white, #ffffff);
-  color: var(--color-neutral-950);
+  background: #f7f8fa;
+  color: #121722;
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -121,10 +124,10 @@ select {
 }
 
 .card {
-  border: 1px solid var(--color-neutral-200);
-  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025), 0 10px 30px rgba(15, 23, 42, 0.035);
 }
 
 .soft-card {
@@ -153,4 +156,89 @@ select {
   border-color: var(--color-primary-300);
   background: #ffffff;
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary-500) 14%, transparent);
+}
+
+::selection {
+  background: #bfeeff;
+  color: #07111f;
+}
+
+:focus-visible {
+  outline: 2px solid #2fb2e4;
+  outline-offset: 2px;
+}
+
+.control {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid #dfe3e8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #171b24;
+  padding: 0 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.control::placeholder {
+  color: #969da8;
+}
+
+.control:focus {
+  border-color: #2fb2e4;
+  box-shadow: 0 0 0 3px rgba(47, 178, 228, 0.14);
+}
+
+textarea.control {
+  padding-top: 11px;
+  padding-bottom: 11px;
+  resize: vertical;
+}
+
+.button-primary {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 6px;
+  background: #171b24;
+  padding: 0 16px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.button-primary:hover {
+  background: #292f3a;
+  box-shadow: 0 7px 18px rgba(15, 23, 42, 0.14);
+}
+
+.button-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.button-secondary {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #dfe3e8;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 14px;
+  color: #343a46;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.button-secondary:hover {
+  border-color: #c8cdd5;
+  background: #f8f9fb;
 }

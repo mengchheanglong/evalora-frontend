@@ -10,66 +10,51 @@ type AuthLayoutProps = {
 };
 
 const trustItems = [
-  {
-    title: "AI-Powered",
-    body: "Smart evaluations and insights driven by advanced AI.",
-    icon: "sparkle" as const,
-    tint: "bg-pink-200 text-fuchsia-500",
-  },
-  {
-    title: "Secure & Reliable",
-    body: "Enterprise-grade security to protect your data.",
-    icon: "shield" as const,
-    tint: "bg-emerald-200 text-emerald-600",
-  },
-  {
-    title: "Insights & Analytics",
-    body: "Data-driven reports to help you make the right hiring decisions.",
-    icon: "trend" as const,
-    tint: "bg-yellow-100 text-amber-400",
-  },
+  { title: "Structured evidence", body: "Compare response-backed signals across every assessment module.", icon: "report" as const, tint: "bg-sky-100 text-sky-700" },
+  { title: "Private by design", body: "Role-based access keeps candidate reports inside your workspace.", icon: "shield" as const, tint: "bg-emerald-100 text-emerald-700" },
+  { title: "Human-led decisions", body: "AI feedback supports reviewers and never makes the final hiring decision.", icon: "users" as const, tint: "bg-amber-100 text-amber-700" },
 ];
 
-export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[320px] pt-[70px] lg:ml-[88px]" }: AuthLayoutProps) {
+export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[440px]" }: AuthLayoutProps) {
   return (
-    <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-2">
-      <aside className="relative hidden min-h-screen bg-primary-50 lg:block">
-        <EvaloraLogo className="absolute left-[60px] top-[26px]" href="/" size="auth" />
-
-        <div className="absolute left-[60px] top-[112px] max-w-[380px]">
-          {headline && <div className="mb-[25px] text-[30px] font-black leading-[44px] tracking-[-0.02em] text-neutral-950">{headline}</div>}
-          <p className="max-w-[310px] text-[12px] leading-[15px] text-neutral-600">{lead}</p>
-          <div className="mt-[24px] space-y-[23px]">
+    <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-[minmax(420px,0.92fr)_minmax(560px,1.08fr)]">
+      <aside className="relative hidden min-h-screen overflow-hidden border-r border-[#dce5e9] bg-[#eff7f9] lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-14">
+        <div className="absolute inset-0 opacity-50" style={{ backgroundImage: "linear-gradient(#dcebed 1px, transparent 1px), linear-gradient(90deg, #dcebed 1px, transparent 1px)", backgroundSize: "44px 44px", maskImage: "linear-gradient(to bottom, black, transparent 84%)" }} />
+        <div className="relative"><EvaloraLogo href="/" size="auth" /></div>
+        <div className="relative max-w-[500px] py-14">
+          {headline ? <div className="max-w-[460px] text-[42px] font-black leading-[1.08] text-[#131923] xl:text-[50px]">{headline}</div> : null}
+          <p className="mt-5 max-w-[470px] text-[15px] leading-6 text-neutral-600">{lead}</p>
+          <div className="mt-10 space-y-5">
             {trustItems.map((item) => (
-              <div className="flex items-center gap-[16px]" key={item.title}>
-                <span className={`inline-flex size-[52px] shrink-0 items-center justify-center rounded-full ${item.tint}`}>
-                  <Icon name={item.icon} size={24} />
-                </span>
+              <div className="flex items-center gap-4" key={item.title}>
+                <span className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[7px] ${item.tint}`}><Icon name={item.icon} size={18} /></span>
                 <div>
-                  <h2 className="text-[12px] font-bold leading-[15px]">{item.title}</h2>
-                  <p className="mt-[8px] text-[12px] leading-[15px] text-neutral-950">{item.body}</p>
+                  <h2 className="text-[13px] font-bold text-neutral-950">{item.title}</h2>
+                  <p className="mt-1 max-w-[390px] text-[12px] leading-5 text-neutral-600">{item.body}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
-
-        <p className="absolute bottom-[12px] left-0 right-0 text-center text-[11px] text-neutral-500">&copy; 2026 Evalora. All rights reserved.</p>
+        <p className="relative text-[11px] text-neutral-500">&copy; 2026 Evalora. All rights reserved.</p>
       </aside>
 
-      <section className="min-h-screen px-5 py-8 sm:px-8 lg:px-0 lg:py-0">
-        <div className={`w-full ${panelClassName}`}>{children}</div>
+      <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:px-14 xl:px-20">
+        <div className={`w-full ${panelClassName}`}>
+          <div className="mb-10 lg:hidden"><EvaloraLogo href="/" size="auth" /></div>
+          {children}
+        </div>
       </section>
     </main>
   );
 }
 
-export function AuthDivider() {
+export function AuthDivider({ label = "or" }: { label?: string }) {
   return (
-    <div className="flex items-center gap-[16px] text-[12px] text-neutral-500">
-      <span className="h-px flex-1 bg-neutral-400" />
-      <span>or continue with</span>
-      <span className="h-px flex-1 bg-neutral-400" />
+    <div className="flex items-center gap-4 text-[11px] text-neutral-400">
+      <span className="h-px flex-1 bg-neutral-200" />
+      <span>{label}</span>
+      <span className="h-px flex-1 bg-neutral-200" />
     </div>
   );
 }

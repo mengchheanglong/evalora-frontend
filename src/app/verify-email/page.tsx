@@ -7,17 +7,19 @@ export default function VerifyEmailPage() {
     <AuthLayout
       headline={<><span className="block">One last step to</span><span className="block text-primary">get you started</span></>}
       lead="Please verify your email address to activate your account and start using Evalora."
-      panelClassName="max-w-[320px] pt-[58px] lg:ml-[88px]"
+      panelClassName="max-w-[420px]"
     >
-      <section className="space-y-[16px] text-center">
-        <Icon className="mx-auto text-blue-700" name="mail" size={70} />
+      <section className="space-y-[24px] text-center">
+        <div className="flex justify-center text-primary-700">
+          <Icon name="mail" size={80} />
+        </div>
         <div>
-          <h1 className="mt-[17px] text-[28px] font-black leading-[34px] tracking-normal">Verify your email</h1>
-          <p className="mx-auto mt-[13px] max-w-[310px] text-[14px] leading-[17px] text-neutral-600">We&apos;ve sent a verification link to</p>
-          <p className="mt-[8px] text-[12px] font-bold text-neutral-950">limpotkolbotey@gmail.com</p>
+          <h1 className="text-[32px] font-bold leading-[38px] tracking-[-0.02em] text-neutral-950">Verify your email</h1>
+          <p className="mt-[8px] text-[15px] text-neutral-500">We&apos;ve sent a verification link to</p>
+          <p className="mt-[6px] text-[14px] font-bold text-neutral-950">limpotkolbotey@gmail.com</p>
         </div>
 
-        <div className="mx-auto flex h-[76px] w-full items-center justify-center rounded-card bg-primary-50 px-5 text-center text-[12px] leading-[15px] text-neutral-500">
+        <div className="w-full bg-primary-50 rounded-[8px] p-6 text-center text-[13px] leading-[18px] text-neutral-600 border border-primary-100/30">
           <p>
             Click the link in the email to verify your account.
             <br />
@@ -25,16 +27,16 @@ export default function VerifyEmailPage() {
           </p>
         </div>
 
-        <Button className="h-[46px] w-full rounded-[5px] border-neutral-400 !text-[12px] font-medium" variant="outline">
+        <Button className="h-[48px] w-full rounded-[6px] border border-neutral-300 !text-[14px] font-semibold text-neutral-700 bg-white hover:bg-neutral-50" variant="outline">
           <GmailIcon />
           Open Gmail
         </Button>
 
-        <div className="space-y-[6px] text-[12px] text-neutral-500">
+        <div className="space-y-[6px] text-[13px] text-neutral-500">
           <p>Didn&apos;t receive the email?</p>
           <p>
-            <button className="font-bold text-blue-700" type="button">Resend email</button>{" "}
-            <span>(00:45)</span>
+            <button className="font-bold text-primary-700 hover:underline cursor-pointer" type="button">Resend email</button>{" "}
+            <span className="text-neutral-400">(00:45)</span>
           </p>
         </div>
       </section>

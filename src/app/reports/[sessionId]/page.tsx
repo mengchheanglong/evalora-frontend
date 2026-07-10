@@ -1,263 +1,124 @@
+"use client";
+
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
-import { Icon, type IconName } from "@/components/icons";
+import { Icon } from "@/components/icons";
+import { EmptyState, ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
+import { ApiError, apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import type { CandidateReport, InterviewSession, ReviewerNote } from "@/lib/types";
 
-type PageProps = {
-  params: Promise<{ sessionId: string }>;
-};
+export default function ReportPage() {
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const [session, setSession] = useState<InterviewSession | null>(null);
+  const [report, setReport] = useState<CandidateReport | null>(null);
+  const [notes, setNotes] = useState<ReviewerNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-const competencyBreakdown = [
-  { label: "Technical Skill", value: 80 },
-  { label: "Problem Solving", value: 85 },
-  { label: "Communication", value: 70 },
-  { label: "Leadership", value: 90 },
-  { label: "Work Style", value: 65 },
-  { label: "Adaptability", value: 60 },
-  { label: "Ownership", value: 90 },
-];
+  const loadReport = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const nextSession = await apiGet<InterviewSession>(`/sessions/${encodeURIComponent(sessionId)}`);
+      setSession(nextSession);
+      const [nextNotes, nextReport] = await Promise.all([
+        apiGet<ReviewerNote[]>(`/reports/${encodeURIComponent(sessionId)}/notes`),
+        apiGet<CandidateReport>(`/reports/${encodeURIComponent(sessionId)}`).catch((requestError) => {
+          if (requestError instanceof ApiError && requestError.status === 404) return null;
+          throw requestError;
+        }),
+      ]);
+      setNotes(nextNotes);
+      setReport(nextReport);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
 
-const moduleAnalysis = [
-  { label: "AI Interview Chat", value: 90 },
-  { label: "Coding Assessment", value: 85 },
-  { label: "Behavioral Assessment", value: 70 },
-  { label: "Leadership Scenario", value: 90 },
-];
+  useEffect(() => { void loadReport(); }, [loadReport]);
 
-const signals: Array<{ label: string; icon: IconName; color: string }> = [
-  { label: "Strategic thinker", icon: "sparkle", color: "bg-violet-50 text-violet-700" },
-  { label: "Strong ownership", icon: "shield", color: "bg-emerald-50 text-emerald-700" },
-  { label: "Clear technical reasoning", icon: "code", color: "bg-indigo-50 text-indigo-700" },
-  { label: "Moderate leadership confidence", icon: "users", color: "bg-amber-50 text-amber-700" },
-  { label: "Collaborative under pressure", icon: "message", color: "bg-purple-50 text-purple-700" },
-  { label: "Needs more concise communication", icon: "question", color: "bg-red-50 text-red-600" },
-];
+  async function generateReport() {
+    setGenerating(true);
+    setError("");
+    try {
+      const generated = await apiPost<CandidateReport>(`/reports/${encodeURIComponent(sessionId)}/generate`);
+      setReport(generated);
+      setNotice(generated.persistence?.status === "persisted" ? "Report generated from saved candidate evidence." : "Report processing completed, but persistence is still pending.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to generate this report."));
+    } finally {
+      setGenerating(false);
+    }
+  }
 
-const behaviorPatterns: Array<{ label: string; value: string; icon: IconName }> = [
-  { label: "Decision Style", value: "Analytical", icon: "sparkle" },
-  { label: "Work Preference", value: "Hybrid / Team-oriented", icon: "users" },
-  { label: "Stress Response", value: "Stable", icon: "trend" },
-  { label: "Learning Style", value: "Hands-on", icon: "clipboard" },
-  { label: "Initiative Level", value: "High", icon: "paperPlane" },
-];
-
-const evidenceQuotes = [
-  "I chose a modular backend structure to keep the API maintainable as the project scaled.",
-  "When deadlines tighten, I usually re-prioritize tasks and communicate trade-offs early.",
-  "If two team members disagree, I would align them on goals first, then guide a practical decision.",
-];
-
-export default async function ReportPage({ params }: PageProps) {
-  await params;
+  async function addNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setSavingNote(true);
+    setError("");
+    try {
+      const note = await apiPost<ReviewerNote>(`/reports/${encodeURIComponent(sessionId)}/notes`, { note: String(data.get("note") ?? "") });
+      setNotes((current) => [note, ...current]);
+      form.reset();
+      setNotice("Reviewer note saved.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to save this note."));
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   return (
-    <AppShell active="candidates" showPageHeader={false} title="Candidate Report">
-      <div className="mx-auto w-full max-w-[1180px] space-y-4">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[30px] font-black tracking-[-0.04em] text-neutral-950">Candidate Report</h1>
-            <p className="mt-2 text-[13px] text-neutral-600">AI-supported assessment summary and extracted candidate insights.</p>
-          </div>
-          <Link className="inline-flex h-9 items-center rounded-[6px] border border-neutral-200 bg-white px-4 text-[12px] font-semibold text-neutral-700 transition hover:bg-neutral-50" href="/candidates/david-lee">
-            ← Back to candidate
-          </Link>
-        </header>
-
-        <section className="card grid gap-6 p-6 md:grid-cols-[140px_1fr_180px_260px] md:items-center">
-          <div className="mx-auto size-[122px] overflow-hidden rounded-full border-2 border-fuchsia-300 p-1 md:mx-0">
-            <img alt="Chim Lina" className="h-full w-full rounded-full object-cover" src="https://randomuser.me/api/portraits/women/44.jpg" />
-          </div>
-
-          <div>
-            <h2 className="text-[24px] font-black tracking-[-0.03em] text-neutral-950">Chim Lina</h2>
-            <div className="mt-5 grid max-w-[380px] gap-3 text-[12px] sm:grid-cols-[110px_1fr]">
-              <ReportMeta icon="building" label="Target Role" value="Software Engineer" />
-              <ReportMeta icon="clipboard" label="Assessment" value="Software Engineer Assessment" />
-              <ReportMeta icon="check" label="Status" value="Completed" valueClass="rounded bg-sky-100 px-2 py-1 text-sky-700" />
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <ScoreRing score={82} />
-          </div>
-
-          <div>
-            <p className="text-[14px] font-semibold text-neutral-900">Recommendation</p>
-            <span className="mt-3 inline-flex rounded-[5px] bg-gradient-to-r from-indigo-600 to-fuchsia-400 px-4 py-2 text-[12px] font-bold text-white">Strong Potential</span>
-            <div className="mt-5 flex gap-3 rounded-[8px] bg-violet-50 p-3 text-[12px] leading-5 text-neutral-700">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-[7px] bg-violet-100 text-violet-600">
-                <Icon name="sparkle" size={18} />
-              </span>
-              Profile synthesized from interview, coding, behavioral, and leadership modules. Human reviewers should validate final fit.
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-          <ReportCard title="1. Core Competency Breakdown">
-            <div className="space-y-3">
-              {competencyBreakdown.map((item) => <MetricBar key={item.label} label={item.label} value={item.value} />)}
-            </div>
-          </ReportCard>
-
-          <ReportCard title="2. AI Extracted Candidate Signals">
-            <div className="grid grid-cols-2 gap-3">
-              {signals.map((signal) => (
-                <div className={`rounded-[8px] p-3 text-[11px] font-semibold leading-4 ${signal.color}`} key={signal.label}>
-                  <Icon className="mb-2" name={signal.icon} size={18} />
-                  {signal.label}
-                </div>
-              ))}
-            </div>
-          </ReportCard>
-
-          <ReportCard title="3. Capability Map">
-            <CapabilityMap />
-          </ReportCard>
-
-          <ReportCard title="4. Behavioral Pattern Analysis">
-            <div className="space-y-2">
-              {behaviorPatterns.map((pattern) => (
-                <div className="flex items-center justify-between gap-3 rounded-[7px] bg-violet-50 px-3 py-2 text-[11px]" key={pattern.label}>
-                  <span className="flex items-center gap-2 font-semibold text-neutral-700">
-                    <Icon className="text-indigo-500" name={pattern.icon} size={15} />
-                    {pattern.label}
-                  </span>
-                  <span className="max-w-[86px] text-right font-bold text-emerald-600">{pattern.value}</span>
-                </div>
-              ))}
-            </div>
-          </ReportCard>
-
-          <ReportCard title="5. Module Analysis">
-            <div className="space-y-4 pt-8">
-              {moduleAnalysis.map((item) => <MetricBar key={item.label} label={item.label} value={item.value} />)}
-            </div>
-          </ReportCard>
-
-          <ReportCard title="6. Evidence Extracted from Responses">
-            <div className="space-y-3">
-              {evidenceQuotes.map((quote) => (
-                <blockquote className="rounded-[8px] bg-violet-50 p-3 text-[11px] leading-5 text-neutral-700" key={quote}>
-                  <span className="mr-2 text-[20px] font-black text-indigo-500">“</span>{quote}”
-                </blockquote>
-              ))}
-            </div>
-          </ReportCard>
-
-          <ReportCard title="7. AI Summary">
-            <p className="text-[11px] leading-5 text-neutral-700">
-              Dara demonstrates strong technical reasoning, problem solving, and a high sense of ownership. They approach challenges analytically and communicate ideas clearly in most scenarios. Collaboration under pressure and initiative are notable strengths. Growth opportunities exist in communication conciseness and building stronger leadership confidence in ambiguous situations. Overall, Dara shows strong potential as a valuable contributor and future leader.
-            </p>
-          </ReportCard>
-
-          <ReportCard title="8. Reviewer Notes">
-            <textarea
-              className="min-h-[125px] w-full resize-none rounded-[6px] border border-neutral-200 p-3 text-[12px] outline-none transition placeholder:text-neutral-400 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50"
-              placeholder="Write your notes about the candidate..."
-            />
-            <p className="mt-1 text-right text-[10px] text-neutral-400">0 / 1000 characters</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button className="rounded-[6px] border border-neutral-200 bg-white px-3 py-2 text-[12px] font-semibold text-neutral-700 transition hover:bg-neutral-50" type="button">← Export report</button>
-              <button className="rounded-[6px] bg-primary px-3 py-2 text-[12px] font-bold text-white transition hover:bg-primary-600" type="button">Save</button>
-            </div>
-          </ReportCard>
-        </section>
-      </div>
+    <AppShell active="candidates" breadcrumbs={[{ label: "Candidates", href: "/candidates" }, { label: session?.candidateName ?? "Candidate", href: session ? `/candidates/${session.id}` : undefined }, { label: "Report" }]} description="Evidence-backed AI analysis for human review. Scores are advisory and should be interpreted with the original responses." title="Candidate report">
+      {loading ? <PageLoader label="Loading private report" /> : null}
+      {!loading && error && !session ? <ErrorState message={error} onRetry={() => void loadReport()} /> : null}
+      {!loading && session ? (
+        <div className="space-y-5">
+          {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+          {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
+          {!report ? <ReportNotReady generating={generating} onGenerate={() => void generateReport()} session={session} /> : <ReportContent notes={notes} onAddNote={addNote} report={report} savingNote={savingNote} session={session} />}
+        </div>
+      ) : null}
     </AppShell>
   );
 }
 
-function ReportCard({ children, title }: { children: React.ReactNode; title: string }) {
-  return (
-    <article className="card min-h-[190px] p-4">
-      <h2 className="mb-4 text-[14px] font-bold text-neutral-950">{title}</h2>
-      {children}
-    </article>
-  );
+function ReportNotReady({ session, generating, onGenerate }: { session: InterviewSession; generating: boolean; onGenerate: () => void }) {
+  return <section className="card p-8 text-center sm:p-12"><span className="mx-auto flex size-12 items-center justify-center rounded-[8px] bg-sky-50 text-sky-700"><Icon name="report" size={22} /></span><h2 className="mt-5 text-xl font-black text-neutral-950">Report not ready</h2><p className="mx-auto mt-2 max-w-[520px] text-sm leading-6 text-neutral-600">{session.status === "completed" ? "Generate an advisory report from the candidate's saved responses and coding evidence." : "The report becomes available after the candidate submits the assessment."}</p>{session.status === "completed" ? <button className="button-primary mt-6" disabled={generating} onClick={onGenerate} type="button">{generating ? "Generating report" : "Generate report"}</button> : <Link className="button-secondary mt-6" href={`/candidates/${session.id}`}>Back to candidate</Link>}</section>;
 }
 
-function ReportMeta({ icon, label, value, valueClass }: { icon: IconName; label: string; value: string; valueClass?: string }) {
-  return (
-    <>
-      <span className="flex items-center gap-2 font-semibold text-neutral-600">
-        <Icon name={icon} size={13} /> {label}
-      </span>
-      <span className={`w-fit font-bold text-neutral-950 ${valueClass ?? ""}`}>{value}</span>
-    </>
-  );
-}
+function ReportContent({ report, session, notes, onAddNote, savingNote }: { report: CandidateReport; session: InterviewSession; notes: ReviewerNote[]; onAddNote: (event: FormEvent<HTMLFormElement>) => void; savingNote: boolean }) {
+  const moduleEntries = Object.entries(report.moduleScores);
+  return <>
+    <section className="card grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className="flex items-center gap-4"><span className="flex size-14 shrink-0 items-center justify-center rounded-[8px] bg-[#171b24] text-sm font-black text-white">{initials(report.candidateName)}</span><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-xl font-black text-neutral-950">{report.candidateName}</h2><span className="rounded-[5px] bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">Completed</span></div><p className="mt-1 text-[12px] font-semibold text-neutral-700">{session.targetRole ?? "Candidate"} · {report.assessmentName}</p><p className="mt-1 text-[11px] text-neutral-500">Completed {formatDate(report.completedAt)}</p></div></div>
+      <div className="flex items-center gap-4"><ScoreRing score={report.overallScore} /><div className="max-w-[240px]"><p className="text-[10px] font-bold uppercase text-neutral-400">Advisory score</p><p className="mt-1 text-[11px] leading-5 text-neutral-600">Use with response evidence and reviewer judgment. This is not a final hiring decision.</p></div></div>
+    </section>
 
-function MetricBar({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="grid grid-cols-[82px_1fr_28px] items-center gap-2 text-[10px] font-semibold text-neutral-800">
-      <span>{label}</span>
-      <div className="h-[5px] overflow-hidden rounded-full bg-neutral-100">
-        <div className="h-full rounded-full bg-sky-400" style={{ width: `${value}%` }} />
+    <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="space-y-5">
+        <article className="card p-5 sm:p-6"><div className="flex items-center gap-2"><Icon className="text-sky-700" name="sparkle" size={17} /><h2 className="text-[14px] font-bold text-neutral-950">AI-supported summary</h2></div><p className="mt-4 text-[13px] leading-7 text-neutral-700">{report.summary}</p><div className="mt-5 rounded-[6px] border border-sky-100 bg-sky-50 px-4 py-3 text-[11px] leading-5 text-sky-900">{report.advisoryNotice}</div></article>
+        <article className="card overflow-hidden"><div className="border-b border-neutral-200 px-5 py-4 sm:px-6"><h2 className="text-[14px] font-bold text-neutral-950">Module score breakdown</h2><p className="mt-1 text-[11px] text-neutral-500">Each score uses the documented 1-5 rubric scale.</p></div>{moduleEntries.length ? <div className="grid gap-x-8 gap-y-5 p-5 sm:grid-cols-2 sm:p-6">{moduleEntries.map(([name, score]) => <div key={name}><div className="flex items-center justify-between gap-3 text-[12px]"><span className="font-semibold text-neutral-700">{name}</span><span className="font-black text-neutral-950">{score.toFixed(1)}/5</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-100"><div className="h-full rounded-full bg-[#29b7e5]" style={{ width: `${Math.min(100, score * 20)}%` }} /></div></div>)}</div> : <div className="p-5"><EmptyState description="Module analysis will appear after evaluation." title="No module scores" /></div>}</article>
+        <article className="card overflow-hidden"><div className="border-b border-neutral-200 px-5 py-4 sm:px-6"><h2 className="text-[14px] font-bold text-neutral-950">Response evidence</h2><p className="mt-1 text-[11px] text-neutral-500">Excerpts used to support the analysis above.</p></div>{report.evidence.length ? <div className="divide-y divide-neutral-100">{report.evidence.map((evidence, index) => <blockquote className="flex gap-4 px-5 py-5 text-[12px] leading-6 text-neutral-700 sm:px-6" key={`${index}-${evidence.slice(0, 20)}`}><span className="text-xl font-black text-sky-500">“</span><span className="whitespace-pre-wrap">{evidence}</span></blockquote>)}</div> : <div className="p-6 text-sm text-neutral-500">No response excerpts were available.</div>}</article>
       </div>
-      <span className="text-right">{value}%</span>
-    </div>
-  );
-}
 
-function ScoreRing({ score }: { score: number }) {
-  const radius = 50;
-  const circumference = 2 * Math.PI * radius;
-
-  return (
-    <div className="relative size-[150px]">
-      <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" fill="none" r={radius} stroke="#f3e8ff" strokeWidth="10" />
-        <circle
-          cx="60"
-          cy="60"
-          fill="none"
-          r={radius}
-          stroke="url(#report-score-gradient)"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - score / 100)}
-          strokeLinecap="round"
-          strokeWidth="10"
-        />
-        <defs>
-          <linearGradient id="report-score-gradient" x1="0" x2="1" y1="0" y2="1">
-            <stop stopColor="#c026d3" />
-            <stop offset="1" stopColor="#6366f1" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-[34px] font-black text-purple-950">{score}%</span>
-        <span className="text-[10px] text-neutral-500">Over all score</span>
+      <div className="space-y-5">
+        <article className="card p-5 sm:p-6"><h2 className="text-[14px] font-bold text-neutral-950">Observed strengths</h2>{report.strengths.length ? <ul className="mt-4 space-y-3">{report.strengths.map((strength) => <li className="flex gap-3 text-[12px] leading-5 text-neutral-700" key={strength}><span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Icon name="check" size={11} /></span>{strength}</li>)}</ul> : <p className="mt-4 text-sm text-neutral-500">No strength themes were extracted.</p>}</article>
+        <article className="card p-5 sm:p-6"><h2 className="text-[14px] font-bold text-neutral-950">Areas for deeper review</h2>{report.improvementAreas.length ? <ul className="mt-4 space-y-3">{report.improvementAreas.map((area) => <li className="flex gap-3 text-[12px] leading-5 text-neutral-700" key={area}><span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700"><Icon name="question" size={11} /></span>{area}</li>)}</ul> : <p className="mt-4 text-sm text-neutral-500">No improvement themes were extracted.</p>}</article>
+        <article className="card overflow-hidden"><div className="border-b border-neutral-200 px-5 py-4"><h2 className="text-[14px] font-bold text-neutral-950">Reviewer notes</h2><p className="mt-1 text-[11px] text-neutral-500">Human context is retained with the report.</p></div><form className="p-5" onSubmit={onAddNote}><textarea className="control min-h-[110px]" maxLength={2000} name="note" placeholder="Add context, follow-up questions, or evidence to verify..." required /><div className="mt-3 flex justify-end"><button className="button-primary" disabled={savingNote} type="submit">{savingNote ? "Saving" : "Add note"}</button></div></form>{notes.length ? <div className="divide-y divide-neutral-100 border-t border-neutral-200">{notes.map((note) => <div className="px-5 py-4" key={note.id}><div className="flex items-center justify-between gap-3"><p className="text-[11px] font-bold text-neutral-900">{note.reviewer.name}</p><span className="text-[9px] text-neutral-400">{formatDate(note.createdAt)}</span></div><p className="mt-2 whitespace-pre-wrap text-[11px] leading-5 text-neutral-600">{note.note}</p></div>)}</div> : null}</article>
       </div>
-    </div>
-  );
+    </section>
+  </>;
 }
 
-function CapabilityMap() {
-  return (
-    <div className="flex items-center justify-center">
-      <svg className="h-[145px] w-[145px]" viewBox="0 0 160 160">
-        <polygon fill="#faf5ff" points="80,12 139,46 139,114 80,148 21,114 21,46" stroke="#a855f7" strokeWidth="1" />
-        <polygon fill="none" points="80,38 116,59 116,101 80,122 44,101 44,59" stroke="#ddd6fe" strokeDasharray="3 3" />
-        <polygon fill="#8b5cf633" points="80,26 126,55 120,103 80,133 39,104 34,55" stroke="#7c3aed" strokeWidth="2" />
-        <line stroke="#ddd6fe" x1="80" x2="80" y1="12" y2="148" />
-        <line stroke="#ddd6fe" x1="21" x2="139" y1="46" y2="114" />
-        <line stroke="#ddd6fe" x1="139" x2="21" y1="46" y2="114" />
-        {[
-          [80, 26],
-          [126, 55],
-          [120, 103],
-          [80, 133],
-          [39, 104],
-          [34, 55],
-        ].map(([x, y]) => <circle cx={x} cy={y} fill="#7c3aed" key={`${x}-${y}`} r="3" />)}
-        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="80" y="9">Technical</text>
-        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="143" y="45">Communication</text>
-        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="143" y="119">Adaptability</text>
-        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="80" y="157">Leadership</text>
-        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="18" y="119">Problem Solving</text>
-        <text className="fill-neutral-700 text-[8px]" textAnchor="middle" x="17" y="45">Ownership</text>
-      </svg>
-    </div>
-  );
-}
+function ScoreRing({ score }: { score: number }) { const degrees = Math.max(0, Math.min(360, (score / 5) * 360)); return <div className="relative flex size-[104px] shrink-0 items-center justify-center rounded-full" style={{ background: `conic-gradient(#25acd8 ${degrees}deg, #e7eef1 0deg)` }}><div className="flex size-[76px] flex-col items-center justify-center rounded-full bg-white"><span className="text-[24px] font-black leading-none text-neutral-950">{score.toFixed(1)}</span><span className="mt-1 text-[9px] font-bold text-neutral-400">out of 5</span></div></div>; }
+function initials(name: string) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "EV"; }
+function formatDate(value?: string) { return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "-"; }

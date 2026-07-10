@@ -7,34 +7,36 @@ export default function ForgotPasswordPage() {
     <AuthLayout
       headline={<><span className="block">We&apos;ve got you</span><span className="block text-primary">secure password.</span></>}
       lead="Your new password must be different from previously used passwords."
-      panelClassName="max-w-[320px] pt-[62px] lg:ml-[88px]"
+      panelClassName="max-w-[420px]"
     >
-      <form className="space-y-[16px] text-center">
-        <Icon className="mx-auto text-blue-700" name="lock" size={66} />
+      <form className="space-y-[24px] text-center">
+        <div className="flex justify-center text-primary-700">
+          <Icon name="lock" size={80} />
+        </div>
         <div>
-          <h1 className="mt-[16px] text-[28px] font-black leading-[34px] tracking-normal">Forgot your password?</h1>
-          <p className="mx-auto mt-[13px] max-w-[310px] text-[14px] leading-[17px] text-neutral-600">
+          <h1 className="text-[32px] font-bold leading-[38px] tracking-[-0.02em] text-neutral-950">Forgot your password?</h1>
+          <p className="mx-auto mt-[8px] max-w-[340px] text-[15px] leading-[20px] text-neutral-500">
             No worries! Enter your work email and we&apos;ll send you a link to reset your password.
           </p>
         </div>
 
-        <label className="block pt-[7px] text-left">
-          <span className="text-[14px] font-bold leading-[17px]">Email</span>
-          <input className="form-field mt-[9px] h-[46px]" placeholder="Enter your email" type="email" />
+        <label className="block text-left">
+          <span className="text-[13px] font-bold text-neutral-800">Email</span>
+          <input className="form-field mt-[8px] h-[48px] text-[13px]" placeholder="Enter your email" type="email" />
         </label>
 
-        <Button className="h-[46px] w-full rounded-[5px] !text-[12px]" type="submit">
+        <Button className="h-[48px] w-full rounded-[6px] !text-[14px] font-semibold" type="submit">
           Send reset link
         </Button>
 
         <AuthDivider />
 
-        <Button className="h-[46px] w-full rounded-[5px] border-neutral-400 !text-[12px] font-medium" variant="outline">
+        <Button className="h-[48px] w-full rounded-[6px] border border-neutral-300 !text-[14px] font-semibold text-neutral-700 bg-white hover:bg-neutral-50" variant="outline">
           <GoogleIcon />
           Sign in with google
         </Button>
 
-        <p className="flex items-center justify-center gap-2 pt-[4px] text-[12px] text-neutral-400">
+        <p className="flex items-center justify-center gap-[6px] text-[12px] text-neutral-400">
           <Icon name="lock" size={14} />
           We&apos;ll never share your email with anyone else.
         </p>

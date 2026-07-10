@@ -1,849 +1,281 @@
 "use client";
 
-import { use, useState, useEffect, type FormEvent } from "react";
-import { Button } from "@/components/button-link";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
 import { EvaloraLogo } from "@/components/logo";
+import { apiGet, apiPost, apiPut, getErrorMessage } from "@/lib/api";
+import type { AssessmentModule, CandidateAccessSession, CandidateCodeSubmission, CandidateResponse, JsonValue, Question } from "@/lib/types";
 
-type PageProps = {
-  params: Promise<{ sessionId: string }>;
-};
+type View = "loading" | "welcome" | "assessment" | "review" | "complete" | "error";
+type SaveState = "saved" | "saving" | "error";
+type Answer = { text: string; json?: JsonValue };
+type FollowUp = { question: string; answer: string };
 
-type CandidateModule = {
-  title: string;
-  subtitle: string;
-  duration: string;
-  icon: IconName;
-  stepIndex: number;
-};
+export default function CandidateAssessmentPage() {
+  const { sessionId: rawAccessCode } = useParams<{ sessionId: string }>();
+  const accessCode = decodeURIComponent(rawAccessCode);
+  const [session, setSession] = useState<CandidateAccessSession | null>(null);
+  const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  const [followUps, setFollowUps] = useState<Record<string, FollowUp>>({});
+  const [view, setView] = useState<View>("loading");
+  const [activeModuleIndex, setActiveModuleIndex] = useState(0);
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [codingComplete, setCodingComplete] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [pageError, setPageError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [reportStatus, setReportStatus] = useState<"generated" | "pending">("pending");
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const dirtyQuestions = useRef(new Set<string>());
 
-const candidate = {
-  name: "Dara Sok",
-  role: "Software Engineer",
-  assessment: "Software Engineer Assessment",
-  duration: "60 minutes",
-};
+  const loadAssessment = useCallback(async () => {
+    setView("loading");
+    setPageError("");
+    try {
+      const nextSession = await apiGet<CandidateAccessSession>(`/sessions/access/${encodeURIComponent(accessCode)}`);
+      const savedResponses = await apiGet<CandidateResponse[]>(`/responses/access/${encodeURIComponent(accessCode)}`);
+      const nextAnswers: Record<string, Answer> = {};
+      const nextFollowUps: Record<string, FollowUp> = {};
+      for (const response of savedResponses) {
+        if (!response.questionId) continue;
+        const parsed = parseSavedResponse(response.responseText);
+        nextAnswers[response.questionId] = { text: parsed.answer, json: response.responseJson };
+        if (parsed.followUp) nextFollowUps[response.questionId] = parsed.followUp;
+      }
+      setSession(nextSession);
+      setAnswers(nextAnswers);
+      setFollowUps(nextFollowUps);
+      if (nextSession.status === "in_progress" && nextSession.template.modules.some((module) => module.type === "coding")) {
+        try {
+          const codeSubmissions = await apiGet<CandidateCodeSubmission[]>(`/code/access/${encodeURIComponent(accessCode)}/submissions`);
+          setCodingComplete(codeSubmissions.length >= 3);
+        } catch {
+          setCodingComplete(false);
+        }
+      }
+      setView(nextSession.status === "not_started" ? "welcome" : "assessment");
+    } catch (requestError) {
+      setPageError(getErrorMessage(requestError, "This invitation is invalid, expired, or already completed."));
+      setView("error");
+    }
+  }, [accessCode]);
 
-const modules: CandidateModule[] = [
-  {
-    title: "AI Interview Chat",
-    subtitle: "Interactive preliminary screening",
-    duration: "15 min",
-    icon: "message",
-    stepIndex: 1,
-  },
-  {
-    title: "Coding Assessment",
-    subtitle: "Technical problem solving",
-    duration: "25 min",
-    icon: "code",
-    stepIndex: 2,
-  },
-  {
-    title: "Behavioral Questions",
-    subtitle: "Core competency evaluation",
-    duration: "10 min",
-    icon: "sparkle",
-    stepIndex: 3,
-  },
-  {
-    title: "Leadership Scenario",
-    subtitle: "Situational judgement",
-    duration: "10 min",
-    icon: "users",
-    stepIndex: 4,
-  },
-];
-
-const interviewTips = [
-  "Be specific about technologies, decisions, and outcomes.",
-  "Explain your reasoning, not only the final answer.",
-  "Avoid confidential employer or customer data.",
-];
-
-export default function AssessmentPage({ params }: PageProps) {
-  const { sessionId } = use(params);
-
-  // Flow Step:
-  // -1: Candidate name entry
-  // 0: Start Panel
-  // 1: AI Interview Chat
-  // 2: Coding Assessment
-  // 3: Behavioral Questions
-  // 4: Leadership Scenario
-  // 5: Final Submission Panel
-  // 6: Success Splash
-  const [currentStep, setCurrentStep] = useState<number>(-1);
-  const [candidateName, setCandidateName] = useState("");
-
-  // Timer state: 42 minutes 18 seconds = 2538 seconds
-  const [timeLeft, setTimeLeft] = useState<number>(2538);
+  useEffect(() => { void loadAssessment(); }, [loadAssessment]);
 
   useEffect(() => {
-    if (currentStep <= 0 || currentStep === 6) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [currentStep]);
+    if (!session?.startedAt || !session.template.timeLimitMin || view === "complete") return;
+    const endAt = new Date(session.startedAt).getTime() + session.template.timeLimitMin * 60_000;
+    const update = () => setTimeLeft(Math.max(0, Math.ceil((endAt - Date.now()) / 1_000)));
+    update();
+    const timer = window.setInterval(update, 1_000);
+    return () => window.clearInterval(timer);
+  }, [session?.startedAt, session?.template.timeLimitMin, view]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+  useEffect(() => () => { for (const timer of saveTimers.current.values()) clearTimeout(timer); }, []);
 
-  // AI Interview state
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: "ai" | "candidate"; text: string }>>([
-    { sender: "ai", text: "Hello. Let's begin the technical assessment. Tell me about a technical project you built and the main challenge you faced." },
-    { sender: "candidate", text: "I built a Next.js and Node.js application for a logistics team. The hardest part was keeping real-time driver location updates fast without overloading the server." },
-    { sender: "ai", text: "Good. What trade-off did you make when choosing your backend architecture for those real-time updates?" }
-  ]);
-  const [aiTyping, setAiTyping] = useState(false);
-  const [aiInputValue, setAiInputValue] = useState("");
+  const modules = useMemo(() => candidateModules(session?.template.modules ?? []), [session?.template.modules]);
+  const activeModule = modules[activeModuleIndex];
+  const activeQuestion = activeModule?.questions?.[activeQuestionIndex];
 
-  const handleSendAiMessage = () => {
-    if (!aiInputValue.trim()) return;
-    const userMsg = aiInputValue.trim();
-    setChatMessages((prev) => [...prev, { sender: "candidate", text: userMsg }]);
-    setAiInputValue("");
-    setAiTyping(true);
-
-    setTimeout(() => {
-      setAiTyping(false);
-      setChatMessages((prev) => [
-        ...prev,
-        { sender: "ai", text: "That's a very practical design choice. In a production system, how would you scale this architecture to support tens of thousands of concurrent active drivers?" }
-      ]);
-    }, 1500);
-  };
-
-  // Behavioral questions states
-  const [deadlineAnswer, setDeadlineAnswer] = useState<number>(1); // Index 1 is default checked
-  const [collaborationValue, setCollaborationValue] = useState<number>(3); // 1-5 slider
-  const [priorityExplanation, setPriorityExplanation] = useState<string>("");
-  const [behavioralSaving, setBehavioralSaving] = useState(false);
-
-  const handleBehavioralChange = (updater: () => void) => {
-    updater();
-    setBehavioralSaving(true);
-    setTimeout(() => setBehavioralSaving(false), 800);
-  };
-
-  const getBehavioralCompletedCount = () => {
-    let count = 0;
-    if (deadlineAnswer !== null) count++;
-    if (collaborationValue !== null) count++;
-    if (priorityExplanation.trim().length > 0) count++;
-    return count;
-  };
-
-  // Leadership Scenario state
-  const [leadershipResponse, setLeadershipResponse] = useState<string>("");
-  const [leadershipSaving, setLeadershipSaving] = useState(false);
-
-  const handleLeadershipChange = (val: string) => {
-    setLeadershipResponse(val);
-    setLeadershipSaving(true);
-    setTimeout(() => setLeadershipSaving(false), 800);
-  };
-
-  const displayCandidateName = candidateName.trim() || candidate.name;
-
-  const handleWelcomeContinue = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!candidateName.trim()) return;
-    setCurrentStep(0);
-  };
-
-  if (currentStep === -1) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-[#f3f4fd] px-5 py-12 text-[#111827]">
-        <section className="w-full max-w-[622px] rounded-[14px] border border-[#e3e7f2] bg-white px-[72px] py-[94px] shadow-[0_10px_34px_rgba(15,23,42,0.025)] max-sm:px-6 max-sm:py-10">
-          <div className="flex items-center justify-center gap-4">
-            <img alt="Evalora" className="h-[46px] w-[46px] shrink-0 object-contain" src="/evalora-mark.png" />
-            <div>
-              <h1 className="text-[22px] font-black tracking-[-0.02em] text-[#050505] sm:text-[24px]">Welcome to interview</h1>
-              <p className="mt-2 text-[8px] font-semibold text-[#3f3f46] sm:text-[9px]">Please enter your name to continue to assessment</p>
-            </div>
-          </div>
-
-          <form className="mt-10" onSubmit={handleWelcomeContinue}>
-            <label className="text-[14px] font-bold text-[#050505]" htmlFor="candidate-name">
-              Your Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              className="mt-4 h-[44px] w-full rounded-[7px] border border-transparent bg-[#f7f7f8] px-4 text-[12px] font-medium text-neutral-900 outline-none transition placeholder:text-[#8b8b95] focus:border-[#2fb2e4] focus:bg-white focus:ring-4 focus:ring-sky-100"
-              id="candidate-name"
-              onChange={(event) => setCandidateName(event.target.value)}
-              placeholder="Enter your full name"
-              required
-              type="text"
-              value={candidateName}
-            />
-
-            <button
-              className="mt-4 flex h-[43px] w-full items-center justify-center gap-1 rounded-[6px] bg-[#2fb2e4] text-[12px] font-black text-white transition hover:bg-[#229fd0] focus:outline-none focus:ring-4 focus:ring-sky-100"
-              type="submit"
-            >
-              Continue to interview <span aria-hidden="true">→</span>
-            </button>
-          </form>
-
-          <p className="mt-12 flex items-center justify-center gap-1.5 text-center text-[11px] font-medium text-[#52525b]">
-            <Icon name="lock" size={12} />
-            Your information is kept confidential and used only for this assessment.
-          </p>
-        </section>
-
-        <section className="mt-9 grid w-full max-w-[622px] gap-6 text-[#050505] sm:grid-cols-3 sm:gap-0">
-          <WelcomeFeature icon="shield" title="Secure & Private" description="Your information is protected." />
-          <WelcomeFeature bordered icon="clock" title="30–60 Minutes" description="Complete at your own pace." />
-          <WelcomeFeature bordered icon="clipboard" title="Multiple Sections" description="AI, coding, behavioral, and communication." />
-        </section>
-      </main>
-    );
+  async function startAssessment() {
+    setStarting(true);
+    setActionError("");
+    try {
+      const started = await apiPut<CandidateAccessSession>(`/sessions/access/${encodeURIComponent(accessCode)}/start`);
+      setSession(started);
+      setView("assessment");
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError, "Unable to start the assessment."));
+    } finally {
+      setStarting(false);
+    }
   }
 
-  if (currentStep === 6) {
-    return (
-      <main className="min-h-screen bg-[#f8f9ff] flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full bg-white rounded-[24px] border border-[#d3e4fe] shadow-[0_20px_60px_rgba(15,23,42,0.06)] p-8">
-          <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
-            <Icon name="check" size={40} />
-          </span>
-          <h1 className="mt-6 text-[28px] font-black text-[#0b1c30] tracking-tight">Assessment Submitted!</h1>
-          <p className="mt-3 text-[15px] leading-relaxed text-[#464554]">
-            Thank you, your responses have been successfully submitted for review. Authorized reviewers can now generate your candidate evaluation report.
-          </p>
-          <div className="mt-8 p-4 rounded-xl bg-slate-50 border border-neutral-100 text-left text-[13px] text-[#464554] space-y-2">
-            <div className="flex justify-between"><span className="font-semibold">Candidate:</span> {displayCandidateName}</div>
-            <div className="flex justify-between"><span className="font-semibold">Role:</span> {candidate.role}</div>
-            <div className="flex justify-between"><span className="font-semibold">Session ID:</span> {sessionId}</div>
-          </div>
-          <p className="mt-6 text-[12px] font-semibold text-neutral-400">You may close this tab or window now.</p>
-        </div>
-      </main>
-    );
+  function updateAnswer(question: Question, answer: Answer) {
+    setAnswers((current) => ({ ...current, [question.id]: answer }));
+    dirtyQuestions.current.add(question.id);
+    setSaveState("saving");
+    const currentTimer = saveTimers.current.get(question.id);
+    if (currentTimer) clearTimeout(currentTimer);
+    saveTimers.current.set(question.id, setTimeout(() => void persistQuestion(question.id, answer), 700));
   }
+
+  async function persistQuestion(questionId: string, answerOverride?: Answer) {
+    const answer = answerOverride ?? answers[questionId];
+    if (!answer) return;
+    const timer = saveTimers.current.get(questionId);
+    if (timer) clearTimeout(timer);
+    saveTimers.current.delete(questionId);
+    setSaveState("saving");
+    try {
+      const followUp = followUps[questionId];
+      await apiPost<CandidateResponse>(`/responses/access/${encodeURIComponent(accessCode)}`, {
+        questionId,
+        responseText: formatResponseForSave(answer.text, followUp),
+        responseJson: answer.json,
+      });
+      dirtyQuestions.current.delete(questionId);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  }
+
+  async function flushPendingSaves() {
+    await Promise.all(Array.from(dirtyQuestions.current).map((questionId) => persistQuestion(questionId)));
+  }
+
+  async function nextQuestion() {
+    if (!activeModule || !activeQuestion) return;
+    const answer = answers[activeQuestion.id];
+    if (!answer?.text.trim()) {
+      setActionError("Add a response before continuing.");
+      return;
+    }
+    setActionError("");
+
+    if (activeModule.type === "ai_interview" && activeQuestionIndex === 0 && !followUps[activeQuestion.id]) {
+      await persistQuestion(activeQuestion.id, answer);
+      try {
+        const generated = await apiPost<{ question: string }>(`/ai/access/${encodeURIComponent(accessCode)}/follow-up`, {
+          question: activeQuestion.questionText,
+          answer: answer.text,
+        });
+        setFollowUps((current) => ({ ...current, [activeQuestion.id]: { question: generated.question, answer: "" } }));
+        setActionError("One follow-up question was added based on your response.");
+      } catch (requestError) {
+        setActionError(getErrorMessage(requestError, "Your answer was saved, but the follow-up could not load. You can continue."));
+      }
+      return;
+    }
+
+    const followUp = followUps[activeQuestion.id];
+    if (followUp && !followUp.answer.trim()) {
+      setActionError("Answer the follow-up question before continuing.");
+      return;
+    }
+    dirtyQuestions.current.add(activeQuestion.id);
+    await persistQuestion(activeQuestion.id, answer);
+
+    const questionCount = activeModule.questions?.length ?? 0;
+    if (activeQuestionIndex < questionCount - 1) {
+      setActiveQuestionIndex((index) => index + 1);
+      return;
+    }
+    if (activeModuleIndex < modules.length - 1) {
+      setActiveModuleIndex((index) => index + 1);
+      setActiveQuestionIndex(0);
+      return;
+    }
+    setView("review");
+  }
+
+  function previousQuestion() {
+    setActionError("");
+    if (activeQuestionIndex > 0) setActiveQuestionIndex((index) => index - 1);
+    else if (activeModuleIndex > 0) {
+      const previousModule = modules[activeModuleIndex - 1];
+      setActiveModuleIndex((index) => index - 1);
+      setActiveQuestionIndex(Math.max(0, (previousModule.questions?.length ?? 1) - 1));
+    }
+  }
+
+  async function submitAssessment() {
+    if (!confirmed || !allModulesComplete(modules, answers, followUps, codingComplete)) return;
+    setSubmitting(true);
+    setActionError("");
+    try {
+      await flushPendingSaves();
+      const completed = await apiPut<CandidateAccessSession>(`/sessions/access/${encodeURIComponent(accessCode)}/complete`);
+      setReportStatus(completed.reportStatus ?? "pending");
+      setView("complete");
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError, "Unable to submit. Your saved responses are still available."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (view === "loading") return <CandidateLoading />;
+  if (view === "error") return <CandidateError message={pageError} />;
+  if (!session) return null;
+  if (view === "welcome") return <CandidateWelcome error={actionError} onStart={() => void startAssessment()} session={session} starting={starting} />;
+  if (view === "complete") return <CandidateComplete candidateName={session.candidateName} reportStatus={reportStatus} />;
+
+  const completion = completionPercent(modules, answers, followUps, codingComplete);
 
   return (
-    <main className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] flex flex-col">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-40 border-b border-[#d3e4fe] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-4 px-5 sm:px-8 lg:px-12">
-          <EvaloraLogo compact href="#" />
-          <div className="hidden h-6 w-px bg-neutral-200 sm:block" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-bold text-[#0b1c30] sm:text-[18px]">{candidate.assessment}</p>
-            <p className="hidden text-[12px] font-semibold text-neutral-500 sm:block">Invite session: {sessionId}</p>
-          </div>
-
-          <div className="ml-auto flex items-center gap-3">
-            {currentStep > 0 && currentStep < 5 && (
-              <div className="hidden rounded-full bg-[#eff4ff] px-4 py-1.5 text-right text-[11px] font-bold text-[#4648d4] md:block">
-                <span className="block uppercase tracking-wider text-[#464554] text-[9px]">Progress</span>
-                Module {currentStep} of 4
-              </div>
-            )}
-            {currentStep > 0 && (
-              <div className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 text-[13px] font-black text-red-700">
-                <Icon name="clock" size={17} />
-                {formatTime(timeLeft)}
-              </div>
-            )}
-            {currentStep > 0 && currentStep < 5 && (
-              <button
-                onClick={() => setCurrentStep(5)}
-                className="hidden h-10 items-center gap-2 rounded-[8px] bg-[#4648d4] px-4 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] sm:inline-flex"
-                type="button"
-              >
-                Submit Assessment
-              </button>
-            )}
-            <button aria-label="Help" className="inline-flex size-10 items-center justify-center rounded-full border border-[#d3e4fe] bg-white text-neutral-700 transition hover:text-[#4648d4]" type="button">
-              <Icon name="question" size={20} />
-            </button>
+    <main className="min-h-screen bg-[#f5f7f9] text-neutral-950">
+      <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-[1480px] items-center gap-4 px-4 sm:px-6">
+          <EvaloraLogo compact />
+          <div className="hidden min-w-0 sm:block"><p className="truncate text-[12px] font-bold text-neutral-900">{session.template.title}</p><p className="mt-0.5 truncate text-[10px] text-neutral-500">{session.candidateName}</p></div>
+          <div className="ml-auto flex items-center gap-4">
+            <div className="hidden items-center gap-2 md:flex"><div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100"><div className="h-full rounded-full bg-[#29b7e5] transition-all" style={{ width: `${completion}%` }} /></div><span className="text-[10px] font-bold text-neutral-500">{completion}%</span></div>
+            <span className={`inline-flex min-w-[92px] items-center justify-center gap-2 rounded-[5px] border px-3 py-2 text-[11px] font-bold ${timeLeft === 0 ? "border-red-200 bg-red-50 text-red-700" : "border-neutral-200 bg-white text-neutral-700"}`}><Icon name="clock" size={14} />{timeLeft === null ? "Untimed" : formatTimer(timeLeft)}</span>
+            <span className={`hidden items-center gap-1.5 text-[10px] font-semibold sm:flex ${saveState === "error" ? "text-red-600" : saveState === "saving" ? "text-amber-600" : "text-emerald-600"}`}><span className={`size-1.5 rounded-full ${saveState === "error" ? "bg-red-500" : saveState === "saving" ? "animate-pulse bg-amber-500" : "bg-emerald-500"}`} />{saveState === "error" ? "Save failed" : saveState === "saving" ? "Saving" : "Saved"}</span>
           </div>
         </div>
       </header>
 
-      {/* Module Progress Navigation (Sticky sub-bar) */}
-      {currentStep > 0 && (
-        <nav aria-label="Assessment modules" className="sticky top-16 z-30 border-b border-[#d3e4fe]/60 bg-white/90 p-3 backdrop-blur shadow-sm">
-          <div className="mx-auto max-w-[1280px] px-2 sm:px-4 lg:px-8">
-            <div className="grid gap-2 grid-cols-5">
-              {modules.map((module) => {
-                const active = currentStep === module.stepIndex;
-                const completed = currentStep > module.stepIndex;
-                return (
-                  <button
-                    key={module.title}
-                    onClick={() => setCurrentStep(module.stepIndex)}
-                    className={`flex items-center gap-2.5 rounded-[10px] px-3 py-2 transition text-left ${
-                      active
-                        ? "bg-[#4648d4] text-white shadow-sm"
-                        : completed
-                          ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100/50 border border-emerald-100"
-                          : "bg-[#f8f9ff] text-[#464554] hover:bg-[#eff4ff]"
-                    }`}
-                  >
-                    <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full ${
-                      active
-                        ? "bg-white/20"
-                        : completed
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-[#e1e0ff] text-[#4648d4]"
-                    }`}>
-                      {completed ? <Icon name="check" size={14} /> : <Icon name={module.icon} size={15} />}
-                    </span>
-                    <span className="hidden md:inline min-w-0">
-                      <span className="block truncate text-[12px] font-black">{module.title}</span>
-                      <span className={`block text-[10px] font-semibold ${active ? "text-white/75" : "text-[#767586]"}`}>Module {module.stepIndex}</span>
-                    </span>
-                  </button>
-                );
-              })}
+      <div className="mx-auto grid max-w-[1480px] lg:grid-cols-[250px_minmax(0,1fr)]">
+        <aside className="hidden min-h-[calc(100vh-64px)] border-r border-neutral-200 bg-white p-4 lg:block">
+          <p className="px-2 pb-3 text-[10px] font-bold uppercase text-neutral-400">Assessment modules</p>
+          <nav className="space-y-1">{modules.map((module, index) => { const complete = moduleComplete(module, answers, followUps, codingComplete); const active = index === activeModuleIndex && view === "assessment"; return <button className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left transition ${active ? "bg-sky-50 text-sky-900" : "text-neutral-600 hover:bg-neutral-50"}`} disabled={index > activeModuleIndex && !moduleComplete(modules[index - 1], answers, followUps, codingComplete)} key={module.id} onClick={() => { setActiveModuleIndex(index); setActiveQuestionIndex(0); setView("assessment"); }} type="button"><span className={`flex size-7 shrink-0 items-center justify-center rounded-[5px] ${complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-sky-100 text-sky-700" : "bg-neutral-100 text-neutral-500"}`}>{complete ? <Icon name="check" size={13} /> : <Icon name={moduleIcon(module.type)} size={13} />}</span><span className="min-w-0"><span className="block truncate text-[11px] font-bold">{module.title}</span><span className="mt-0.5 block text-[9px] text-neutral-400">{module.type === "coding" ? "Sandbox task" : `${module.questions?.length ?? 0} questions`}</span></span></button>; })}</nav>
+          <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-[11px] font-bold ${view === "review" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("review")} type="button"><span className="flex size-7 items-center justify-center rounded-[5px] bg-white/10"><Icon name="report" size={13} /></span>Review and submit</button>
+        </aside>
 
-              {/* Final Submit Tab */}
-              <button
-                onClick={() => setCurrentStep(5)}
-                className={`flex items-center gap-2.5 rounded-[10px] px-3 py-2 transition text-left ${
-                  currentStep === 5
-                    ? "bg-[#4648d4] text-white shadow-sm"
-                    : "bg-[#f8f9ff] text-[#464554] hover:bg-[#eff4ff]"
-                }`}
-              >
-                <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full ${
-                  currentStep === 5 ? "bg-white/20" : "bg-neutral-200 text-neutral-600"
-                }`}>
-                  <Icon name="check" size={15} />
-                </span>
-                <span className="hidden md:inline min-w-0">
-                  <span className="block truncate text-[12px] font-black">Submit</span>
-                  <span className={`block text-[10px] font-semibold ${currentStep === 5 ? "text-white/75" : "text-[#767586]"}`}>Finish</span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </nav>
-      )}
-
-      {/* Main Panel Content Area */}
-      <section className="flex-1 mx-auto w-full max-w-[1280px] px-5 py-8 sm:px-8 lg:px-12 flex flex-col justify-center">
-
-        {/* STEP 0: Welcome / Start Panel */}
-        {currentStep === 0 && (
-          <section className="mx-auto max-w-[880px] w-full overflow-hidden rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)]">
-            <div className="h-2 bg-gradient-to-r from-[#4648d4] to-[#8b5cf6]" />
-            <div className="px-6 py-8 sm:px-10 sm:py-10">
-              <div className="text-center">
-                <p className="text-[12px] font-black uppercase tracking-[0.22em] text-[#4648d4]">Secure candidate assessment</p>
-                <h1 className="mt-3 text-[34px] font-black leading-tight tracking-[-0.03em] text-[#0b1c30] sm:text-[42px]">
-                  {candidate.assessment}
-                </h1>
-                <p className="mt-3 text-[17px] leading-7 text-[#464554]">You are joining from an invitation link. Complete each module and submit when finished.</p>
-              </div>
-
-              <div className="mt-8 grid gap-4 rounded-[16px] border border-[#d3e4fe] bg-[#f8f9ff] p-4 sm:grid-cols-2">
-                <div className="flex items-center justify-center gap-3 rounded-[10px] bg-white px-4 py-3 text-center sm:justify-start sm:text-left shadow-sm">
-                  <Icon className="text-[#4648d4]" name="user" size={20} />
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#464554]">Candidate</p>
-                    <p className="text-[15px] font-black text-[#0b1c30]">{candidate.name}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center gap-3 rounded-[10px] bg-white px-4 py-3 text-center sm:justify-start sm:text-left shadow-sm">
-                  <Icon className="text-[#4648d4]" name="clock" size={20} />
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#464554]">Estimated duration</p>
-                    <p className="text-[15px] font-black text-[#0b1c30]">{candidate.duration}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <h2 className="text-[22px] font-black text-[#0b1c30]">Assessment Modules</h2>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  {modules.map((module) => (
-                    <div className="rounded-[14px] border border-[#d3e4fe] bg-[#eff4ff] p-4 transition hover:shadow-[0_10px_32px_rgba(15,23,42,0.06)]" key={module.title}>
-                      <div className="flex items-start gap-4">
-                        <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                          <Icon name={module.icon} size={22} />
-                        </span>
-                        <div>
-                          <h3 className="text-[15px] font-black text-[#0b1c30]">{module.title}</h3>
-                          <p className="mt-1 text-[13px] leading-5 text-[#464554]">{module.subtitle}</p>
-                          <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-[#4648d4]">{module.duration}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-8 rounded-[16px] bg-[#eaf1ff] p-5">
-                <p className="flex items-center gap-2 text-[14px] font-black text-[#0b1c30]">
-                  <Icon className="text-[#4648d4]" name="question" size={18} /> Important Instructions
-                </p>
-                <ul className="mt-4 grid gap-3 text-[14px] leading-6 text-[#464554] sm:grid-cols-2">
-                  {[
-                    "Make sure you have a stable internet connection.",
-                    "Read each prompt carefully before continuing.",
-                    "Your progress is saved automatically during the assessment.",
-                    "AI feedback supports review and is not a final hiring decision.",
-                  ].map((instruction) => (
-                    <li className="flex items-start gap-2" key={instruction}>
-                      <Icon className="mt-1 shrink-0 text-[#4648d4]" name="check" size={15} />
-                      <span>{instruction}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="mx-auto mt-8 max-w-sm">
-                <Button
-                  onClick={() => setCurrentStep(1)}
-                  className="h-12 w-full rounded-[8px] !bg-[#4648d4] !text-[15px] !text-white hover:!bg-[#6063ee]"
-                  type="button"
-                >
-                  Start Assessment
-                  <Icon name="chevron" size={16} className="-rotate-90" />
-                </Button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* STEP 1: AI Interview Chat */}
-        {currentStep === 1 && (
-          <section className="mx-auto max-w-[1000px] w-full rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[#d3e4fe] px-6 py-4">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                  <Icon name="message" size={21} />
-                </span>
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Module 1 of 4</p>
-                  <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">AI Interview Chat</h2>
-                </div>
-              </div>
-              <span className="text-[13px] font-bold text-neutral-400">15 min duration</span>
-            </div>
-
-            <div className="grid gap-5 p-5 lg:grid-cols-[1fr_310px] sm:p-6">
-              <div className="flex flex-col overflow-hidden rounded-[18px] border border-[#d3e4fe] bg-[#fafbff]">
-                <div className="flex items-center gap-3 border-b border-[#d3e4fe] bg-white px-5 py-4">
-                  <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                    <Icon name="sparkle" size={20} />
-                  </span>
-                  <div>
-                    <h3 className="text-[16px] font-black text-[#0b1c30]">Technical Interviewer</h3>
-                    <p className="text-[12px] font-semibold text-[#464554]">Evalora AI model</p>
-                  </div>
-                </div>
-
-                <div className="flex-1 space-y-5 px-5 py-6 min-h-[300px] max-h-[450px] overflow-y-auto">
-                  {chatMessages.map((msg, idx) => {
-                    const isCandidate = msg.sender === "candidate";
-                    return (
-                      <div className={`flex gap-3 ${isCandidate ? "justify-end" : "justify-start"}`} key={idx}>
-                        {!isCandidate && (
-                          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                            <Icon name="sparkle" size={15} />
-                          </span>
-                        )}
-                        <div className={`max-w-[70%] rounded-2xl p-4 text-[14px] leading-6 shadow-sm ${
-                          isCandidate
-                            ? "rounded-tr-sm bg-[#4648d4] text-white"
-                            : "rounded-tl-sm border border-[#d3e4fe] border-l-[3px] border-l-[#8b5cf6] bg-white text-[#0b1c30]"
-                        }`}>
-                          {msg.text}
-                        </div>
-                        {isCandidate && (
-                          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#4648d4] text-[13px] font-black text-white">
-                            C
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {aiTyping && (
-                    <div className="flex gap-3 justify-start">
-                      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                        <Icon name="sparkle" size={15} />
-                      </span>
-                      <div className="rounded-2xl border border-[#d3e4fe] bg-white px-5 py-3 text-[#4648d4] shadow-sm font-bold">
-                        Thinking...
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-[#d3e4fe] bg-white p-4">
-                  <div className="flex min-h-[64px] items-center gap-3 rounded-[16px] border border-[#c7c4d7] bg-white px-4 shadow-sm focus-within:border-[#4648d4] focus-within:ring-4 focus-within:ring-[#e1e0ff]">
-                    <textarea
-                      value={aiInputValue}
-                      onChange={(e) => setAiInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendAiMessage();
-                        }
-                      }}
-                      className="min-h-[44px] flex-1 resize-none bg-transparent py-3 text-[14px] outline-none placeholder:text-neutral-400"
-                      placeholder="Type your detailed response..."
-                    />
-                    <button
-                      onClick={handleSendAiMessage}
-                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#4648d4] text-white transition hover:bg-[#6063ee]"
-                      type="button"
-                    >
-                      <Icon name="paperPlane" size={18} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <aside className="rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm h-fit">
-                <h3 className="flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
-                  <Icon className="text-amber-600" name="question" size={18} /> Interview Tips
-                </h3>
-                <div className="mt-4 space-y-4">
-                  {interviewTips.map((tip) => (
-                    <div className="flex gap-3" key={tip}>
-                      <Icon className="mt-0.5 shrink-0 text-[#4648d4]" name="check" size={16} />
-                      <p className="text-[13px] leading-5 text-[#464554]">{tip}</p>
-                    </div>
-                  ))}
-                </div>
-              </aside>
-            </div>
-
-            {/* Step Actions */}
-            <div className="border-t border-[#d3e4fe] p-4 bg-neutral-50 flex justify-between">
-              <button
-                onClick={() => setCurrentStep(0)}
-                className="h-11 rounded-[8px] border border-neutral-300 bg-white px-5 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
-              >
-                Back to Welcome
-              </button>
-              <button
-                onClick={() => setCurrentStep(2)}
-                className="h-11 rounded-[8px] bg-[#4648d4] px-6 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] flex items-center gap-2"
-              >
-                Next: Coding Assessment
-                <Icon name="chevron" size={16} className="-rotate-90" />
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* STEP 2: Coding Assessment */}
-        {currentStep === 2 && (
-          <CandidateCodingAssessment
-            sessionId={sessionId}
-            onBack={() => setCurrentStep(1)}
-            onContinue={() => setCurrentStep(3)}
-          />
-        )}
-
-        {/* STEP 3: Behavioral Assessment */}
-        {currentStep === 3 && (
-          <section className="mx-auto max-w-[1000px] w-full rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[#d3e4fe] px-6 py-4">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                  <Icon name="sparkle" size={21} />
-                </span>
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Module 3 of 4</p>
-                  <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">Behavioral Assessment</h2>
-                </div>
-              </div>
-              <span className="text-[13px] font-bold text-neutral-400">10 min duration</span>
-            </div>
-
-            <div className="grid gap-6 p-5 lg:grid-cols-[1fr_340px] sm:p-6">
-              <div className="space-y-6">
-
-                {/* Question 1 */}
-                <section className="rounded-[18px] border border-[#d3e4fe] border-l-[#8b5cf6] border-l-2 bg-white p-5 shadow-sm sm:p-6">
-                  <div className="mb-5 flex items-start gap-4">
-                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6063ee] text-[16px] font-black text-white">1</span>
-                    <h3 className="text-[20px] font-black leading-7 tracking-[-0.02em] text-[#0b1c30]">When a deadline suddenly changes, what do you usually do first?</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {[
-                      "Start working immediately without asking questions",
-                      "Re-prioritize tasks and discuss with the team",
-                      "Ask for clarification before making changes",
-                      "Wait until the manager gives more instructions",
-                    ].map((option, index) => (
-                      <label
-                        className={`flex min-h-[58px] cursor-pointer items-center gap-3 rounded-[10px] border px-4 transition ${
-                          deadlineAnswer === index ? "border-[#4648d4] bg-slate-50" : "border-[#c7c4d7] bg-white hover:border-[#4648d4]"
-                        }`}
-                        key={option}
-                      >
-                        <input
-                          type="radio"
-                          name="deadline-response"
-                          checked={deadlineAnswer === index}
-                          onChange={() => handleBehavioralChange(() => setDeadlineAnswer(index))}
-                          className="size-5 accent-[#4648d4]"
-                        />
-                        <span className="text-[14px] font-medium text-[#0b1c30]">{String.fromCharCode(65 + index)}. {option}</span>
-                      </label>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Question 2 */}
-                <section className="rounded-[18px] border border-[#d3e4fe] border-l-[#8b5cf6] border-l-2 bg-white p-5 shadow-sm sm:p-6">
-                  <div className="mb-5 flex items-start gap-4">
-                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6063ee] text-[16px] font-black text-white">2</span>
-                    <h3 className="text-[20px] font-black leading-7 tracking-[-0.02em] text-[#0b1c30]">I prefer working...</h3>
-                  </div>
-                  <div className="px-4 py-6">
-                    <div className="mb-6 flex justify-between text-[11px] font-bold text-[#0b1c30]">
-                      <span>1: Independently</span>
-                      <span>3: Mixed</span>
-                      <span>5: With a team</span>
-                    </div>
-                    <div className="relative flex items-center justify-between">
-                      <div className="absolute left-5 right-5 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#dce9ff]" />
-                      <div className="absolute left-5 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#4648d4]" style={{ right: `${100 - ((collaborationValue - 1) * 25)}%` }} />
-                      {[1, 2, 3, 4, 5].map((val) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => handleBehavioralChange(() => setCollaborationValue(val))}
-                          className={`relative z-10 inline-flex size-11 items-center justify-center rounded-full border-2 text-[14px] font-black shadow-sm transition ${
-                            val === collaborationValue
-                              ? "border-[#4648d4] bg-[#4648d4] text-white"
-                              : "border-[#c7c4d7] bg-white text-[#464554] hover:border-[#4648d4]"
-                          }`}
-                        >
-                          {val}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                {/* Question 3 */}
-                <section className="rounded-[18px] border border-[#d3e4fe] border-l-[#8b5cf6] border-l-2 bg-white p-5 shadow-sm sm:p-6">
-                  <div className="mb-5 flex items-start gap-4">
-                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6063ee] text-[16px] font-black text-white">3</span>
-                    <h3 className="text-[20px] font-black leading-7 tracking-[-0.02em] text-[#0b1c30]">Describe a time you had to adjust priorities because multiple tasks were urgent.</h3>
-                  </div>
-                  <textarea
-                    value={priorityExplanation}
-                    onChange={(e) => handleBehavioralChange(() => setPriorityExplanation(e.target.value))}
-                    className="min-h-[120px] w-full resize-y rounded-[10px] border border-[#c7c4d7] bg-white p-4 text-[14px] outline-none transition placeholder:text-neutral-400 focus:border-[#4648d4] focus:ring-4 focus:ring-[#e1e0ff]"
-                    placeholder="Type your response here..."
-                  />
-                </section>
-              </div>
-
-              <aside className="h-fit rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm">
-                <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#464554]">Module Progress</p>
-                <div className="mt-5 flex items-center justify-between text-[13px] font-bold text-[#0b1c30]">
-                  <span>Questions completed</span>
-                  <span className="text-[#4648d4]">{getBehavioralCompletedCount()} / 3</span>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#dce9ff]">
-                  <div
-                    className="h-full rounded-full bg-[#4648d4] transition-all duration-300"
-                    style={{ width: `${(getBehavioralCompletedCount() / 3) * 100}%` }}
-                  />
-                </div>
-                <div className="mt-6 flex items-center gap-3 rounded-[10px] bg-[#eaf1ff] p-4 text-[14px] font-medium text-[#464554]">
-                  <Icon className="text-emerald-600" name="check" size={19} />
-                  <span>
-                    {behavioralSaving ? "Saving responses..." : "Responses saved automatically"}
-                  </span>
-                </div>
-              </aside>
-            </div>
-
-            {/* Step Actions */}
-            <div className="border-t border-[#d3e4fe] p-4 bg-neutral-50 flex justify-between">
-              <button
-                onClick={() => setCurrentStep(2)}
-                className="h-11 rounded-[8px] border border-neutral-300 bg-white px-5 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
-              >
-                Previous Module
-              </button>
-              <button
-                onClick={() => setCurrentStep(4)}
-                className="h-11 rounded-[8px] bg-[#4648d4] px-6 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] flex items-center gap-2"
-              >
-                Next: Leadership Scenario
-                <Icon name="chevron" size={16} className="-rotate-90" />
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* STEP 4: Leadership Scenario */}
-        {currentStep === 4 && (
-          <section className="mx-auto max-w-[1000px] w-full rounded-[24px] border border-[#d3e4fe] bg-white shadow-[0_18px_55px_rgba(15,23,42,0.05)] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[#d3e4fe] px-6 py-4">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#e1e0ff] text-[#4648d4]">
-                  <Icon name="users" size={21} />
-                </span>
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Module 4 of 4</p>
-                  <h2 className="text-[20px] font-black tracking-[-0.02em] text-[#0b1c30]">Leadership Scenario</h2>
-                </div>
-              </div>
-              <span className="text-[13px] font-bold text-neutral-400">10 min duration</span>
-            </div>
-
-            <div className="grid gap-6 p-5 lg:grid-cols-[1fr_330px] sm:p-6">
-              <section className="rounded-[18px] border border-[#d3e4fe] bg-[#f8f9ff] p-6">
-                <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#4648d4]">Scenario</p>
-                <h3 className="mt-3 text-[22px] font-black tracking-[-0.02em] text-[#0b1c30]">Two teams disagree on release priority</h3>
-                <p className="mt-4 text-[15px] leading-7 text-[#464554]">
-                  A release is at risk because product and engineering disagree on what should ship first. The candidate should explain how they would align the group, protect customer impact, and communicate next steps.
-                  Answer based on your real experience.
-                </p>
-                <textarea
-                  value={leadershipResponse}
-                  onChange={(e) => handleLeadershipChange(e.target.value)}
-                  className="mt-6 min-h-[200px] w-full resize-y rounded-[12px] border border-[#c7c4d7] bg-white p-4 text-[14px] outline-none transition placeholder:text-neutral-400 focus:border-[#4648d4] focus:ring-4 focus:ring-[#e1e0ff]"
-                  placeholder="Write your leadership response here..."
-                />
-                <div className="mt-2 text-right text-[11px] text-[#464554]">
-                  {leadershipSaving ? "Saving progress..." : "Progress saved automatically"}
-                </div>
-              </section>
-
-              <aside className="space-y-4">
-                <div className="rounded-[18px] border border-[#d3e4fe] bg-white p-5 shadow-sm">
-                  <p className="text-[15px] font-black text-[#0b1c30]">What reviewers look for</p>
-                  <ul className="mt-4 space-y-3 text-[13px] text-[#464554]">
-                    {[
-                      "Clarifies shared goal",
-                      "Communicates trade-offs",
-                      "Escalates calmly",
-                      "Protects customer impact"
-                    ].map((item) => (
-                      <li className="flex items-center gap-2" key={item}>
-                        <Icon className="text-[#4648d4]" name="check" size={15} /> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-5 text-[13px] leading-5 text-amber-900">
-                  <p className="font-black">Before continuing</p>
-                  <p className="mt-2">Use work-safe examples only. Do not share private company, customer, or salary information.</p>
-                </div>
-              </aside>
-            </div>
-
-            {/* Step Actions */}
-            <div className="border-t border-[#d3e4fe] p-4 bg-neutral-50 flex justify-between">
-              <button
-                onClick={() => setCurrentStep(3)}
-                className="h-11 rounded-[8px] border border-neutral-300 bg-white px-5 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
-              >
-                Previous Module
-              </button>
-              <button
-                onClick={() => setCurrentStep(5)}
-                className="h-11 rounded-[8px] bg-[#4648d4] px-6 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#6063ee] flex items-center gap-2"
-              >
-                Review & Submit
-                <Icon name="chevron" size={16} className="-rotate-90" />
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* STEP 5: Final Submission Panel */}
-        {currentStep === 5 && (
-          <section className="mx-auto max-w-[880px] w-full rounded-[24px] border border-[#d3e4fe] bg-white p-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-10">
-            <span className="mx-auto inline-flex size-20 items-center justify-center rounded-full bg-[#dce9ff] text-emerald-600 shadow-[0_0_45px_rgba(16,185,129,0.22)]">
-              <Icon name="check" size={42} />
-            </span>
-            <h2 className="mt-5 text-[30px] font-black tracking-[-0.03em] text-[#0b1c30]">Ready to submit?</h2>
-            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-6 text-[#464554]">
-              Review your answers before final submission. After submission, your access link will close and authorized reviewers can generate the candidate report.
-            </p>
-
-            <div className="mx-auto mt-8 grid max-w-2xl gap-4 rounded-[18px] border border-[#d3e4fe] bg-[#f8f9ff] p-5 text-left sm:grid-cols-2">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Candidate</p>
-                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
-                  <Icon className="text-[#767586]" name="user" size={17} /> {candidate.name}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Assessment</p>
-                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
-                  <Icon className="text-[#767586]" name="clipboard" size={17} /> {candidate.assessment}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Completed modules</p>
-                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
-                  <Icon className="text-[#767586]" name="check" size={17} /> 4 / 4
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#464554]">Session</p>
-                <p className="mt-1 flex items-center gap-2 text-[15px] font-black text-[#0b1c30]">
-                  <Icon className="text-[#767586]" name="clock" size={17} /> {sessionId}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 rounded-[14px] bg-[#eaf1ff] p-4 text-[13px] leading-6 text-[#464554]">
-              Your responses will be reviewed by a human interviewer. AI feedback supports review and is not the final hiring decision.
-            </div>
-
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <button
-                onClick={() => setCurrentStep(4)}
-                className="h-12 rounded-[8px] border border-neutral-300 bg-white px-6 text-[14px] font-bold text-neutral-700 transition hover:bg-neutral-50"
-              >
-                Back to Leadership
-              </button>
-              <button
-                onClick={() => setCurrentStep(6)}
-                className="h-12 rounded-[8px] bg-[#4648d4] px-8 text-[14px] font-bold text-white hover:bg-[#6063ee] transition flex items-center gap-2"
-                type="button"
-              >
-                Submit assessment
-                <Icon name="check" size={17} />
-              </button>
-            </div>
-            <p className="mt-5 text-[11px] font-semibold text-[#767586]">No dashboard account is required for candidates. You may close this page after submission.</p>
-          </section>
-        )}
-
-      </section>
+        <section className="min-w-0 p-4 sm:p-6 lg:p-8">
+          {view === "review" ? (
+            <ReviewPanel answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} submitting={submitting} />
+          ) : activeModule?.type === "coding" ? (
+            <CandidateCodingAssessment accessCode={accessCode} onBack={previousQuestion} onContinue={() => { setCodingComplete(true); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
+          ) : activeModule && activeQuestion ? (
+            <QuestionPanel answer={answers[activeQuestion.id]} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={activeQuestionIndex} />
+          ) : <CandidateError message="This assessment module has no candidate questions." />}
+        </section>
+      </div>
     </main>
   );
 }
 
-function WelcomeFeature({ bordered = false, description, icon, title }: { bordered?: boolean; description: string; icon: IconName; title: string }) {
-  return (
-    <div className={`flex items-start gap-4 ${bordered ? "sm:border-l sm:border-[#cfd3df] sm:pl-6" : ""}`}>
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#d9d4ff] text-[#5d4dff]">
-        <Icon name={icon} size={18} />
-      </span>
-      <div>
-        <h2 className="text-[11px] font-black text-[#050505]">{title}</h2>
-        <p className="mt-3 max-w-[150px] text-[11px] font-medium leading-4 text-[#050505]">{description}</p>
-      </div>
-    </div>
-  );
+function CandidateWelcome({ session, onStart, starting, error }: { session: CandidateAccessSession; onStart: () => void; starting: boolean; error: string }) {
+  const modules = candidateModules(session.template.modules);
+  return <main className="min-h-screen bg-[#f4f8f9] text-neutral-950"><header className="mx-auto flex h-20 max-w-[1180px] items-center px-5"><EvaloraLogo href="/" /></header><section className="mx-auto grid max-w-[1180px] gap-10 px-5 pb-16 pt-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:pt-16"><div><p className="text-[11px] font-bold uppercase text-[#087aa4]">Private assessment invitation</p><h1 className="mt-4 max-w-[720px] text-[38px] font-black leading-[1.08] text-[#131923] sm:text-[52px]">Welcome, {firstName(session.candidateName)}.</h1><p className="mt-5 max-w-[620px] text-[16px] leading-7 text-neutral-600">You have been invited to complete the <strong className="text-neutral-900">{session.template.title}</strong> for the {session.template.roleType} role.</p><div className="mt-8 flex flex-wrap gap-3"><InfoPill icon="clock" text={`${session.template.timeLimitMin ?? "Flexible"} minutes`} /><InfoPill icon="clipboard" text={`${modules.length} modules`} /><InfoPill icon="shield" text="Progress autosaves" /></div>{error ? <p className="mt-5 rounded-[6px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p> : null}<button className="button-primary mt-8 h-12 px-6" disabled={starting} onClick={onStart} type="button">{starting ? "Starting assessment" : "Start assessment"}<Icon className="-rotate-90" name="chevron" size={14} /></button><p className="mt-4 text-[11px] leading-5 text-neutral-500">By starting, you confirm that these responses are your own work. A human interviewer will review the evidence.</p></div><div className="border border-neutral-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]"><div className="border-b border-neutral-200 px-5 py-4"><p className="text-[12px] font-bold text-neutral-900">Assessment outline</p></div><div className="divide-y divide-neutral-100">{modules.map((module, index) => <div className="flex items-center gap-4 px-5 py-4" key={module.id}><span className="flex size-9 items-center justify-center rounded-[7px] bg-sky-50 text-sky-700"><Icon name={moduleIcon(module.type)} size={17} /></span><div className="min-w-0"><p className="text-[12px] font-bold text-neutral-900">{index + 1}. {module.title}</p><p className="mt-1 line-clamp-1 text-[11px] text-neutral-500">{module.description}</p></div></div>)}</div></div></section></main>;
 }
+
+function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string }) {
+  const options = questionOptions(question.options);
+  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[22px] font-black leading-8 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Back</button><button className="button-primary" onClick={onNext} type="button">Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></button></div></article></div>;
+}
+
+function ReviewPanel({ modules, answers, followUps, codingComplete, confirmed, onConfirm, onBack, onSubmit, submitting, error }: { modules: AssessmentModule[]; answers: Record<string, Answer>; followUps: Record<string, FollowUp>; codingComplete: boolean; confirmed: boolean; onConfirm: (value: boolean) => void; onBack: () => void; onSubmit: () => void; submitting: boolean; error: string }) {
+  const complete = allModulesComplete(modules, answers, followUps, codingComplete);
+  return <div className="mx-auto max-w-[860px]"><p className="text-[10px] font-bold uppercase text-[#087aa4]">Final review</p><h1 className="mt-2 text-[30px] font-black text-neutral-950">Ready to submit?</h1><p className="mt-2 text-sm leading-6 text-neutral-600">Check each module before closing access to this assessment.</p><div className="mt-6 border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]"><div className="divide-y divide-neutral-100">{modules.map((module) => { const done = moduleComplete(module, answers, followUps, codingComplete); return <div className="flex items-center gap-4 px-5 py-4 sm:px-6" key={module.id}><span className={`flex size-9 items-center justify-center rounded-[7px] ${done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}><Icon name={done ? "check" : moduleIcon(module.type)} size={16} /></span><div className="min-w-0 flex-1"><p className="text-[12px] font-bold text-neutral-900">{module.title}</p><p className="mt-0.5 text-[10px] text-neutral-500">{done ? "Complete" : "Response required"}</p></div></div>; })}</div><div className="border-t border-neutral-200 bg-neutral-50 p-5 sm:p-6"><label className="flex cursor-pointer items-start gap-3"><input checked={confirmed} className="mt-0.5 size-4 accent-[#159ac8]" onChange={(event) => onConfirm(event.target.checked)} type="checkbox" /><span className="text-[11px] leading-5 text-neutral-600">I confirm that I reviewed my responses and understand that submitting will close this private assessment link.</span></label>{error ? <p className="mt-3 text-[11px] text-red-700">{error}</p> : null}<div className="mt-5 flex justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Return to assessment</button><button className="button-primary" disabled={!complete || !confirmed || submitting} onClick={onSubmit} type="button">{submitting ? "Submitting" : "Submit assessment"}</button></div></div></div><p className="mt-4 text-center text-[10px] leading-5 text-neutral-500">AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions.</p></div>;
+}
+
+function CandidateComplete({ candidateName, reportStatus }: { candidateName: string; reportStatus: "generated" | "pending" }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[620px] border border-neutral-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.09)] sm:p-12"><span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Icon name="check" size={23} /></span><h1 className="mt-5 text-[30px] font-black text-neutral-950">Assessment submitted</h1><p className="mt-3 text-sm leading-6 text-neutral-600">Thank you, {firstName(candidateName)}. Your saved responses and coding evidence are now available to the authorized review team.</p><div className="mt-6 rounded-[7px] bg-neutral-50 px-4 py-3 text-[11px] leading-5 text-neutral-600">{reportStatus === "generated" ? "The reviewer report is ready inside the private workspace." : "Your submission is complete. Report processing will continue for the review team."}</div><p className="mt-7 text-[11px] text-neutral-500">You may close this window.</p></div></main>; }
+function CandidateLoading() { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9]"><div className="text-center"><span className="mx-auto block size-9 animate-spin rounded-full border-[3px] border-neutral-200 border-t-[#29b7e5]" /><p className="mt-4 text-sm font-semibold text-neutral-600">Validating private invitation</p></div></main>; }
+function CandidateError({ message }: { message: string }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[560px] border border-neutral-200 bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.08)]"><EvaloraLogo className="justify-center" href="/" /><span className="mx-auto mt-8 flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600"><Icon name="lock" size={20} /></span><h1 className="mt-4 text-xl font-black text-neutral-950">Assessment unavailable</h1><p className="mt-3 text-sm leading-6 text-neutral-600">{message}</p><Link className="button-secondary mt-6" href="/">Return to Evalora</Link></div></main>; }
+
+function candidateModules(modules: AssessmentModule[]): AssessmentModule[] { return [...modules].sort((a, b) => a.orderIndex - b.orderIndex).map((module) => module.type === "coding" ? { ...module, questions: [] } : { ...module, questions: (module.questions ?? []).slice(0, 2) }).filter((module) => module.type === "coding" || (module.questions?.length ?? 0) > 0); }
+function moduleComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { if (module.type === "coding") return codingComplete; const questions = module.questions ?? []; return questions.length > 0 && questions.every((question, index) => Boolean(answers[question.id]?.text.trim()) && (module.type !== "ai_interview" || index !== 0 || Boolean(followUps[question.id]?.answer.trim()))); }
+function allModulesComplete(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { return modules.length > 0 && modules.every((module) => moduleComplete(module, answers, followUps, codingComplete)); }
+function completionPercent(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { return modules.length ? Math.round((modules.filter((module) => moduleComplete(module, answers, followUps, codingComplete)).length / modules.length) * 100) : 0; }
+function moduleIcon(type: AssessmentModule["type"]): IconName { return type === "coding" || type === "debugging" ? "code" : type === "leadership" ? "crown" : type === "communication" ? "paperPlane" : type === "behavioral" || type === "work_style" ? "users" : type === "problem_solving" ? "sparkle" : "message"; }
+function questionOptions(value: JsonValue | undefined): string[] { if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string"); if (value && typeof value === "object") { const record = value as Record<string, JsonValue>; for (const key of ["options", "choices", "answers"]) { const nested = record[key]; if (Array.isArray(nested)) return nested.map((item) => typeof item === "string" ? item : typeof item === "object" && item ? String((item as Record<string, JsonValue>).label ?? (item as Record<string, JsonValue>).value ?? "") : "").filter(Boolean); } } return []; }
+function ChoiceInput({ options, value, onChange }: { options: string[]; value: string; onChange: (value: string) => void }) { return <div className="grid gap-2">{options.map((option) => <label className={`flex cursor-pointer items-center gap-3 rounded-[7px] border px-4 py-3 text-[12px] font-semibold transition ${value === option ? "border-sky-300 bg-sky-50 text-sky-950" : "border-neutral-200 hover:bg-neutral-50"}`} key={option}><input checked={value === option} className="size-4 accent-[#159ac8]" name="choice" onChange={() => onChange(option)} type="radio" />{option}</label>)}</div>; }
+function ScaleInput({ value, onChange }: { value?: number; onChange: (value: number) => void }) { return <div><div className="grid grid-cols-5 gap-2">{[1, 2, 3, 4, 5].map((item) => <button className={`h-12 rounded-[6px] border text-sm font-black transition ${value === item ? "border-sky-400 bg-sky-500 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`} key={item} onClick={() => onChange(item)} type="button">{item}</button>)}</div><div className="mt-2 flex justify-between text-[10px] text-neutral-400"><span>Strongly disagree</span><span>Strongly agree</span></div></div>; }
+function numericAnswer(answer?: Answer) { const value = Number(answer?.json && typeof answer.json === "object" && !Array.isArray(answer.json) ? (answer.json as Record<string, JsonValue>).value : answer?.text); return Number.isFinite(value) ? value : undefined; }
+function formatResponseForSave(answer: string, followUp?: FollowUp) { return followUp ? `${answer.trim()}\n\nAI follow-up: ${followUp.question.trim()}\nFollow-up response: ${followUp.answer.trim()}` : answer; }
+function parseSavedResponse(value: string): { answer: string; followUp?: FollowUp } { const marker = "\n\nAI follow-up: "; const index = value.indexOf(marker); if (index < 0) return { answer: value }; const answer = value.slice(0, index); const remaining = value.slice(index + marker.length); const responseMarker = "\nFollow-up response: "; const responseIndex = remaining.indexOf(responseMarker); return responseIndex < 0 ? { answer } : { answer, followUp: { question: remaining.slice(0, responseIndex), answer: remaining.slice(responseIndex + responseMarker.length) } }; }
+function InfoPill({ icon, text }: { icon: IconName; text: string }) { return <span className="inline-flex items-center gap-2 rounded-[6px] border border-neutral-200 bg-white px-3 py-2 text-[11px] font-semibold text-neutral-700"><Icon name={icon} size={14} />{text}</span>; }
+function firstName(name: string) { return name.trim().split(/\s+/)[0] || "Candidate"; }
+function formatTimer(seconds: number) { const minutes = Math.floor(seconds / 60); return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }

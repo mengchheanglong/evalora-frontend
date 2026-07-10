@@ -6,151 +6,203 @@ import { howItWorks, landingFeatures, landingStats, testimonials } from "@/lib/m
 
 const customerLogos = ["KiriromTech", "FutureSoft", "TechVision", "NEXORA", "BrightHire"];
 
+const footerLinks = {
+  Product: [
+    { label: "Features", href: "#features" },
+    { label: "Assessment", href: "#workflow" },
+    { label: "AI Interview", href: "#features" },
+    { label: "Coding Test", href: "#features" },
+    { label: "Reports", href: "#features" },
+  ],
+  Company: [
+    { label: "About Us", href: "#" },
+    { label: "Careers", href: "#" },
+    { label: "Blog", href: "#" },
+    { label: "Contact Us", href: "#" },
+    { label: "Partners", href: "#" },
+  ],
+  Resources: [
+    { label: "Help Center", href: "#" },
+    { label: "Guides", href: "#" },
+    { label: "Templates", href: "#" },
+    { label: "API Docs", href: "#" },
+    { label: "Security", href: "#" },
+  ],
+  Legal: [
+    { label: "Privacy Policy", href: "#" },
+    { label: "Terms of Service", href: "#" },
+    { label: "Cookie Policy", href: "#" },
+    { label: "GDPR", href: "#" },
+    { label: "Security", href: "#" },
+  ],
+};
+
 export default function HomePage() {
   return (
-    <main className="bg-white text-neutral-950">
-      <header className="mx-auto flex max-w-[1220px] items-center justify-between gap-6 px-5 pt-[47px] pb-[66px] sm:px-0">
+    <main className="bg-white text-neutral-950 font-sans">
+      {/* HEADER */}
+      <header className="mx-auto flex max-w-[1220px] items-center justify-between gap-6 px-5 pt-[36px] pb-[56px] sm:px-0">
         <Link className="inline-flex items-center gap-3 sm:hidden" href="/">
-          <LogoMark className="size-11" />
-          <span className="text-2xl font-bold text-neutral-950">Evalora</span>
+          <LogoMark className="size-10" />
+          <span className="text-xl font-bold text-neutral-950">Evalora</span>
         </Link>
         <span className="hidden sm:inline-flex">
-          <EvaloraLogo href="/" />
+          <EvaloraLogo href="/" size="auth" />
         </span>
-        <nav className="hidden items-center gap-[37px] text-[13px] font-bold text-neutral-700 md:flex">
-          <a href="#features">Features</a>
-          <a href="#workflow">How it works</a>
-          <a href="#teams">For Teams</a>
-          <a href="#resources">Resources</a>
+        <nav className="hidden items-center gap-[37px] text-[13px] font-medium text-neutral-600 md:flex">
+          <a className="hover:text-neutral-950 transition-colors" href="#features">Features</a>
+          <a className="hover:text-neutral-950 transition-colors" href="#workflow">How it works</a>
+          <a className="hover:text-neutral-950 transition-colors" href="#teams">For Teams</a>
+          <a className="hover:text-neutral-950 transition-colors" href="#resources">Resources</a>
         </nav>
         <div className="flex items-center gap-3">
           <span className="hidden sm:inline-flex">
-            <ButtonLink className="h-[34px] min-w-[130px] px-5 py-0 text-[13px]" href="/login" variant="secondary">
+            <ButtonLink className="h-[38px] min-w-[100px] px-5 py-0 text-[13px] font-bold" href="/login" variant="secondary">
               Log in
             </ButtonLink>
           </span>
-          <ButtonLink className="h-[34px] min-w-[130px] px-5 py-0 text-[13px]" href="/register">
+          <ButtonLink className="h-[38px] min-w-[120px] px-5 py-0 text-[13px] font-bold" href="/register">
             Get Started
           </ButtonLink>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1220px] items-start gap-[88px] px-5 sm:px-0 lg:grid-cols-[630px_1fr]">
+      {/* HERO SECTION */}
+      <section className="mx-auto grid max-w-[1220px] items-center gap-[88px] px-5 sm:px-0 lg:grid-cols-[580px_1fr] pb-[60px]">
         <div>
-          <h1 className="max-w-[620px] text-5xl font-black leading-[1.08] tracking-normal text-neutral-950 sm:text-[64px]">
+          <h1 className="max-w-[580px] text-5xl font-black leading-[1.08] tracking-[-0.02em] text-neutral-950 sm:text-[64px]">
             Smarter Hiring
-            <span className="block">
-              <span className="text-[#38c6e9]">Better</span> Decisions
+            <span className="block mt-1">
+              <span className="text-primary">Better</span> Decisions
             </span>
           </h1>
-          <p className="mt-[58px] max-w-[660px] text-[24px] leading-[29px] text-neutral-800">
-            Evalora uses AI to evaluate candidates across technical skills, behavior, leadership, and communication skills, helping you find the right talent faster and with confidence.
+          <p className="mt-[24px] max-w-[540px] text-[18px] leading-[26px] text-neutral-600">
+            Evalora uses AI to evaluate candidates across technical skills, behavior, leadership, and communication skills helping you find the right talent faster and with confidence.
           </p>
-          <div className="mt-[39px] flex flex-wrap gap-[13px]">
-            <ButtonLink className="h-[34px] min-w-[129px] px-5 py-0 text-[13px]" href="/register">Get Started</ButtonLink>
-            <ButtonLink className="h-[34px] min-w-[126px] px-5 py-0 text-[13px]" href="/assessment/demo-session" variant="secondary">
+          <div className="mt-[32px] flex flex-wrap gap-[13px]">
+            <ButtonLink className="h-[46px] min-w-[130px] px-6 py-0 text-[14px] font-bold rounded-lg" href="/register">
+              Get Started
+            </ButtonLink>
+            <ButtonLink className="h-[46px] min-w-[130px] px-6 py-0 text-[14px] font-bold rounded-lg" href="/assessment/demo-session" variant="secondary">
               Watch Demo
             </ButtonLink>
           </div>
-          <div className="mt-[43px] flex flex-wrap gap-x-[55px] gap-y-4 text-[13px] font-semibold text-neutral-700">
+          <div className="mt-[36px] flex flex-wrap gap-x-[36px] gap-y-4 text-[13px] font-semibold text-neutral-600">
             {["AI-Powered Evaluation", "Save Time & Reduce Bias", "Data-Driven Insights"].map((item) => (
               <span className="inline-flex items-center gap-2" key={item}>
-                <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#2fb2e4] text-white">
-                  <Icon name="check" size={14} />
+                <span className="inline-flex size-[20px] items-center justify-center rounded-full bg-primary text-white shrink-0">
+                  <Icon name="check" size={12} />
                 </span>
-                {item}
+                <span>{item}</span>
               </span>
             ))}
           </div>
         </div>
 
-        <HeroDashboardPreview />
+        <div className="flex justify-end">
+          <HeroDashboardPreview />
+        </div>
       </section>
 
-      <section className="mx-auto max-w-[890px] px-5 pt-[68px] text-center sm:px-0">
-        <p className="text-[13px] font-semibold text-neutral-400">Trusted by innovative teams around the world</p>
-        <div className="mt-[58px] flex flex-wrap items-center justify-center gap-x-[73px] gap-y-5 text-[13px] font-bold text-neutral-400">
+      {/* TRUSTED BY LOGOS */}
+      <section className="mx-auto max-w-[890px] px-5 pt-[40px] pb-[80px] text-center sm:px-0">
+        <p className="text-[13px] font-bold text-neutral-400 uppercase tracking-wider">Trusted by innovative teams around the world</p>
+        <div className="mt-[32px] flex flex-wrap items-center justify-center gap-x-[73px] gap-y-5 text-[14px] font-bold text-neutral-400">
           {customerLogos.map((logo) => (
-            <span key={logo}>{logo}</span>
+            <span className="opacity-70 hover:opacity-100 transition-opacity" key={logo}>{logo}</span>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1220px] px-5 pt-[92px] sm:px-0" id="features">
+      {/* FEATURES SECTION */}
+      <section className="mx-auto max-w-[1220px] px-5 pt-[80px] pb-[80px] sm:px-0" id="features">
         <div className="text-center">
-          <h2 className="text-[36px] font-black leading-[43px] tracking-normal text-neutral-950">Everything you need to evaluate with confidence</h2>
-          <p className="mt-[22px] text-[23px] leading-7 text-neutral-700">Comprehensive assessment tools powered by AI to help you make better hiring decisions.</p>
+          <h2 className="text-[36px] font-bold leading-[43px] tracking-tight text-neutral-950">Everything you need to evaluate with confidence</h2>
+          <p className="mt-[16px] text-[18px] leading-[26px] text-neutral-500 max-w-[700px] mx-auto">Comprehensive assessment tools powered by AI to help you make better hiring decisions.</p>
         </div>
-        <div className="mt-[42px] grid gap-[24px] sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-[48px] grid gap-[24px] sm:grid-cols-2 lg:grid-cols-5">
           {landingFeatures.map((feature) => (
-            <article className="soft-card flex min-h-[306px] flex-col items-center px-[24px] py-[41px] text-center" key={feature.title}>
-              <span className="inline-flex size-[58px] items-center justify-center rounded-[8px] bg-sky-200 text-blue-600">
-                <Icon name={feature.icon} size={30} />
+            <article className="soft-card flex min-h-[310px] flex-col items-center px-[20px] py-[36px] text-center rounded-[12px] border border-neutral-100" key={feature.title}>
+              <span className="inline-flex size-[56px] items-center justify-center rounded-[10px] bg-primary-50 text-primary-700 shrink-0">
+                <Icon name={feature.icon} size={28} />
               </span>
-              <h3 className="mt-[18px] text-[17px] font-black leading-5">{feature.title}</h3>
-              <p className="mt-[17px] text-[11px] leading-[13px] text-neutral-700">{feature.description}</p>
-              <a className="mt-auto pt-6 text-[11px] font-bold text-blue-600" href="#workflow">
-                Learn more -&gt;
+              <h3 className="mt-[20px] text-[15px] font-bold leading-5 text-neutral-900">{feature.title}</h3>
+              <p className="mt-[12px] text-[12px] leading-[17px] text-neutral-500">{feature.description}</p>
+              <a className="mt-auto pt-6 text-[12px] font-bold text-primary-700 hover:underline" href="#workflow">
+                Learn more &rarr;
               </a>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1220px] px-5 pt-[110px] sm:px-0" id="workflow">
+      {/* WORKFLOW SECTION */}
+      <section className="mx-auto max-w-[1220px] px-5 pt-[80px] pb-[80px] sm:px-0" id="workflow">
         <div className="text-center">
-          <h2 className="text-[36px] font-black leading-[43px] text-neutral-950">How Evalora works</h2>
-          <p className="mt-[23px] text-[23px] leading-7 text-neutral-700">Simple steps to evaluate candidates smarter and faster.</p>
+          <h2 className="text-[36px] font-bold leading-[43px] text-neutral-950 tracking-tight">How Evalora works</h2>
+          <p className="mt-[16px] text-[18px] leading-[26px] text-neutral-500 max-w-[600px] mx-auto">Simple steps to evaluate candidates smarter and faster.</p>
         </div>
-        <div className="mt-[58px] grid gap-10 md:grid-cols-4">
-          {howItWorks.map((step) => (
-            <article className="text-center" key={step.title}>
-              <span className={`mx-auto inline-flex size-[74px] items-center justify-center rounded-full ${step.tint}`}>
-                <Icon name={step.icon} size={34} />
-              </span>
-              <h3 className="mt-[28px] text-[17px] font-black">{step.title}</h3>
-              <p className="mx-auto mt-[18px] max-w-[180px] text-[11px] leading-[13px] text-neutral-700">{step.description}</p>
-            </article>
-          ))}
+        <div className="mt-[56px] grid gap-10 sm:grid-cols-2 md:grid-cols-4">
+          {howItWorks.map((step) => {
+            let tintClass: string = step.tint;
+            if (step.title.includes("Create")) tintClass = "bg-primary-50 text-primary-700";
+            if (step.title.includes("Invite")) tintClass = "bg-emerald-50 text-emerald-600";
+            if (step.title.includes("Evaluates")) tintClass = "bg-fuchsia-50 text-fuchsia-600";
+            if (step.title.includes("Review")) tintClass = "bg-amber-50 text-amber-600";
+
+            return (
+              <article className="text-center" key={step.title}>
+                <span className={`mx-auto inline-flex size-[72px] items-center justify-center rounded-full shadow-sm ${tintClass} shrink-0`}>
+                  <Icon name={step.icon} size={32} />
+                </span>
+                <h3 className="mt-[24px] text-[16px] font-bold text-neutral-900">{step.title}</h3>
+                <p className="mx-auto mt-[12px] max-w-[200px] text-[12px] leading-[18px] text-neutral-500">{step.description}</p>
+              </article>
+            );
+          })}
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1220px] px-5 pt-[104px] sm:px-0" id="teams">
-        <div className="grid min-h-[220px] gap-6 rounded-[8px] bg-[#05084f] px-8 py-[42px] text-white sm:grid-cols-2 lg:grid-cols-4">
+      {/* STATS SECTION */}
+      <section className="mx-auto max-w-[1220px] px-5 pt-[40px] pb-[80px] sm:px-0" id="teams">
+        <div className="grid min-h-[220px] gap-8 rounded-[16px] bg-navy px-8 py-[48px] text-white sm:grid-cols-2 lg:grid-cols-4 shadow-xl">
           {landingStats.map((stat) => (
             <article className="text-center" key={stat.label}>
-              <Icon className="mx-auto text-fuchsia-500" name={stat.icon} size={42} />
-              <p className="mt-4 text-2xl font-black">{stat.value}</p>
-              <p className="mt-3 text-sm font-semibold text-slate-200">{stat.label}</p>
-              <p className="text-xs text-slate-300">{stat.detail}</p>
+              <Icon className="mx-auto text-fuchsia-400" name={stat.icon} size={36} />
+              <p className="mt-4 text-[32px] font-extrabold leading-none">{stat.value}</p>
+              <p className="mt-3 text-[13px] font-bold text-slate-300">{stat.label}</p>
+              <p className="text-[11px] text-slate-400 mt-1">{stat.detail}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1220px] px-5 pt-[66px] sm:px-0" id="resources">
+      {/* TESTIMONIALS SECTION */}
+      <section className="mx-auto max-w-[1220px] px-5 pt-[60px] pb-[80px] sm:px-0" id="resources">
         <div className="text-center">
-          <h2 className="text-[36px] font-black leading-[43px] text-neutral-950">Loved by hiring teams</h2>
-          <p className="mt-[24px] text-[23px] leading-7 text-neutral-700">See what our customers have to say about Evalora.</p>
+          <h2 className="text-[36px] font-bold leading-[43px] text-neutral-950 tracking-tight">Loved by hiring teams</h2>
+          <p className="mt-[16px] text-[18px] leading-[26px] text-neutral-500 max-w-[600px] mx-auto">See what our customers have to say about Evalora.</p>
         </div>
-        <div className="mt-[40px] grid gap-[33px] md:grid-cols-3">
+        <div className="mt-[48px] grid gap-[33px] md:grid-cols-3">
           {testimonials.map((testimonial) => (
-            <article className="soft-card min-h-[260px] p-[36px]" key={testimonial.name}>
-              <p className="text-[58px] font-black leading-none text-[#05084f]">"</p>
-              <p className="mt-[8px] min-h-[84px] text-[14px] leading-[16px] text-neutral-700">{testimonial.quote}</p>
+            <article className="soft-card flex min-h-[260px] flex-col justify-between p-[32px] rounded-[12px] border border-neutral-100" key={testimonial.name}>
+              <div>
+                <p className="text-[56px] font-extrabold leading-none text-primary-700 select-none">“</p>
+                <p className="mt-1 text-[14px] leading-[22px] text-neutral-600">{testimonial.quote}</p>
+              </div>
               <div className="mt-[26px] flex items-end justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <span className="inline-flex size-14 items-center justify-center rounded-full border-4 border-neutral-950">
-                    <Icon name="user" size={28} />
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex size-[48px] items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 shrink-0">
+                    <Icon name="user" size={24} />
                   </span>
                   <div>
-                    <p className="font-black">{testimonial.name}</p>
-                    <p className="text-sm font-semibold text-neutral-700">{testimonial.role}</p>
+                    <p className="font-bold text-[14px] text-neutral-950">{testimonial.name}</p>
+                    <p className="text-[12px] text-neutral-500 mt-[2px]">{testimonial.role}</p>
                   </div>
                 </div>
-                <span className="flex text-amber-400" aria-label="Five star rating">
+                <span className="flex gap-[2px] text-amber-400" aria-label="Five star rating">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <Icon fill="currentColor" key={star} name="star" size={16} />
+                    <Icon fill="currentColor" key={star} name="star" size={14} />
                   ))}
                 </span>
               </div>
@@ -159,23 +211,83 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1220px] px-5 pt-[54px] pb-[220px] sm:px-0">
-        <div className="flex min-h-[181px] flex-col gap-6 rounded-[8px] bg-[#f5f1ff] px-[61px] py-[38px] md:flex-row md:items-center md:justify-between">
+      {/* CTA SECTION */}
+      <section className="mx-auto max-w-[1220px] px-5 pt-[40px] pb-[100px] sm:px-0">
+        <div className="flex min-h-[181px] flex-col gap-6 rounded-[16px] bg-lavender-50 px-[61px] py-[38px] md:flex-row md:items-center md:justify-between shadow-sm">
           <div className="flex items-center gap-8">
-            <Icon className="hidden text-indigo-500 sm:block" name="sparkle" size={58} />
+            <div className="hidden text-indigo-500 sm:block shrink-0">
+              <Icon name="paperPlane" size={54} />
+            </div>
             <div>
-              <h2 className="text-[24px] font-black leading-7">Ready to hire smarter?</h2>
-              <p className="mt-[7px] text-[20px] leading-6 text-neutral-800">Join thousands of teams using Evalora to find and hire the best talent.</p>
+              <h2 className="text-[24px] font-bold text-neutral-950 leading-7">Ready to hire smarter?</h2>
+              <p className="mt-[6px] text-[15px] leading-6 text-neutral-500">Join thousands of teams using Evalora to find and hire the best talent.</p>
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-3">
-            <ButtonLink className="h-[34px] min-w-[130px] px-5 py-0 text-[13px]" href="/assessment/demo-session" variant="secondary">
+            <ButtonLink className="h-[42px] min-w-[110px] px-6 py-0 text-[13px] font-bold rounded-lg" href="/assessment/demo-session" variant="secondary">
               Demo
             </ButtonLink>
-            <ButtonLink className="h-[34px] min-w-[130px] px-5 py-0 text-[13px]" href="/register">Get Started</ButtonLink>
+            <ButtonLink className="h-[42px] min-w-[130px] px-6 py-0 text-[13px] font-bold rounded-lg" href="/register">
+              Get Started
+            </ButtonLink>
           </div>
         </div>
       </section>
+
+      {/* FOOTER */}
+      <footer className="border-t border-neutral-200 bg-white pt-[60px] pb-[40px]">
+        <div className="mx-auto max-w-[1220px] px-5 sm:px-0">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-6 lg:grid-cols-6 pb-[48px]">
+            <div className="col-span-2 space-y-4">
+              <EvaloraLogo href="/" size="auth" />
+              <p className="text-[13px] leading-[20px] text-neutral-500 max-w-[240px]">
+                AI-powered assessments for modern hiring teams.
+              </p>
+            </div>
+
+            {Object.entries(footerLinks).map(([category, links]) => (
+              <div key={category}>
+                <h4 className="text-[12px] font-bold tracking-wider text-neutral-900 uppercase">{category}</h4>
+                <ul className="mt-4 space-y-[10px]">
+                  {links.map((link) => (
+                    <li key={link.label}>
+                      <a className="text-[13px] text-neutral-600 hover:text-primary hover:underline transition-colors" href={link.href}>
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+
+            <div className="col-span-2 md:col-span-2 lg:col-span-2 space-y-3">
+              <h4 className="text-[12px] font-bold tracking-wider text-neutral-900 uppercase">Newsletter</h4>
+              <p className="text-[13px] text-neutral-500 leading-[20px]">
+                Stay updated with the latest features and insights.
+              </p>
+              <div className="flex flex-col gap-2 pt-1">
+                <input
+                  className="form-field h-[40px] text-[13px] bg-neutral-50 border border-neutral-200 rounded-lg placeholder-neutral-400 focus:bg-white"
+                  placeholder="Enter your email"
+                  type="email"
+                />
+                <button
+                  className="h-[40px] w-full rounded-lg bg-primary hover:bg-primary-600 text-white font-bold text-[13px] transition-colors cursor-pointer"
+                  type="submit"
+                >
+                  Subscribe
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-neutral-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <span className="text-[12px] text-neutral-400">
+              &copy; 2026 Evalora. All rights reserved.
+            </span>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
@@ -196,16 +308,16 @@ function HeroDashboardPreview() {
   ];
 
   return (
-    <div className="mt-[2px] w-[517px] max-w-full rounded-none border border-neutral-900 bg-white">
+    <div className="mt-[2px] w-[560px] max-w-full rounded-xl border border-neutral-200 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-hidden">
       <div className="grid h-[322px] grid-cols-[105px_1fr] overflow-hidden">
-        <aside className="border-r border-neutral-200 bg-[#fbfdff] px-[10px] py-[10px]">
+        <aside className="border-r border-neutral-200 bg-surface-tint px-[10px] py-[10px]">
           <div className="flex items-center gap-[5px]">
             <LogoMark className="size-[25px]" />
             <span className="text-[6px] font-black tracking-[0.08em]">EVALORA</span>
           </div>
           <div className="mt-[14px] space-y-[4px]">
             {navItems.map((item, index) => (
-              <div className={`flex h-[20px] items-center gap-[7px] rounded-[4px] px-[6px] text-[6px] font-semibold ${index === 0 ? "bg-[#bfeeff] text-[#005cff]" : "text-neutral-700"}`} key={item}>
+              <div className={`flex h-[20px] items-center gap-[7px] rounded-[4px] px-[6px] text-[6px] font-semibold ${index === 0 ? "bg-primary-100 text-primary-700" : "text-neutral-700"}`} key={item}>
                 <Icon name={index === 0 ? "home" : index === 1 ? "clipboard" : index === 2 ? "clock" : index === 3 ? "user" : index === 4 ? "report" : index === 5 ? "analytics" : index === 6 ? "sparkle" : index === 7 ? "settings" : "users"} size={8} />
                 <span className="truncate">{item}</span>
               </div>
@@ -274,11 +386,11 @@ function HeroDashboardPreview() {
                     <span className="text-neutral-500">{item.time}</span>
                   </div>
                 ))}
-              </div>
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
-  );
+  </div>
+);
 }

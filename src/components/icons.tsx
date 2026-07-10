@@ -2,19 +2,29 @@ import type { ReactNode, SVGProps } from "react";
 
 export type IconName =
   | "analytics"
+  | "bell"
   | "building"
+  | "calendar"
   | "check"
+  | "chevron"
   | "clipboard"
   | "clock"
   | "code"
+  | "crown"
   | "eye"
   | "file"
+  | "folder"
+  | "globe"
   | "home"
   | "lock"
   | "mail"
   | "menu"
   | "message"
+  | "more"
+  | "paperPlane"
+  | "plus"
   | "plusUser"
+  | "question"
   | "report"
   | "search"
   | "settings"
@@ -60,6 +70,12 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M16 17v-5" />
     </>
   ),
+  bell: (
+    <>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </>
+  ),
   building: (
     <>
       <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
@@ -69,9 +85,22 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M8 15h4" />
     </>
   ),
+  calendar: (
+    <>
+      <rect height="18" rx="2" ry="2" width="18" x="3" y="4" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
+    </>
+  ),
   check: (
     <>
       <path d="M20 6 9 17l-5-5" />
+    </>
+  ),
+  chevron: (
+    <>
+      <path d="m6 9 6 6 6-6" />
     </>
   ),
   clipboard: (
@@ -96,6 +125,11 @@ const icons: Record<IconName, ReactNode> = {
       <path d="m14 5-4 14" />
     </>
   ),
+  crown: (
+    <>
+      <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
@@ -108,6 +142,18 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M14 2v5h5" />
       <path d="M9 13h6" />
       <path d="M9 17h4" />
+    </>
+  ),
+  folder: (
+    <>
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </>
+  ),
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" x2="22" y1="12" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </>
   ),
   home: (
@@ -144,12 +190,38 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M8 14h5" />
     </>
   ),
+  more: (
+    <>
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="12" cy="5" r="1" />
+      <circle cx="12" cy="19" r="1" />
+    </>
+  ),
+  paperPlane: (
+    <>
+      <line x1="22" x2="11" y1="2" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </>
+  ),
+  plus: (
+    <>
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </>
+  ),
   plusUser: (
     <>
       <circle cx="9" cy="8" r="4" />
       <path d="M3 21a6 6 0 0 1 12 0" />
       <path d="M19 8v6" />
       <path d="M16 11h6" />
+    </>
+  ),
+  question: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
     </>
   ),
   report: (
