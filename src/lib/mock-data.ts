@@ -43,7 +43,7 @@ export const landingFeatures = [
   {
     title: "Behavioral Assessment",
     description: "Evaluate soft skills, personality, work style, and problem-solving approach.",
-    icon: "users",
+    icon: "user",
   },
   {
     title: "Leadership Scenarios",
@@ -85,7 +85,7 @@ export const howItWorks = [
 ] as const;
 
 export const landingStats = [
-  { label: "Candidates Assessed", value: "10,000+", detail: "and growing every day", icon: "users" },
+  { label: "Candidates Assessed", value: "10,000+", detail: "and growing every day", icon: "user" },
   { label: "Organizations", value: "350+", detail: "trust Evalora", icon: "building" },
   { label: "Time Saved", value: "85%", detail: "in hiring process", icon: "clock" },
   { label: "User Satisfaction", value: "4.8/5", detail: "based on reviews", icon: "star" },
@@ -96,16 +96,19 @@ export const testimonials = [
     quote: "Evalora has completely transformed our hiring process. The AI interviews are incredibly accurate and save us so much time.",
     name: "Jessica Parker",
     role: "HR Manager, FutureSoft",
+    avatarUrl: "https://randomuser.me/api/portraits/women/44.jpg",
   },
   {
     quote: "The coding assessments are excellent. Real-time execution and detailed feedback help us identify top technical talent easily.",
     name: "Michael Chen",
     role: "Engineering Lead",
+    avatarUrl: "https://randomuser.me/api/portraits/men/32.jpg",
   },
   {
     quote: "Reports are super detailed and easy to understand. It helps our team make data-driven hiring decisions with confidence.",
     name: "Sarah Wilson",
     role: "Talent Acquisition, Nexora",
+    avatarUrl: "https://randomuser.me/api/portraits/women/68.jpg",
   },
 ] as const;
 

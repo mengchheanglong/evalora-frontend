@@ -10,7 +10,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body><AuthProvider>{children}</AuthProvider></body>
+      <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var theme=localStorage.getItem("evalora-theme")||"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme==="dark"?"dark":"light"}catch(e){}`,
+          }}
+        />
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

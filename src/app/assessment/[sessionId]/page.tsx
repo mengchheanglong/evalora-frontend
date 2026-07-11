@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
 import { EvaloraLogo } from "@/components/logo";
@@ -248,7 +248,77 @@ export default function CandidateAssessmentPage() {
 
 function CandidateWelcome({ session, onStart, starting, error }: { session: CandidateAccessSession; onStart: () => void; starting: boolean; error: string }) {
   const modules = candidateModules(session.template.modules);
-  return <main className="min-h-screen bg-[#f4f8f9] text-neutral-950"><header className="mx-auto flex h-20 max-w-[1180px] items-center px-5"><EvaloraLogo href="/" /></header><section className="mx-auto grid max-w-[1180px] gap-10 px-5 pb-16 pt-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:pt-16"><div><p className="text-[11px] font-bold uppercase text-[#087aa4]">Private assessment invitation</p><h1 className="mt-4 max-w-[720px] text-[38px] font-black leading-[1.08] text-[#131923] sm:text-[52px]">Welcome, {firstName(session.candidateName)}.</h1><p className="mt-5 max-w-[620px] text-[16px] leading-7 text-neutral-600">You have been invited to complete the <strong className="text-neutral-900">{session.template.title}</strong> for the {session.template.roleType} role.</p><div className="mt-8 flex flex-wrap gap-3"><InfoPill icon="clock" text={`${session.template.timeLimitMin ?? "Flexible"} minutes`} /><InfoPill icon="clipboard" text={`${modules.length} modules`} /><InfoPill icon="shield" text="Progress autosaves" /></div>{error ? <p className="mt-5 rounded-[6px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p> : null}<button className="button-primary mt-8 h-12 px-6" disabled={starting} onClick={onStart} type="button">{starting ? "Starting assessment" : "Start assessment"}<Icon className="-rotate-90" name="chevron" size={14} /></button><p className="mt-4 text-[11px] leading-5 text-neutral-500">By starting, you confirm that these responses are your own work. A human interviewer will review the evidence.</p></div><div className="border border-neutral-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]"><div className="border-b border-neutral-200 px-5 py-4"><p className="text-[12px] font-bold text-neutral-900">Assessment outline</p></div><div className="divide-y divide-neutral-100">{modules.map((module, index) => <div className="flex items-center gap-4 px-5 py-4" key={module.id}><span className="flex size-9 items-center justify-center rounded-[7px] bg-sky-50 text-sky-700"><Icon name={moduleIcon(module.type)} size={17} /></span><div className="min-w-0"><p className="text-[12px] font-bold text-neutral-900">{index + 1}. {module.title}</p><p className="mt-1 line-clamp-1 text-[11px] text-neutral-500">{module.description}</p></div></div>)}</div></div></section></main>;
+  const [candidateName, setCandidateName] = useState(session.candidateName);
+  const timeLabel = session.template.timeLimitMin ? `${session.template.timeLimitMin} Minutes` : "30-60 Minutes";
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!candidateName.trim()) return;
+    onStart();
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f1f2fb] px-5 py-10 text-neutral-950 sm:py-14">
+      <section className="mx-auto flex min-h-[calc(100vh-96px)] max-w-[980px] flex-col justify-center">
+        <form className="mx-auto w-full max-w-[700px] rounded-[14px] border border-white/80 bg-white px-6 py-12 shadow-[0_18px_55px_rgba(67,72,107,0.06)] sm:px-20 sm:py-24" onSubmit={handleSubmit}>
+          <div className="mx-auto flex max-w-[420px] items-center justify-center gap-4 text-left">
+            <EvaloraLogo compact />
+            <div>
+              <h1 className="text-[26px] font-black leading-tight text-neutral-950">Welcome to interview</h1>
+              <p className="mt-2 text-[12px] font-semibold text-neutral-500">Please enter your name to continue to assessment</p>
+            </div>
+          </div>
+
+          <div className="mx-auto mt-10 max-w-[540px]">
+            <label className="block">
+              <span className="text-[14px] font-bold text-neutral-900">Your Name <span className="text-red-500">*</span></span>
+              <input
+                autoComplete="name"
+                autoFocus
+                className="mt-4 h-12 w-full rounded-[7px] border border-transparent bg-neutral-50 px-4 text-[13px] text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(47,178,228,0.14)]"
+                onChange={(event) => setCandidateName(event.target.value)}
+                placeholder="Enter your full name"
+                required
+                type="text"
+                value={candidateName}
+              />
+            </label>
+
+            {error ? <p className="mt-4 rounded-[7px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-800">{error}</p> : null}
+
+            <button className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[7px] bg-primary-500 text-[13px] font-bold text-white transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60" disabled={starting || !candidateName.trim()} type="submit">
+              {starting ? "Starting interview" : "Continue to interview"}
+              {!starting ? <Icon className="-rotate-90" name="chevron" size={14} /> : null}
+            </button>
+
+            <div className="mt-14 flex justify-center text-neutral-400">
+              <Icon name="lock" size={14} />
+            </div>
+          </div>
+        </form>
+
+        <div className="mx-auto mt-10 grid w-full max-w-[760px] gap-5 text-left sm:grid-cols-3 sm:divide-x sm:divide-neutral-300/80">
+          <WelcomeFact icon="shield" title="Secure & Private" body="Your information is protected." />
+          <WelcomeFact icon="clock" title={timeLabel} body="Complete at your own pace." />
+          <WelcomeFact icon="settings" title="Multiple Sections" body={`${modules.length} sections including AI, coding, behavioral, and communication.`} />
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function WelcomeFact({ icon, title, body }: { icon: IconName; title: string; body: string }) {
+  return (
+    <article className="flex gap-4 sm:px-6 sm:first:pl-0 sm:last:pr-0">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#c9c2ff] text-[#493cff]">
+        <Icon name={icon} size={18} />
+      </span>
+      <div>
+        <h2 className="text-[12px] font-black text-neutral-900">{title}</h2>
+        <p className="mt-3 text-[11px] font-semibold leading-4 text-neutral-700">{body}</p>
+      </div>
+    </article>
+  );
 }
 
 function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string }) {
@@ -276,6 +346,5 @@ function ScaleInput({ value, onChange }: { value?: number; onChange: (value: num
 function numericAnswer(answer?: Answer) { const value = Number(answer?.json && typeof answer.json === "object" && !Array.isArray(answer.json) ? (answer.json as Record<string, JsonValue>).value : answer?.text); return Number.isFinite(value) ? value : undefined; }
 function formatResponseForSave(answer: string, followUp?: FollowUp) { return followUp ? `${answer.trim()}\n\nAI follow-up: ${followUp.question.trim()}\nFollow-up response: ${followUp.answer.trim()}` : answer; }
 function parseSavedResponse(value: string): { answer: string; followUp?: FollowUp } { const marker = "\n\nAI follow-up: "; const index = value.indexOf(marker); if (index < 0) return { answer: value }; const answer = value.slice(0, index); const remaining = value.slice(index + marker.length); const responseMarker = "\nFollow-up response: "; const responseIndex = remaining.indexOf(responseMarker); return responseIndex < 0 ? { answer } : { answer, followUp: { question: remaining.slice(0, responseIndex), answer: remaining.slice(responseIndex + responseMarker.length) } }; }
-function InfoPill({ icon, text }: { icon: IconName; text: string }) { return <span className="inline-flex items-center gap-2 rounded-[6px] border border-neutral-200 bg-white px-3 py-2 text-[11px] font-semibold text-neutral-700"><Icon name={icon} size={14} />{text}</span>; }
 function firstName(name: string) { return name.trim().split(/\s+/)[0] || "Candidate"; }
 function formatTimer(seconds: number) { const minutes = Math.floor(seconds / 60); return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }

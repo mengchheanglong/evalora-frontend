@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { AuthDivider, AuthLayout } from "@/components/auth-layout";
-import { Icon } from "@/components/icons";
+import { GoogleIcon, Icon } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
 import { getErrorMessage } from "@/lib/api";
 
@@ -71,12 +71,27 @@ export default function RegisterPage() {
         </div>
         <p className="text-[11px] leading-5 text-neutral-500">Use at least 8 characters. Account access is for interviewers and workspace administrators; candidates use invitation links.</p>
 
-        <button className="button-primary h-12 w-full" disabled={submitting} type="submit">
+        <label className="flex items-center gap-2 text-[11px] leading-5 text-neutral-500">
+          <input className="size-5 shrink-0 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500" type="checkbox" />
+          <span>
+            I agree to the <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/terms">Terms of Service</Link> and <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/privacy">Privacy Policy</Link>
+          </span>
+        </label>
+
+        <button className="button-primary h-12 w-full !bg-primary-500 hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} type="submit">
           {submitting ? <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : null}
           {submitting ? "Creating workspace" : "Create workspace"}
         </button>
-        <AuthDivider label="Already have an account?" />
-        <Link className="button-secondary h-12 w-full" href="/login">Sign in instead</Link>
+
+        <AuthDivider label="or continue with" />
+        <button className="button-secondary h-12 w-full" type="button">
+          <GoogleIcon />
+          <span>Sign in with google</span>
+        </button>
+
+        <p className="text-center text-[13px] text-neutral-500">
+          Already have an account? <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/login">login</Link>
+        </p>
       </form>
     </AuthLayout>
   );

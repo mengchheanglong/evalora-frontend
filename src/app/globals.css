@@ -242,3 +242,335 @@ textarea.control {
   border-color: #c8cdd5;
   background: #f8f9fb;
 }
+
+.auth-visual-panel {
+  background:
+    radial-gradient(circle at 18% 28%, rgba(47, 178, 228, 0.18), transparent 30%),
+    #eff7f9;
+}
+
+.auth-visual-grid {
+  background-image:
+    linear-gradient(#dcebed 1px, transparent 1px),
+    linear-gradient(90deg, #dcebed 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, transparent 84%);
+}
+
+.auth-visual-glow {
+  background: rgba(47, 178, 228, 0.18);
+}
+
+.auth-trust-row {
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+/* ---- App themes --------------------------------------------------------- */
+:root,
+[data-theme="light"] {
+  --theme-bg: #f7f8fa;
+  --theme-panel: #ffffff;
+  --theme-panel-soft: #f3f4f6;
+  --theme-panel-tint: #fbfdff;
+  --theme-border: #e5e7eb;
+  --theme-border-strong: #dfe3e8;
+  --theme-text: #171b24;
+  --theme-heading: #0f172a;
+  --theme-muted: #6b7280;
+  --theme-faint: #9ca3af;
+  --theme-active: #bfeeff;
+  --theme-active-text: #0b5f78;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-bg: #080b12;
+  --theme-panel: #101623;
+  --theme-panel-soft: #171e2d;
+  --theme-panel-tint: #0d1420;
+  --theme-border: #253043;
+  --theme-border-strong: #334155;
+  --theme-text: #d8dee9;
+  --theme-heading: #f8fafc;
+  --theme-muted: #a6b0c3;
+  --theme-faint: #748097;
+  --theme-active: #163554;
+  --theme-active-text: #8bd8f1;
+  --color-primary-50: #10283a;
+  --color-primary-100: #174361;
+  --color-primary-300: #2f88b4;
+  --color-primary-500: #38c6e9;
+  --color-primary-700: #53d6f5;
+  --color-primary: #38c6e9;
+}
+
+[data-theme="ocean"] {
+  color-scheme: light;
+  --theme-bg: #eef8fb;
+  --theme-panel: #ffffff;
+  --theme-panel-soft: #e5f4f8;
+  --theme-panel-tint: #f5fcfe;
+  --theme-border: #c9e2ea;
+  --theme-border-strong: #a7d0dc;
+  --theme-text: #17333c;
+  --theme-heading: #071f28;
+  --theme-muted: #52727c;
+  --theme-faint: #7798a2;
+  --theme-active: #c8f2fb;
+  --theme-active-text: #07536a;
+  --color-primary-50: #e6f8fb;
+  --color-primary-100: #c8f2fb;
+  --color-primary-300: #78d8e8;
+  --color-primary-500: #12aeca;
+  --color-primary-700: #06708f;
+  --color-primary: #12aeca;
+}
+
+[data-theme="dark"] body,
+[data-theme="ocean"] body,
+[data-theme="dark"] main,
+[data-theme="ocean"] main {
+  background: var(--theme-bg) !important;
+  color: var(--theme-text) !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="ocean"] .card,
+[data-theme="dark"] [class~="bg-white"],
+[data-theme="ocean"] [class~="bg-white"],
+[data-theme="dark"] [class~="bg-white/95"],
+[data-theme="ocean"] [class~="bg-white/95"],
+[data-theme="dark"] [class~="bg-[#f3f4f6]"],
+[data-theme="ocean"] [class~="bg-[#f3f4f6]"],
+[data-theme="dark"] [class~="bg-[#fbfdff]"],
+[data-theme="dark"] [class~="bg-neutral-50"],
+[data-theme="ocean"] [class~="bg-neutral-50"] {
+  background-color: var(--theme-panel) !important;
+}
+
+[data-theme="dark"] .soft-card,
+[data-theme="ocean"] .soft-card,
+[data-theme="dark"] .control,
+[data-theme="ocean"] .control,
+[data-theme="dark"] .form-field,
+[data-theme="ocean"] .form-field,
+[data-theme="dark"] input,
+[data-theme="ocean"] input,
+[data-theme="dark"] select,
+[data-theme="ocean"] select,
+[data-theme="dark"] textarea,
+[data-theme="ocean"] textarea,
+[data-theme="dark"] [class~="bg-neutral-100"],
+[data-theme="ocean"] [class~="bg-neutral-100"],
+[data-theme="dark"] [class~="bg-neutral-200"],
+[data-theme="ocean"] [class~="bg-neutral-200"] {
+  background-color: var(--theme-panel-soft) !important;
+  color: var(--theme-text) !important;
+}
+
+[data-theme="dark"] aside,
+[data-theme="ocean"] aside,
+[data-theme="dark"] header,
+[data-theme="ocean"] header,
+[data-theme="dark"] table,
+[data-theme="ocean"] table {
+  background-color: var(--theme-panel) !important;
+  color: var(--theme-text) !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="ocean"] .card,
+[data-theme="dark"] .control,
+[data-theme="ocean"] .control,
+[data-theme="dark"] .button-secondary,
+[data-theme="ocean"] .button-secondary,
+[data-theme="dark"] [class*="border-neutral"],
+[data-theme="ocean"] [class*="border-neutral"],
+[data-theme="dark"] [class*="border-gray"],
+[data-theme="ocean"] [class*="border-gray"],
+[data-theme="dark"] [class~="border-[#e5e7eb]"],
+[data-theme="ocean"] [class~="border-[#e5e7eb]"] {
+  border-color: var(--theme-border) !important;
+}
+
+[data-theme="dark"] .button-secondary,
+[data-theme="ocean"] .button-secondary {
+  background: var(--theme-panel) !important;
+  color: var(--theme-heading) !important;
+}
+
+[data-theme="dark"] .button-secondary:hover,
+[data-theme="ocean"] .button-secondary:hover,
+[data-theme="dark"] [class*="hover:bg-neutral-50"]:hover,
+[data-theme="ocean"] [class*="hover:bg-neutral-50"]:hover,
+[data-theme="dark"] [class*="hover:bg-gray-50"]:hover,
+[data-theme="ocean"] [class*="hover:bg-gray-50"]:hover {
+  background-color: var(--theme-panel-soft) !important;
+}
+
+[data-theme="dark"] [class*="text-neutral-950"],
+[data-theme="ocean"] [class*="text-neutral-950"],
+[data-theme="dark"] [class*="text-black"],
+[data-theme="ocean"] [class*="text-black"],
+[data-theme="dark"] [class*="text-neutral-900"],
+[data-theme="ocean"] [class*="text-neutral-900"],
+[data-theme="dark"] [class*="text-gray-950"],
+[data-theme="ocean"] [class*="text-gray-950"],
+[data-theme="dark"] [class*="text-gray-900"],
+[data-theme="ocean"] [class*="text-gray-900"],
+[data-theme="dark"] [class*="text-[#151922]"],
+[data-theme="ocean"] [class*="text-[#151922]"],
+[data-theme="dark"] [class*="text-[#171b24]"],
+[data-theme="ocean"] [class*="text-[#171b24]"] {
+  color: var(--theme-heading) !important;
+}
+
+[data-theme="dark"] [class*="text-neutral-800"],
+[data-theme="ocean"] [class*="text-neutral-800"],
+[data-theme="dark"] [class*="text-neutral-700"],
+[data-theme="ocean"] [class*="text-neutral-700"],
+[data-theme="dark"] [class*="text-gray-800"],
+[data-theme="ocean"] [class*="text-gray-800"],
+[data-theme="dark"] [class*="text-gray-700"],
+[data-theme="ocean"] [class*="text-gray-700"] {
+  color: var(--theme-text) !important;
+}
+
+[data-theme="dark"] [class*="text-neutral-600"],
+[data-theme="ocean"] [class*="text-neutral-600"],
+[data-theme="dark"] [class*="text-neutral-500"],
+[data-theme="ocean"] [class*="text-neutral-500"],
+[data-theme="dark"] [class*="text-gray-600"],
+[data-theme="ocean"] [class*="text-gray-600"],
+[data-theme="dark"] [class*="text-gray-500"],
+[data-theme="ocean"] [class*="text-gray-500"] {
+  color: var(--theme-muted) !important;
+}
+
+[data-theme="dark"] [class*="text-neutral-400"],
+[data-theme="ocean"] [class*="text-neutral-400"],
+[data-theme="dark"] [class*="text-gray-400"],
+[data-theme="ocean"] [class*="text-gray-400"] {
+  color: var(--theme-faint) !important;
+}
+
+[data-theme="dark"] [class~="bg-[#bfeeff]"],
+[data-theme="ocean"] [class~="bg-[#bfeeff]"] {
+  background-color: var(--theme-active) !important;
+  color: var(--theme-active-text) !important;
+}
+
+[data-theme="dark"] [class~="bg-[#fbfdff]"],
+[data-theme="dark"] [class~="bg-lavender-50"] {
+  background-color: var(--theme-panel-soft) !important;
+}
+
+[data-theme="dark"] [class~="bg-lavender-50"] {
+  border: 1px solid var(--theme-border);
+}
+
+[data-theme="dark"] [class*="bg-violet-100"],
+[data-theme="dark"] [class*="bg-emerald-100"],
+[data-theme="dark"] [class*="bg-sky-100"],
+[data-theme="dark"] [class*="bg-blue-100"],
+[data-theme="dark"] [class*="bg-amber-100"],
+[data-theme="dark"] [class*="bg-orange-100"],
+[data-theme="dark"] [class*="bg-rose-100"],
+[data-theme="dark"] [class*="bg-red-100"],
+[data-theme="dark"] [class*="bg-fuchsia-100"] {
+  background-color: color-mix(in srgb, currentColor 16%, #101623) !important;
+}
+
+[data-theme="dark"] [class*="bg-emerald-50"] {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+}
+
+[data-theme="dark"] [class*="bg-sky-50"],
+[data-theme="dark"] [class*="bg-blue-50"] {
+  background-color: rgba(56, 189, 248, 0.16) !important;
+}
+
+[data-theme="dark"] [class*="bg-amber-50"],
+[data-theme="dark"] [class*="bg-orange-50"] {
+  background-color: rgba(245, 158, 11, 0.17) !important;
+}
+
+[data-theme="dark"] [class*="bg-rose-50"],
+[data-theme="dark"] [class*="bg-red-50"] {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+}
+
+[data-theme="dark"] [class*="text-violet-700"],
+[data-theme="dark"] [class*="text-violet-600"] {
+  color: #c4b5fd !important;
+}
+
+[data-theme="dark"] [class*="text-emerald-700"],
+[data-theme="dark"] [class*="text-emerald-600"] {
+  color: #6ee7b7 !important;
+}
+
+[data-theme="dark"] [class*="text-sky-700"],
+[data-theme="dark"] [class*="text-sky-600"],
+[data-theme="dark"] [class*="text-blue-700"],
+[data-theme="dark"] [class*="text-blue-600"] {
+  color: #7dd3fc !important;
+}
+
+[data-theme="dark"] [class*="text-amber-700"],
+[data-theme="dark"] [class*="text-amber-600"],
+[data-theme="dark"] [class*="text-orange-700"],
+[data-theme="dark"] [class*="text-orange-600"] {
+  color: #fcd34d !important;
+}
+
+[data-theme="dark"] [class*="text-rose-700"],
+[data-theme="dark"] [class*="text-rose-600"],
+[data-theme="dark"] [class*="text-red-700"],
+[data-theme="dark"] [class*="text-red-600"] {
+  color: #fda4af !important;
+}
+
+[data-theme="dark"] thead,
+[data-theme="dark"] tbody,
+[data-theme="dark"] tr {
+  border-color: var(--theme-border) !important;
+}
+
+[data-theme="dark"] svg {
+  color: inherit;
+}
+
+[data-theme="dark"] .auth-visual-panel {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(56, 198, 233, 0.2), transparent 30%),
+    linear-gradient(145deg, #0d1420 0%, #111827 54%, #0b1020 100%) !important;
+  border-color: #253043 !important;
+}
+
+[data-theme="dark"] .auth-visual-grid {
+  opacity: 0.24 !important;
+  background-image:
+    linear-gradient(rgba(139, 216, 241, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 216, 241, 0.22) 1px, transparent 1px);
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+[data-theme="dark"] .auth-visual-glow {
+  background: rgba(56, 198, 233, 0.2);
+}
+
+[data-theme="dark"] .auth-trust-row {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+[data-theme="dark"] .auth-trust-row:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+[data-theme="dark"] ::selection,
+[data-theme="ocean"] ::selection {
+  background: var(--color-primary-300);
+  color: #ffffff;
+}
