@@ -2,9 +2,26 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/button-link";
 import { Icon } from "@/components/icons";
 import { EvaloraLogo, LogoMark } from "@/components/logo";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { howItWorks, landingFeatures, landingStats, testimonials } from "@/lib/mock-data";
 
 const customerLogos = ["KiriromTech", "FutureSoft", "TechVision", "NEXORA", "BrightHire"];
+
+const pricingFeatures = [
+  { label: "Unlimited candidates", icon: "user" },
+  { label: "AI interview assessment", icon: "message" },
+  { label: "Coding assessment", icon: "code" },
+  { label: "Behavioral assessment", icon: "check" },
+  { label: "Leadership & communication assessment", icon: "users" },
+  { label: "Custom assessment templates", icon: "clipboard" },
+  { label: "Interview session management", icon: "calendar" },
+  { label: "Candidate reports and reviewer notes", icon: "report" },
+  { label: "Analytics dashboard", icon: "analytics" },
+  { label: "Role-based access control", icon: "shield" },
+  { label: "Secure candidate data", icon: "lock" },
+  { label: "Team onboarding and support", icon: "plus" },
+  { label: "More", icon: "sparkle" },
+] as const;
 
 const footerLinks = {
   Product: [
@@ -53,9 +70,13 @@ export default function HomePage() {
           <a className="hover:text-neutral-950 transition-colors" href="#features">Features</a>
           <a className="hover:text-neutral-950 transition-colors" href="#workflow">How it works</a>
           <a className="hover:text-neutral-950 transition-colors" href="#teams">For Teams</a>
+          <a className="hover:text-neutral-950 transition-colors" href="#pricing">Pricing</a>
           <a className="hover:text-neutral-950 transition-colors" href="#resources">Resources</a>
         </nav>
         <div className="flex items-center gap-3">
+          <span className="hidden lg:inline-flex">
+            <ThemeSwitcher compact />
+          </span>
           <span className="hidden sm:inline-flex">
             <ButtonLink className="h-[38px] min-w-[100px] px-5 py-0 text-[13px] font-bold" href="/login" variant="secondary">
               Log in
@@ -192,8 +213,8 @@ export default function HomePage() {
               </div>
               <div className="mt-[26px] flex items-end justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex size-[48px] items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 shrink-0">
-                    <Icon name="user" size={24} />
+                  <span className="inline-flex size-[48px] items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white shrink-0">
+                    <img alt="" className="size-full object-cover" src={testimonial.avatarUrl} />
                   </span>
                   <div>
                     <p className="font-bold text-[14px] text-neutral-950">{testimonial.name}</p>
@@ -210,6 +231,8 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <PricingSection />
 
       {/* CTA SECTION */}
       <section className="mx-auto max-w-[1220px] px-5 pt-[40px] pb-[100px] sm:px-0">
@@ -292,10 +315,52 @@ export default function HomePage() {
   );
 }
 
+function PricingSection() {
+  return (
+    <section className="mx-auto max-w-[1220px] px-5 pt-[56px] pb-[74px] sm:px-0" id="pricing">
+      <div className="text-center">
+        <p className="text-[11px] font-black uppercase tracking-wider text-primary-700">Pricing</p>
+        <h2 className="mt-2 text-[30px] font-bold leading-[36px] tracking-tight text-neutral-950 sm:text-[34px] sm:leading-[40px]">Simple private pricing for every team</h2>
+        <p className="mx-auto mt-[12px] max-w-[560px] text-[14px] leading-[22px] text-neutral-500">
+          Talk with us to choose the best assessment setup for your hiring workflow.
+        </p>
+      </div>
+
+      <article className="mx-auto mt-[34px] w-full max-w-[980px] rounded-[14px] border border-neutral-200 bg-white p-5 text-left shadow-[0_16px_44px_rgba(15,23,42,0.055)] sm:p-7">
+        <div>
+          <div>
+            <span className="inline-flex rounded-full bg-primary-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-primary-700">For All Teams</span>
+            <h3 className="mt-4 text-[34px] font-black leading-none tracking-tight text-neutral-950 sm:text-[42px]">Let&apos;s Talk</h3>
+            <p className="mt-3 max-w-[520px] text-[12px] leading-5 text-neutral-500">
+              Build the assessment workflow that fits your hiring process, team size, and review standards.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          {pricingFeatures.map((feature) => (
+            <div className={`flex min-h-9 items-center gap-2.5 rounded-[7px] border border-neutral-200 bg-[#fbfdff] px-2.5 py-2 ${feature.label === "More" ? "lg:col-span-4" : ""}`} key={feature.label}>
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-[6px] bg-primary-50 text-primary-700">
+                <Icon name={feature.icon} size={13} />
+              </span>
+              <span className="text-[10px] font-bold leading-4 text-neutral-700">{feature.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex justify-center">
+          <ButtonLink className="h-[40px] min-w-[130px] rounded-[7px] !bg-primary-700 px-6 text-[12px] font-black hover:!bg-primary-600" href="/register">
+            Contact us
+          </ButtonLink>
+        </div>
+      </article>
+    </section>
+  );
+}
+
 function HeroDashboardPreview() {
   const navItems = ["Dashboard", "Assessment Templates", "Interview Sessions", "Candidates", "Candidate Reports", "Analytics", "AI Tools", "Settings", "Users & Roles"];
   const statCards = [
-    { label: "Total Candidates", value: "1,256", change: "+12%", tint: "bg-violet-100 text-violet-700", icon: "users" as const },
+    { label: "Total Candidates", value: "1,256", change: "+12%", tint: "bg-violet-100 text-violet-700", icon: "user" as const },
     { label: "Completed", value: "832", change: "+8%", tint: "bg-emerald-100 text-emerald-600", icon: "check" as const },
     { label: "Average Score", value: "78%", change: "+5%", tint: "bg-blue-100 text-blue-600", icon: "star" as const },
     { label: "In Progress", value: "334", change: "-4%", tint: "bg-orange-100 text-orange-500", icon: "clock" as const },
@@ -318,7 +383,7 @@ function HeroDashboardPreview() {
           <div className="mt-[14px] space-y-[4px]">
             {navItems.map((item, index) => (
               <div className={`flex h-[20px] items-center gap-[7px] rounded-[4px] px-[6px] text-[6px] font-semibold ${index === 0 ? "bg-primary-100 text-primary-700" : "text-neutral-700"}`} key={item}>
-                <Icon name={index === 0 ? "home" : index === 1 ? "clipboard" : index === 2 ? "clock" : index === 3 ? "user" : index === 4 ? "report" : index === 5 ? "analytics" : index === 6 ? "sparkle" : index === 7 ? "settings" : "users"} size={8} />
+                <Icon name={index === 0 ? "home" : index === 1 ? "clipboard" : index === 2 ? "clock" : index === 3 ? "user" : index === 4 ? "report" : index === 5 ? "analytics" : index === 6 ? "sparkle" : index === 7 ? "settings" : "user"} size={8} />
                 <span className="truncate">{item}</span>
               </div>
             ))}

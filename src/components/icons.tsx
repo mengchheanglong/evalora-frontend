@@ -20,6 +20,7 @@ export type IconName =
   | "mail"
   | "menu"
   | "message"
+  | "moon"
   | "more"
   | "paperPlane"
   | "plus"
@@ -31,8 +32,10 @@ export type IconName =
   | "shield"
   | "sparkle"
   | "star"
+  | "sun"
   | "trend"
   | "user"
+  | "waves"
   | "users";
 
 type IconProps = SVGProps<SVGSVGElement> & {
@@ -190,6 +193,11 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M8 14h5" />
     </>
   ),
+  moon: (
+    <>
+      <path d="M20.7 15.3A8.5 8.5 0 0 1 8.7 3.3 7 7 0 1 0 20.7 15.3Z" />
+    </>
+  ),
   more: (
     <>
       <circle cx="12" cy="12" r="1" />
@@ -241,7 +249,15 @@ const icons: Record<IconName, ReactNode> = {
   settings: (
     <>
       <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a8 8 0 0 0 .1-1 8 8 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.8-1L15 5.5h-4l-.4 2.6a7 7 0 0 0-1.8 1l-2.4-1-2 3.4 2 1.5a8 8 0 0 0-.1 1 8 8 0 0 0 .1 1l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.8 1l.4 2.6h4l.4-2.6a7 7 0 0 0 1.8-1l2.4 1 2-3.4z" />
+      <path d="M12 3v2" />
+      <path d="M12 19v2" />
+      <path d="M4.8 6.8l1.4 1.4" />
+      <path d="M17.8 17.8l1.4 1.4" />
+      <path d="M3 12h2" />
+      <path d="M19 12h2" />
+      <path d="M4.8 17.2l1.4-1.4" />
+      <path d="M17.8 6.2l1.4-1.4" />
+      <circle cx="12" cy="12" r="7" />
     </>
   ),
   shield: (
@@ -262,6 +278,19 @@ const icons: Record<IconName, ReactNode> = {
       <path d="m12 3 2.7 5.5 6.1.9-4.4 4.2 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.2 6.1-.9Z" />
     </>
   ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
+    </>
+  ),
   trend: (
     <>
       <path d="M4 18h16" />
@@ -277,10 +306,15 @@ const icons: Record<IconName, ReactNode> = {
   ),
   users: (
     <>
-      <circle cx="9" cy="8" r="4" />
-      <path d="M3 21a6 6 0 0 1 12 0" />
-      <path d="M16 11a4 4 0 1 0-1-7.9" />
-      <path d="M17 21a6 6 0 0 0-3-5.2" />
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
+  waves: (
+    <>
+      <path d="M3 8c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2" />
+      <path d="M3 14c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2" />
+      <path d="M3 20c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2" />
     </>
   ),
 };

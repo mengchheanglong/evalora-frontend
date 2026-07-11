@@ -280,6 +280,43 @@ const sessions: InterviewSession[] = [
     createdAt: iso(-6),
     updatedAt: iso(-6),
   },
+  {
+    id: "sess-olivia-smith",
+    candidateId: "cand-olivia",
+    candidateName: "Olivia Smith",
+    candidateEmail: "olivia.smith@example.com",
+    templateId: "tpl-software-engineer",
+    templateTitle: "Frontend Developer Assessment",
+    targetRole: "Frontend Developer",
+    organizationId: mockUser.organizationId,
+    status: "completed",
+    accessCode: "DEMO-OLIVIA",
+    overallScore: 3.9,
+    reportReady: true,
+    reportStatus: "generated",
+    startedAt: iso(-12),
+    completedAt: iso(-9),
+    expiresAt: iso(120),
+    createdAt: iso(-34),
+    updatedAt: iso(-9),
+  },
+  {
+    id: "sess-liam-chen",
+    candidateId: "cand-liam",
+    candidateName: "Liam Chen",
+    candidateEmail: "liam.chen@example.com",
+    templateId: "tpl-product-manager",
+    templateTitle: "Product Manager Assessment",
+    targetRole: "Product Analyst",
+    organizationId: mockUser.organizationId,
+    status: "in_progress",
+    accessCode: "DEMO-LIAM",
+    reportReady: false,
+    startedAt: iso(-5),
+    expiresAt: iso(80),
+    createdAt: iso(-18),
+    updatedAt: iso(-4),
+  },
 ];
 
 const reports: CandidateReport[] = [
@@ -471,6 +508,9 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
       else responses.push(saved);
       return json(saved);
     }
+  }
+  if (segments[0] === "responses" && segments[1] === "session" && segments[2] && method === "GET") {
+    return json(responses.filter((response) => response.sessionId === decodeURIComponent(segments[2])));
   }
 
   if (relativePath === "analytics/summary" && method === "GET") return json(createSummary());
