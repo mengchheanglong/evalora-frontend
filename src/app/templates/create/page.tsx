@@ -2,22 +2,92 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
+import { InlineAlert } from "@/components/ui-states";
+import { apiPost, getErrorMessage } from "@/lib/api";
+import type { AssessmentTemplate } from "@/lib/types";
 
 export default function CreateTemplatePage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   
-  // Form state (Mocked to match Figma)
-  const [templateName, setTemplateName] = useState("Frontend Developer Interview");
+  // Real Form State
+  const [templateName, setTemplateName] = useState("");
   const [category, setCategory] = useState("Technical");
-  const [targetRoles] = useState(["Frontend Developer", "UI Developer"]);
+  const [targetRoles, setTargetRoles] = useState<string[]>([]);
+  const [newRole, setNewRole] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("Mid Level (2 - 5 years)");
-  const [description, setDescription] = useState("This template is designed to evaluate frontend development skills including React, JavaScript, HTML, CSS, problem solving, and coding best practices.");
+  const [description, setDescription] = useState("");
   const [passingScore, setPassingScore] = useState("70");
   const [timeLimit, setTimeLimit] = useState("120");
+
+  // --- Target Roles Logic ---
+  function addRole() {
+    const role = newRole.trim();
+    if (role && !targetRoles.includes(role)) {
+      setTargetRoles([...targetRoles, role]);
+      setNewRole("");
+    }
+  }
+
+  function handleRoleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addRole();
+    }
+  }
+
+  function removeRole(role: string) {
+    setTargetRoles(targetRoles.filter(r => r !== role));
+  }
+
+  // --- Backend Submission ---
+  async function handleSubmit() {
+    // Basic Validation
+    if (!templateName.trim()) {
+      setError("Template Name is required.");
+      return;
+    }
+    if (targetRoles.length === 0) {
+      setError("At least one Target Role is required.");
+      return;
+    }
+
+    setError("");
+    setSubmitting(true);
+
+    try {
+      // Map UI state to Backend Payload structure
+      const payload = {
+        title: templateName,
+        roleType: targetRoles.join(", "), // Backend expects a string for roleType
+        description: description,
+        timeLimitMin: timeLimit ? Number(timeLimit) : undefined,
+        scoringRules: { 
+          passScore: passingScore ? Number(passingScore) : undefined, 
+          scale: "1-5", 
+          advisoryOnly: true 
+        },
+        modules: [] // Step 1: Create basic template. Modules will be added in Step 2.
+      };
+
+      // Call Backend API
+      const createdTemplate = await apiPost<AssessmentTemplate>("/templates", payload);
+      
+      // On Success: Redirect to templates list (or to /templates/${createdTemplate.id}/edit if you build an edit page for modules)
+      router.push("/templates");
+      router.refresh();
+      
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to create template. Please check your inputs."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <AppShell active="templates" title="" description="" showPageHeader={false}>
@@ -34,13 +104,17 @@ export default function CreateTemplatePage() {
           <p className="text-sm text-gray-500 mt-1">Build a comprehensive assessment template by adding basic information and modules.</p>
         </div>
 
+        {/* Error Alert */}
+        {error && (
+          <InlineAlert tone="error">{error}</InlineAlert>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Form Area (Left Column) */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
             {/* Stepper */}
             <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-6 overflow-x-auto">
               <StepItem number={1} title="Basic Information" active={true} />
-              
             </div>
 
             {/* Template Information Section */}
@@ -48,19 +122,29 @@ export default function CreateTemplatePage() {
               <h2 className="text-lg font-bold text-gray-900 mb-4">Template Information</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InputField label="Template Name" value={templateName} onChange={setTemplateName} required />
-<InputField label="Category" value={category} onChange={setCategory} required />
+                <InputField label="Category" value={category} onChange={setCategory} required />
+                
+                {/* Target Roles (Now Functional) */}
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Target Roles <span className="text-red-500">*</span></label>
                   <div className="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-lg min-h-[42px] items-center bg-white">
                     {targetRoles.map(role => (
                       <span key={role} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-200">
                         {role}
-                        <button className="text-gray-400 hover:text-gray-600 ml-1">×</button>
+                        <button type="button" onClick={() => removeRole(role)} className="text-gray-400 hover:text-gray-600 ml-1">×</button>
                       </span>
                     ))}
-                    <input type="text" placeholder="Add role..." className="flex-1 min-w-[100px] outline-none text-sm bg-transparent" />
+                    <input 
+                      type="text" 
+                      placeholder="Add role and press Enter..." 
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value)}
+                      onKeyDown={handleRoleKeyDown}
+                      onBlur={addRole}
+                      className="flex-1 min-w-[150px] outline-none text-sm bg-transparent" 
+                    />
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">Enter a clear and descriptive name for this template.</p>
+                  <p className="text-xs text-gray-400 mt-1">Enter roles and press Enter to add.</p>
                 </div>
 
                 <div>
@@ -133,13 +217,14 @@ export default function CreateTemplatePage() {
                   <p className="text-sm font-medium text-gray-700">Upload image</p>
                   <p className="text-xs text-gray-400 mt-1">Or click to browse (max 10 files, up to 5MB each)</p>
                 </div>
+                {/* Live Preview Box */}
                 <div className="border border-gray-200 rounded-lg p-4 flex items-center gap-3 bg-white">
                   <div className="w-12 h-12 bg-sky-100 rounded-lg flex items-center justify-center shrink-0">
                     <Icon name="code" size={24} className="text-sky-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-900 truncate">Frontend Developer Interview</p>
-                    <span className="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-600 text-xs rounded font-medium">Technical</span>
+                    <p className="text-sm font-bold text-gray-900 truncate">{templateName || "Template Preview"}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-600 text-xs rounded font-medium">{category}</span>
                   </div>
                 </div>
               </div>
@@ -148,7 +233,7 @@ export default function CreateTemplatePage() {
 
           {/* Sidebar (Right Column) */}
           <div className="space-y-6">
-            {/* Template Summary Card */}
+            {/* Template Summary Card (Now Live) */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <h3 className="text-base font-bold text-gray-900 mb-4">Template Summary</h3>
               <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
@@ -156,16 +241,16 @@ export default function CreateTemplatePage() {
                   <Icon name="clipboard" size={20} className="text-purple-600" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900 truncate">Frontend Developer Interview</p>
-                  <span className="text-xs text-purple-600 font-medium">Technical</span>
+                  <p className="text-sm font-bold text-gray-900 truncate">{templateName || "Untitled Template"}</p>
+                  <span className="text-xs text-purple-600 font-medium">{category}</span>
                 </div>
               </div>
               <div className="space-y-3 text-sm">
-                <SummaryRow icon="clock" label="Time Limit" value="120 minutes" />
-                <SummaryRow icon="users" label="Experience Level" value="Mid Level (2 - 5 years)" />
-                <SummaryRow icon="user" label="Target Roles" value="2 roles" />
+                <SummaryRow icon="clock" label="Time Limit" value={timeLimit ? `${timeLimit} minutes` : "Not set"} />
+                <SummaryRow icon="users" label="Experience Level" value={experienceLevel} />
+                <SummaryRow icon="user" label="Target Roles" value={targetRoles.length > 0 ? `${targetRoles.length} roles` : "None"} />
                 <SummaryRow icon="clipboard" label="Modules" value="0 modules added" />
-                <SummaryRow icon="check" label="Passing Score" value="70%" />
+                <SummaryRow icon="check" label="Passing Score" value={passingScore ? `${passingScore}%` : "Not set"} />
               </div>
             </div>
 
@@ -182,11 +267,16 @@ export default function CreateTemplatePage() {
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
-              <button className="flex-1 h-10 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition bg-white">
+              <Link href="/templates" className="flex-1 h-10 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition bg-white flex items-center justify-center">
                 Cancel
-              </button>
-              <button className="flex-1 h-10 bg-sky-500 rounded-lg text-sm font-medium text-white hover:bg-sky-600 transition flex items-center justify-center gap-2 shadow-sm">
-                Save & Next <Icon name="chevron" size={14} className="-rotate-90" />
+              </Link>
+              <button 
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="flex-1 h-10 bg-sky-500 rounded-lg text-sm font-medium text-white hover:bg-sky-600 transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Saving..." : "Save & Next"} <Icon name="chevron" size={14} className="-rotate-90" />
               </button>
             </div>
           </div>

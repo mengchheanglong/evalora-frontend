@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
+import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
+import { apiGet, getErrorMessage } from "@/lib/api";
+import type { InterviewSession, SessionStatus } from "@/lib/types";
 
-// --- Mock Data to match Figma Design exactly ---
+// --- UI Types (Matches Figma Design) ---
 type SessionStatusUI = "Completed" | "In Progress" | "Scheduled" | "Cancelled";
 
 interface SessionRow {
@@ -23,62 +26,126 @@ interface SessionRow {
   progress: number;
 }
 
-const mockSessions: SessionRow[] = [
-  {
-    id: "1", sessionId: "SES-2026-0156", candidateName: "David Lee", candidateEmail: "david.lee@email.com",
-    templateTitle: "Frontend Developer Interview", category: "Technical",
-    interviewerName: "Sophia Kim", interviewerRole: "Team Lead",
-    date: "May 28, 2026", time: "10:00 AM", status: "Completed", progress: 100,
-  },
-  {
-    id: "2", sessionId: "SES-2026-0155", candidateName: "Emma Johnson", candidateEmail: "emma.j@email.com",
-    templateTitle: "Backend Developer Assessment", category: "Technical",
-    interviewerName: "Michael Chen", interviewerRole: "Senior Engineer",
-    date: "May 28, 2026", time: "10:00 AM", status: "In Progress", progress: 65,
-  },
-  {
-    id: "3", sessionId: "SES-2026-0154", candidateName: "Daniel Johnson", candidateEmail: "daniel.j@email.com",
-    templateTitle: "Data Scientist Evaluation", category: "Technical",
-    interviewerName: "Olivia Smith", interviewerRole: "Data Lead",
-    date: "May 28, 2026", time: "10:00 AM", status: "Scheduled", progress: 0,
-  },
-  {
-    id: "4", sessionId: "SES-2026-0153", candidateName: "Sophie Martin", candidateEmail: "sophie.m@email.com",
-    templateTitle: "Data Scientist Evaluation", category: "Technical",
-    interviewerName: "Michael Chen", interviewerRole: "Senior Engineer",
-    date: "May 28, 2026", time: "10:00 AM", status: "Scheduled", progress: 0,
-  },
-  {
-    id: "5", sessionId: "SES-2026-0152", candidateName: "James Brown", candidateEmail: "james.b@email.com",
-    templateTitle: "Data Scientist Evaluation", category: "Behavioral",
-    interviewerName: "Sophia Kim", interviewerRole: "Team Lead",
-    date: "May 28, 2026", time: "10:00 AM", status: "Completed", progress: 100,
-  },
-  {
-    id: "6", sessionId: "SES-2026-0151", candidateName: "James Brown", candidateEmail: "james.b@email.com",
-    templateTitle: "Leadership & Communication", category: "Leadership",
-    interviewerName: "Michael Chen", interviewerRole: "Senior Engineer",
-    date: "May 28, 2026", time: "10:00 AM", status: "Cancelled", progress: 0,
-  },
-  {
-    id: "7", sessionId: "SES-2026-0150", candidateName: "James Brown", candidateEmail: "james.b@email.com",
-    templateTitle: "Data Scientist Evaluation", category: "Technical",
-    interviewerName: "Sophia Kim", interviewerRole: "Team Lead",
-    date: "May 28, 2026", time: "10:00 AM", status: "Completed", progress: 100,
-  },
-];
+// --- Helper: Map Backend Data to UI Structure ---
+function mapSessionToRow(session: InterviewSession): SessionRow {
+  // Map backend status to UI status
+  const statusMap: Record<SessionStatus, SessionStatusUI> = {
+    not_started: "Scheduled",
+    in_progress: "In Progress",
+    completed: "Completed",
+    expired: "Cancelled",
+  };
+
+  // Calculate progress based on status
+  const progressMap: Record<SessionStatus, number> = {
+    not_started: 0,
+    in_progress: 50, // Default for in progress
+    completed: 100,
+    expired: 0,
+  };
+
+  // Infer category from targetRole
+  let category = "General";
+  const roleLower = (session.targetRole || "").toLowerCase();
+  if (roleLower.includes("developer") || roleLower.includes("engineer") || roleLower.includes("data") || roleLower.includes("technical")) {
+    category = "Technical";
+  } else if (roleLower.includes("behavioral")) {
+    category = "Behavioral";
+  } else if (roleLower.includes("lead") || roleLower.includes("manager")) {
+    category = "Leadership";
+  }
+
+  // Format date and time from createdAt
+  const dateObj = session.createdAt ? new Date(session.createdAt) : new Date();
+  const date = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  // Generate a nice Session ID
+  const sessionId = `SES-${session.id.slice(0, 8).toUpperCase()}`;
+
+  return {
+    id: session.id,
+    sessionId,
+    candidateName: session.candidateName,
+    candidateEmail: session.candidateEmail || "No email",
+    templateTitle: session.templateTitle || "Assessment",
+    category,
+    // Note: Backend doesn't track interviewer per session yet. 
+    // Ask your backend team to add this if needed.
+    interviewerName: "Unassigned", 
+    interviewerRole: "Reviewer",
+    date,
+    time,
+    status: statusMap[session.status],
+    progress: progressMap[session.status],
+  };
+}
 
 export default function SessionsPage() {
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
 
-  // Filter logic (mock)
-  const filteredSessions = mockSessions.filter((s) => {
-    const matchesSearch = s.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          s.sessionId.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "All Status" || s.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Fetch real data from backend
+  const loadSessions = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiGet<InterviewSession[]>("/sessions");
+      setSessions(data.map(mapSessionToRow));
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSessions();
+  }, [loadSessions]);
+
+  // Filter logic based on real data
+  const filteredSessions = useMemo(() => {
+    return sessions.filter((s) => {
+      const matchesSearch = s.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            s.sessionId.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "All Status" || s.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [sessions, searchQuery, statusFilter]);
+
+  // Calculate real stats
+  const stats = useMemo(() => {
+    const total = sessions.length;
+    const completed = sessions.filter(s => s.status === "Completed").length;
+    const inProgress = sessions.filter(s => s.status === "In Progress").length;
+    const scheduled = sessions.filter(s => s.status === "Scheduled").length;
+    const cancelled = sessions.filter(s => s.status === "Cancelled").length;
+
+    const getPercent = (count: number) => total > 0 ? `${((count / total) * 100).toFixed(1)}% of total` : "0% of total";
+
+    return {
+      total,
+      completed,
+      inProgress,
+      scheduled,
+      cancelled,
+      completedPercent: getPercent(completed),
+      inProgressPercent: getPercent(inProgress),
+      scheduledPercent: getPercent(scheduled),
+      cancelledPercent: getPercent(cancelled),
+    };
+  }, [sessions]);
+
+  if (loading) {
+    return <AppShell active="session" title="" description=""><PageLoader label="Loading interview sessions" /></AppShell>;
+  }
+
+  if (error && !sessions.length) {
+    return <AppShell active="session" title="" description=""><ErrorState message={error} onRetry={() => void loadSessions()} /></AppShell>;
+  }
 
   return (
     <AppShell active="session" title="" description="">
@@ -101,13 +168,13 @@ export default function SessionsPage() {
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards (Now Real) */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Total Sessions" value="156" detail="All time sessions" icon="clipboard" tone="bg-purple-100 text-purple-600" />
-          <StatCard label="Completed" value="82" detail="52.6% of total" icon="check" tone="bg-emerald-100 text-emerald-600" />
-          <StatCard label="In Progress" value="41" detail="26.3% of total" icon="clock" tone="bg-sky-100 text-sky-600" />
-          <StatCard label="Scheduled" value="28" detail="17.9% of total" icon="calendar" tone="bg-blue-100 text-blue-600" />
-          <StatCard label="Cancelled" value="5" detail="3.2% of total" icon="more" tone="bg-rose-100 text-rose-600" />
+          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" icon="clipboard" tone="bg-purple-100 text-purple-600" />
+          <StatCard label="Completed" value={String(stats.completed)} detail={stats.completedPercent} icon="check" tone="bg-emerald-100 text-emerald-600" />
+          <StatCard label="In Progress" value={String(stats.inProgress)} detail={stats.inProgressPercent} icon="clock" tone="bg-sky-100 text-sky-600" />
+          <StatCard label="Scheduled" value={String(stats.scheduled)} detail={stats.scheduledPercent} icon="calendar" tone="bg-blue-100 text-blue-600" />
+          <StatCard label="Cancelled" value={String(stats.cancelled)} detail={stats.cancelledPercent} icon="more" tone="bg-rose-100 text-rose-600" />
         </section>
 
         {/* Main Content Card */}
@@ -117,8 +184,8 @@ export default function SessionsPage() {
             <div className="flex flex-wrap items-center gap-3">
               <SelectFilter value={statusFilter} onChange={setStatusFilter} options={["All Status", "Completed", "In Progress", "Scheduled", "Cancelled"]} />
               <SelectFilter value="All Templates" onChange={() => {}} options={["All Templates", "Technical", "Behavioral"]} />
-              <SelectFilter value="All Interviewers" onChange={() => {}} options={["All Interviewers", "Sophia Kim", "Michael Chen"]} />
-              <SelectFilter value="May 1, 2026 - May 31, 2026" onChange={() => {}} options={["May 1, 2026 - May 31, 2026"]} />
+              <SelectFilter value="All Interviewers" onChange={() => {}} options={["All Interviewers", "Unassigned"]} />
+              <SelectFilter value="All Time" onChange={() => {}} options={["All Time", "Today", "This Week", "This Month"]} />
             </div>
             <div className="relative w-full lg:w-64">
               <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={16} />
@@ -133,95 +200,106 @@ export default function SessionsPage() {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <tr>
-                  <th className="px-5 py-3 w-10"><input type="checkbox" className="rounded border-gray-300" /></th>
-                  <th className="px-4 py-3">Session ID</th>
-                  <th className="px-4 py-3">Candidate</th>
-                  <th className="px-4 py-3">Template</th>
-                  <th className="px-4 py-3">Interviewer</th>
-                  <th className="px-4 py-3">Session Date & Time</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Progress</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredSessions.map((session) => (
-                  <tr key={session.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-4"><input type="checkbox" className="rounded border-gray-300" /></td>
-                    <td className="px-4 py-4 font-mono text-xs text-gray-600">{session.sessionId}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs">
-                          {session.candidateName.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{session.candidateName}</p>
-                          <p className="text-xs text-gray-500">{session.candidateEmail}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-medium text-gray-900">{session.templateTitle}</p>
-                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(session.category)}`}>
-                        {session.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs">
-                          {session.interviewerName.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{session.interviewerName}</p>
-                          <p className="text-xs text-gray-500">{session.interviewerRole}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-gray-700">
-                          <Icon name="calendar" size={12} className="text-gray-400" />
-                          <span className="text-xs">{session.date}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-gray-700">
-                          <Icon name="clock" size={12} className="text-gray-400" />
-                          <span className="text-xs">{session.time}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <StatusBadge status={session.status} />
-                    </td>
-                    <td className="px-4 py-4 w-32">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-gray-900 w-8">{session.progress}%</span>
-                        <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full ${session.progress === 100 ? 'bg-sky-500' : session.progress > 0 ? 'bg-sky-400' : 'bg-gray-200'}`} 
-                            style={{ width: `${session.progress}%` }} 
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="p-1.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
-                          <Icon name="eye" size={16} />
-                        </button>
-                        <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                          <Icon name="more" size={16} />
-                        </button>
-                      </div>
-                    </td>
+          {filteredSessions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3 w-10"><input type="checkbox" className="rounded border-gray-300" /></th>
+                    <th className="px-4 py-3">Session ID</th>
+                    <th className="px-4 py-3">Candidate</th>
+                    <th className="px-4 py-3">Template</th>
+                    <th className="px-4 py-3">Interviewer</th>
+                    <th className="px-4 py-3">Session Date & Time</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Progress</th>
+                    <th className="px-5 py-3 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredSessions.map((session) => (
+                    <tr key={session.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-4"><input type="checkbox" className="rounded border-gray-300" /></td>
+                      <td className="px-4 py-4 font-mono text-xs text-gray-600">{session.sessionId}</td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs">
+                            {session.candidateName.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{session.candidateName}</p>
+                            <p className="text-xs text-gray-500">{session.candidateEmail}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="font-medium text-gray-900">{session.templateTitle}</p>
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(session.category)}`}>
+                          {session.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs">
+                            {session.interviewerName.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{session.interviewerName}</p>
+                            <p className="text-xs text-gray-500">{session.interviewerRole}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-gray-700">
+                            <Icon name="calendar" size={12} className="text-gray-400" />
+                            <span className="text-xs">{session.date}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-gray-700">
+                            <Icon name="clock" size={12} className="text-gray-400" />
+                            <span className="text-xs">{session.time}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <StatusBadge status={session.status} />
+                      </td>
+                      <td className="px-4 py-4 w-32">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-gray-900 w-8">{session.progress}%</span>
+                          <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${session.progress === 100 ? 'bg-sky-500' : session.progress > 0 ? 'bg-sky-400' : 'bg-gray-200'}`} 
+                              style={{ width: `${session.progress}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link href={`/candidates/${session.id}`} className="p-1.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
+                            <Icon name="eye" size={16} />
+                          </Link>
+                          <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                            <Icon name="more" size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-10 text-center">
+              <EmptyState 
+                action={<Link href="/assessment/create" className="button-primary">Create Session</Link>}
+                title="No sessions found" 
+                description="Try adjusting your search or filter, or create a new session." 
+                icon="message" 
+              />
+            </div>
+          )}
         </section>
       </div>
     </AppShell>
@@ -276,6 +354,7 @@ function getCategoryColor(category: string) {
     Technical: "bg-purple-50 text-purple-600",
     Behavioral: "bg-emerald-50 text-emerald-600",
     Leadership: "bg-sky-50 text-sky-600",
+    General: "bg-gray-50 text-gray-600",
   };
   return colors[category] || "bg-gray-50 text-gray-600";
 }
