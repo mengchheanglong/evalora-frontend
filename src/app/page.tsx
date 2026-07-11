@@ -304,7 +304,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="border-t border-neutral-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="border-t border-neutral-100 pt-6 flex items-center justify-center text-center">
             <span className="text-[12px] text-neutral-400">
               &copy; 2026 Evalora. All rights reserved.
             </span>

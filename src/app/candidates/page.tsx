@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, getErrorMessage } from "@/lib/api";
+import { candidateAvatarUrl } from "@/lib/candidate-avatars";
 import type { InterviewSession, SessionStatus } from "@/lib/types";
 
 export default function CandidatesPage() {
@@ -109,7 +110,7 @@ export default function CandidatesPage() {
                             <td className="px-3 py-4">
                               <div className="flex items-center gap-3">
                                 <label className={`group/avatar relative flex size-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full text-[10px] font-black text-white ${avatarColor(index)}`} title="Upload candidate photo">
-                                  {candidateImages[session.id] ? <img alt="" className="size-full object-cover" src={candidateImages[session.id]} /> : initials(session.candidateName)}
+                                  {candidateImages[session.id] || candidateAvatarUrl(session.candidateName, session.candidateId) ? <img alt="" className="size-full object-cover" src={candidateImages[session.id] ?? candidateAvatarUrl(session.candidateName, session.candidateId)} /> : initials(session.candidateName)}
                                   <span className="absolute inset-0 hidden items-center justify-center bg-black/45 text-[9px] font-bold group-hover/avatar:flex">Edit</span>
                                   <input accept="image/*" className="sr-only" onChange={(event) => handleCandidateImage(session.id, event.target.files?.[0])} type="file" />
                                 </label>
