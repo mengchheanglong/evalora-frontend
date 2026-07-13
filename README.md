@@ -15,17 +15,21 @@ pnpm dev
 
 Frontend: <http://localhost:3010>
 
-The backend should be running at <http://localhost:4000/api>.
+The backend is optional for local UI work. When Nest is running at <http://localhost:4000/api>, the app uses it. When it is not reachable, the proxy falls back to an in-app mock API with demo templates, sessions, analytics, and reports.
 
 ## Environment
 
-Create `.env.local` only when the API is not using the local default:
+Create `.env.local` only when you need non-default settings:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:4000/api
+# auto  = try live API, fall back to mock when unreachable (default / recommended for frontend-only work)
+# true  = always use mock demo data
+# false = live API only (no mock fallback)
+NEXT_PUBLIC_USE_MOCK_BACKEND=auto
 ```
 
-Browser requests go through the same-origin route handler at `/api/backend/*`. Login and registration tokens are stored in an HttpOnly cookie by that boundary; bearer tokens are not exposed to client components.
+Browser requests go through the same-origin route handler at `/api/backend/*`. Login and registration tokens are stored in an HttpOnly cookie by that boundary; bearer tokens are not exposed to client components. Responses include `X-Evalora-Data-Source: live|mock` so you can confirm which source served the data.
 
 ## Integrated product routes
 

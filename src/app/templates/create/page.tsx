@@ -259,51 +259,88 @@ export default function CreateTemplatePage() {
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           {/* Main Content */}
           <div className="min-w-0 space-y-6">
-            {/* Step 1: Basics */}
-            {step === 1 && (
-              <div className="space-y-6">
-                <SectionCard title="Template Information" description="Start with who this assessment is for and how long it should take.">
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <Field label="Template name" required>
-                      <input className="input-field" onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Backend Engineer Screen" value={title} />
-                    </Field>
-                    <Field label="Target role" required>
-                      <input className="input-field" onChange={(e) => setRoleType(e.target.value)} placeholder="e.g. Backend Engineer" value={roleType} />
-                    </Field>
-                                       <Field label="Experience level">
-                      <select className="input-field bg-white" onChange={(e) => setExperienceLevel(e.target.value)} value={experienceLevel}>
-                        <option>Junior (0–2 years)</option>
-                        <option>Mid (2–5 years)</option>
-                        <option>Senior (5+ years)</option>
-                        <option>Lead / Staff</option>
-                        <option>Any level</option>
-                      </select>
-                    </Field>
-                    <Field label="Time limit (minutes)">
-                      <input className="input-field" min={5} onChange={(e) => setTimeLimitMin(e.target.value)} type="number" value={timeLimitMin} />
-                    </Field>
-                    
-                    {/* Added sm:col-span-2 to make it full width like Description */}
-                    <div className="sm:col-span-2">
-                      <Field label="Pass score (1–5 scale)">
-                        <input className="input-field" max={5} min={1} onChange={(e) => setPassScore(e.target.value)} step="0.1" type="number" value={passScore} />
-                      </Field>
-                    </div>
-                    
-                    <div className="sm:col-span-2">
-                      <Field label="Description">
-                        <textarea className="input-field min-h-[100px]" onChange={(e) => setDescription(e.target.value)} placeholder="What does this assessment measure? Who is it for?" rows={3} value={description} />
-                      </Field>
-                    </div>
-                  </div>
-                </SectionCard>
-                <div className="flex justify-end">
-                  <button className="button-primary inline-flex items-center gap-2" onClick={() => goToStep(2)} type="button">
-                    Continue to modules <Icon className="-rotate-90" name="chevron" size={14} />
-                  </button>
-                </div>
-              </div>
-            )}
+         {/* Step 1: Basics */}
+{step === 1 && (
+  <div className="space-y-6">
+    <SectionCard title="Template Information" description="Start with who this assessment is for and how long it should take.">
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Field label="Template name" required>
+          <input 
+            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            onChange={(e) => setTitle(e.target.value)} 
+            placeholder="e.g. Backend Engineer Screen" 
+            value={title} 
+          />
+        </Field>
+        <Field label="Target role" required>
+          <input 
+            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            onChange={(e) => setRoleType(e.target.value)} 
+            placeholder="e.g. Backend Engineer" 
+            value={roleType} 
+          />
+        </Field>
+        <Field label="Experience level">
+          <select 
+            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            onChange={(e) => setExperienceLevel(e.target.value)} 
+            value={experienceLevel}
+          >
+            <option>Junior (0–2 years)</option>
+            <option>Mid (2–5 years)</option>
+            <option>Senior (5+ years)</option>
+            <option>Lead / Staff</option>
+            <option>Any level</option>
+          </select>
+        </Field>
+        <Field label="Time limit (minutes)">
+          <input 
+            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            min={5} 
+            onChange={(e) => setTimeLimitMin(e.target.value)} 
+            type="number" 
+            value={timeLimitMin} 
+          />
+        </Field>
+        
+        <div className="sm:col-span-2">
+          <Field label="Pass score (1–5 scale)">
+            <input 
+              className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+              max={5} 
+              min={1} 
+              onChange={(e) => setPassScore(e.target.value)} 
+              step="0.1" 
+              type="number" 
+              value={passScore} 
+            />
+          </Field>
+        </div>
+        
+        <div className="sm:col-span-2">
+          <Field label="Description">
+            <textarea 
+              className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm leading-6 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+              onChange={(e) => setDescription(e.target.value)} 
+              placeholder="What does this assessment measure? Who is it for?" 
+              rows={3} 
+              value={description} 
+            />
+          </Field>
+        </div>
+      </div>
+    </SectionCard>
+    <div className="flex justify-end">
+      <button 
+  className="inline-flex h-10 items-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2" 
+  onClick={() => goToStep(2)} 
+  type="button"
+>
+  Continue to modules <Icon className="-rotate-90" name="chevron" size={14} />
+</button>
+    </div>
+  </div>
+)}
 
             {/* Step 2: Modules */}
             {step === 2 && (

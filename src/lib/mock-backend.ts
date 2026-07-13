@@ -735,6 +735,19 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   if (relativePath === "analytics/module-performance" && method === "GET") return json(createModulePerformance());
   if (relativePath === "analytics/score-distribution" && method === "GET") return json(createDistribution());
   if (relativePath === "analytics/themes" && method === "GET") return json(createThemes());
+  if (relativePath === "analytics/trend" && method === "GET") return json(createTrend());
+
+  if (segments[0] === "ai" && segments[1] === "access" && segments[2] && segments[3] === "follow-up" && method === "POST") {
+    const session = findSessionByAccessCode(decodeURIComponent(segments[2]));
+    if (!session) return json({ message: "Invitation not found." }, 404);
+    const input = asRecord(body);
+    const prior = String(input.answer ?? input.responseText ?? input.previousAnswer ?? "").trim();
+    return json({
+      question: prior
+        ? "Can you walk through one concrete trade-off you made, including the alternatives you rejected and how you measured the outcome?"
+        : "Tell us about a specific decision you owned recently and what evidence told you it was the right call.",
+    });
+  }
 
   if (segments[0] === "reports" && segments[1]) return handleReports(method, decodeURIComponent(segments[1]), segments[2], body);
   if (segments[0] === "code" && segments[1] === "access" && segments[2]) return handleCode(method, decodeURIComponent(segments[2]), segments[3], body);
@@ -897,7 +910,33 @@ function createModulePerformance(): ModulePerformance[] {
 }
 
 function createDistribution() {
-  return { buckets: [{ label: "1-2", count: 1 }, { label: "2-3", count: 2 }, { label: "3-4", count: 5 }, { label: "4-5", count: 9 }] };
+  // Analytics UI expects a flat array of score buckets.
+  return [
+    { label: "1-2", count: 1 },
+    { label: "2-3", count: 2 },
+    { label: "3-4", count: 5 },
+    { label: "4-5", count: 9 },
+  ];
+}
+
+function createTrend() {
+  const completed = sessions.filter((session) => session.status === "completed" && session.overallScore);
+  if (completed.length === 0) {
+    return [
+      { date: iso(-336), score: 72 },
+      { date: iso(-240), score: 78 },
+      { date: iso(-144), score: 81 },
+      { date: iso(-48), score: 86 },
+    ];
+  }
+
+  return completed
+    .slice()
+    .sort((a, b) => new Date(a.completedAt ?? a.updatedAt ?? 0).getTime() - new Date(b.completedAt ?? b.updatedAt ?? 0).getTime())
+    .map((session) => ({
+      date: session.completedAt ?? session.updatedAt ?? new Date().toISOString(),
+      score: Math.round(((session.overallScore ?? 0) / 5) * 100),
+    }));
 }
 
 function createThemes() {
