@@ -62,8 +62,7 @@ function mapTemplateToRow(template: AssessmentTemplate): TemplateRow {
     icon = "message"; iconColor = "bg-purple-100 text-purple-600";
   }
 
-  // Note: The backend type doesn't explicitly have updatedAt or createdByName, 
-  // so we use placeholders. If your backend adds them, update this logic.
+  
   const lastUpdate = (template as any).updatedAt 
     ? new Date((template as any).updatedAt).toLocaleDateString() 
     : "N/A";
@@ -167,12 +166,6 @@ export default function TemplatesPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-              <Icon name="menu" size={16} /> Filters
-            </button>
-            <select className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 outline-none">
-              <option>All Categories</option>
-            </select>
             <Link href="/templates/create" className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm">
               <Icon name="plus" size={16} /> New Template
             </Link>
@@ -270,9 +263,7 @@ export default function TemplatesPage() {
                       <td className="px-4 py-4"><StatusBadge status={template.status} /></td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link href={`/templates/${template.id}/edit`} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Edit">
-                            <Icon name="code" size={16} /> 
-                          </Link>
+                          
                           <button 
                             onClick={() => deleteTemplate(template.id, template.title)}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
