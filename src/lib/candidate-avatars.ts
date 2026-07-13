@@ -1,21 +1,32 @@
-const avatarByCandidateId: Record<string, string> = {
-  "cand-daniel": "https://randomuser.me/api/portraits/men/75.jpg",
-  "cand-emma": "https://randomuser.me/api/portraits/women/65.jpg",
-  "cand-sofia": "https://randomuser.me/api/portraits/women/44.jpg",
-  "cand-noah": "https://randomuser.me/api/portraits/men/32.jpg",
-  "cand-olivia": "https://randomuser.me/api/portraits/women/68.jpg",
-  "cand-liam": "https://randomuser.me/api/portraits/men/46.jpg",
-};
+/** Deterministic initials + pastel background from candidate name (no static stock photos). */
 
-const avatarByName: Record<string, string> = {
-  "daniel lee": avatarByCandidateId["cand-daniel"],
-  "emma johnson": avatarByCandidateId["cand-emma"],
-  "sofia williams": avatarByCandidateId["cand-sofia"],
-  "noah kim": avatarByCandidateId["cand-noah"],
-  "olivia smith": avatarByCandidateId["cand-olivia"],
-  "liam chen": avatarByCandidateId["cand-liam"],
-};
+const PALETTE = [
+  "from-sky-100 to-cyan-100 text-sky-800",
+  "from-violet-100 to-fuchsia-100 text-violet-800",
+  "from-emerald-100 to-teal-100 text-emerald-800",
+  "from-amber-100 to-orange-100 text-amber-900",
+  "from-rose-100 to-pink-100 text-rose-800",
+  "from-indigo-100 to-blue-100 text-indigo-800",
+];
 
-export function candidateAvatarUrl(candidateName: string, candidateId?: string) {
-  return (candidateId ? avatarByCandidateId[candidateId] : undefined) ?? avatarByName[candidateName.trim().toLowerCase()];
+function hashName(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }
+
+export function candidateInitials(candidateName: string): string {
+  const parts = candidateName.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "EV";
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+export function candidateAvatarTone(candidateName: string): string {
+  return PALETTE[hashName(candidateName.trim().toLowerCase()) % PALETTE.length];
+}
+

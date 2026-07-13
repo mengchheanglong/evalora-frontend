@@ -4,18 +4,35 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { AuthDivider, AuthLayout } from "@/components/auth-layout";
-import { GoogleIcon, Icon } from "@/components/icons";
+import { AuthLayout } from "@/components/auth-layout";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { Icon } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
 import { getErrorMessage } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  async function finishGoogleSignIn(credential: string) {
+    setError("");
+    setSubmitting(true);
+    try {
+      await loginWithGoogle(credential);
+      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      router.replace(returnTo?.startsWith("/") ? returnTo : "/dashboard");
+      router.refresh();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to sign in with Google."));
+      throw requestError;
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,14 +92,7 @@ export default function LoginPage() {
           {submitting ? "Signing in" : "Sign in"}
         </button>
 
-        <div className="py-4">
-          <AuthDivider label="or continue with" />
-        </div>
-
-        <button className="button-secondary h-12 w-full rounded-lg border-neutral-300 bg-white text-[13px] font-bold text-neutral-700 hover:bg-neutral-50" type="button">
-          <GoogleIcon />
-          <span>Sign in with google</span>
-        </button>
+        <GoogleSignInButton disabled={submitting} mode="signin" onCredential={finishGoogleSignIn} onError={setError} />
 
         <p className="pt-3 text-center text-[12px] text-neutral-500">
           Don&apos;t have an account? <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/register">Sign up</Link>

@@ -17,6 +17,8 @@ export default function CreateSessionPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [createdLink, setCreatedLink] = useState("");
 
   // Form state (Cleared defaults for real usage)
   const [sessionTitle, setSessionTitle] = useState("");
@@ -86,25 +88,51 @@ export default function CreateSessionPage() {
     }
 
     setError("");
+    setSuccess("");
+    setCreatedLink("");
     setSubmitting(true);
 
     try {
-      // Map UI state to Backend Payload
+      // Map UI state to Backend Payload (matches POST /sessions workspace metadata).
       const payload = {
         candidateName: candidate,
         candidateEmail: candidateEmail,
         templateId: selectedTemplateId,
+        title: sessionTitle || undefined,
+        interviewType: interviewType || undefined,
+        interviewers: interviewers.length ? interviewers : undefined,
+        notes: notes || undefined,
         targetRole: position || undefined,
-        // Note: Extra fields like interviewers, notes, sessionDate are kept in UI state 
-        // but not sent to the backend unless your backend team adds them to the schema.
+        department: department || undefined,
+        sessionDate: sessionDate || undefined,
+        startTime: startTime || undefined,
+        durationMin: duration ? Number(duration) : undefined,
+        language: sessionLanguage || undefined,
+        timeZone: timeZone || undefined,
       };
 
-      await apiPost<InterviewSession>("/sessions", payload);
-      
-      // On Success: Redirect to sessions list
-      router.push("/assessment");
-      router.refresh();
-      
+      const session = await apiPost<InterviewSession>("/sessions", payload);
+      const link =
+        session.assessmentUrl ||
+        `${window.location.origin}/assessment/${encodeURIComponent(session.accessCode)}`;
+      setCreatedLink(link);
+      const delivery = session.emailDelivery;
+      if (delivery?.status === "sent") {
+        setSuccess(`Session created and assessment email sent to ${candidateEmail}.`);
+      } else if (delivery?.status === "queued") {
+        setSuccess(`Session created. Email is sending in the background to ${candidateEmail}. Copy the link below as backup.`);
+      } else if (delivery?.status === "failed") {
+        setSuccess(`Session created, but email failed (${delivery.reason ?? "unknown"}). Copy the assessment link below.`);
+      } else {
+        setSuccess(
+          `Session created. ${delivery?.reason ?? "Email is not configured — share the assessment link below."}`,
+        );
+      }
+      // Brief pause so the user can copy the link, then go to the list.
+      window.setTimeout(() => {
+        router.push("/assessment");
+        router.refresh();
+      }, 2500);
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to create the session."));
     } finally {
@@ -153,9 +181,25 @@ export default function CreateSessionPage() {
           </p>
         </div>
 
-        {error && (
-          <InlineAlert tone="error">{error}</InlineAlert>
-        )}
+        {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+        {success ? (
+          <div className="mb-4 space-y-2">
+            <InlineAlert tone="success">{success}</InlineAlert>
+            {createdLink ? (
+              <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-3 text-sm">
+                <p className="text-[11px] font-bold text-primary-800">Assessment link</p>
+                <code className="mt-1 block break-all text-[12px] text-neutral-800">{createdLink}</code>
+                <button
+                  className="mt-2 text-[12px] font-bold text-primary-700 hover:text-primary-600"
+                  onClick={() => void navigator.clipboard.writeText(createdLink)}
+                  type="button"
+                >
+                  Copy link
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Wrap the main area in a form */}
         <form onSubmit={handleSubmit}>

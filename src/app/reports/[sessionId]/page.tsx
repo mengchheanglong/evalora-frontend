@@ -7,7 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { ApiError, apiGet, apiPost, getErrorMessage } from "@/lib/api";
-import { candidateAvatarUrl } from "@/lib/candidate-avatars";
+import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import type { CandidateReport, InterviewSession, ReviewerNote } from "@/lib/types";
 
 export default function ReportPage() {
@@ -112,13 +112,12 @@ function ReportNotReady({ session, generating, onGenerate }: { session: Intervie
 
 function ReportDashboard({ report, session, notes, onAddNote, savingNote }: { report: CandidateReport; session: InterviewSession; notes: ReviewerNote[]; onAddNote: (event: FormEvent<HTMLFormElement>) => void; savingNote: boolean }) {
   const score = Math.round(report.overallScore * 20);
-  const avatarUrl = candidateAvatarUrl(report.candidateName, session.candidateId);
   return (
     <>
       <section className="card grid gap-6 rounded-[10px] p-6 lg:grid-cols-[minmax(0,1fr)_220px_250px] lg:items-center">
         <div className="flex flex-wrap items-center gap-6">
-          <span className="grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-100 to-fuchsia-100 text-[30px] font-black text-primary-700 ring-4 ring-fuchsia-200">
-            {avatarUrl ? <img alt="" className="size-full object-cover" src={avatarUrl} /> : initials(report.candidateName)}
+          <span className={`grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br text-[30px] font-black ring-4 ring-fuchsia-200 ${candidateAvatarTone(report.candidateName)}`}>
+            {candidateInitials(report.candidateName)}
           </span>
           <div>
             <h2 className="text-[28px] font-black text-neutral-950">{report.candidateName}</h2>
@@ -249,4 +248,4 @@ function radarLabelClass(index: number) {
   return ["-top-3 left-1/2 -translate-x-1/2", "right-[-34px] top-1/4", "right-[-34px] bottom-1/4", "-bottom-3 left-1/2 -translate-x-1/2", "left-[-42px] bottom-1/4", "left-[-30px] top-1/4"][index] ?? "";
 }
 
-function initials(name: string) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "EV"; }
+

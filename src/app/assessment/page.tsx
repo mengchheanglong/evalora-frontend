@@ -55,10 +55,14 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
     category = "Leadership";
   }
 
-  // Format date and time from createdAt
-  const dateObj = session.createdAt ? new Date(session.createdAt) : new Date();
-  const date = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const time = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  // Prefer scheduled time from create form; fall back to createdAt.
+  const dateObj = session.scheduledAt
+    ? new Date(session.scheduledAt)
+    : session.createdAt
+      ? new Date(session.createdAt)
+      : new Date();
+  const date = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
   // Generate a nice Session ID
   const sessionId = `SES-${session.id.slice(0, 8).toUpperCase()}`;
@@ -68,12 +72,10 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
     sessionId,
     candidateName: session.candidateName,
     candidateEmail: session.candidateEmail || "No email",
-    templateTitle: session.templateTitle || "Assessment",
+    templateTitle: session.title || session.templateTitle || "Assessment",
     category,
-    // Note: Backend doesn't track interviewer per session yet. 
-    // Ask your backend team to add this if needed.
-    interviewerName: "Unassigned", 
-    interviewerRole: "Reviewer",
+    interviewerName: session.interviewerName || session.interviewers?.[0] || "Unassigned",
+    interviewerRole: session.interviewerRole || "Reviewer",
     date,
     time,
     status: statusMap[session.status],

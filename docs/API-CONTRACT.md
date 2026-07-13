@@ -21,8 +21,9 @@ The frontend reads `NEXT_PUBLIC_API_URL` and proxies browser requests through `/
 
 | Method | Endpoint | Access | Description |
 | --- | --- | --- | --- |
-| POST | `/auth/register` | Public | Create an interviewer account and workspace. |
+| POST | `/auth/register` | Public | Create a **workspace owner** (`organization` role) and a new organization. |
 | POST | `/auth/login` | Public | Return a signed JWT and safe user object. |
+| POST | `/auth/google` | Public | Verify a Google Identity Services ID token, then login or create a workspace owner. |
 | POST | `/auth/logout` | Public | Acknowledge logout; the frontend proxy clears its cookie. |
 | GET | `/auth/me` | Workspace | Return the current persisted user. |
 
@@ -30,14 +31,65 @@ Registration request:
 
 ```json
 {
-  "name": "Demo Reviewer",
-  "email": "reviewer@example.com",
+  "name": "Demo Owner",
+  "email": "owner@example.com",
   "password": "minimum-8-characters",
   "organizationName": "Demo Workspace"
 }
 ```
 
-`role` may be omitted and defaults to `interviewer`. Public `admin`/`candidate` registration and public `organizationId` assignment are rejected. Successful login/register responses contain `{ "token": "...", "user": { ... } }`; the frontend proxy removes `token` before returning JSON to client components.
+Public registration always creates the workspace **owner** (`role: "organization"`). Interviewers join only through invitations. Public `admin`/`candidate` registration and public `organizationId` assignment are rejected. Successful login/register responses contain `{ "token": "...", "user": { ... } }`; the frontend proxy removes `token` before returning JSON to client components.
+
+Google sign-in request:
+
+```json
+{
+  "credential": "google-identity-services-id-token",
+  "organizationName": "Optional workspace name for first-time signup"
+}
+```
+
+`POST /auth/google` verifies the ID token against `GOOGLE_CLIENT_ID`, requires a verified email, blocks candidate-only emails, logs in existing workspace users, and creates a new **owner** workspace when the email is new. The frontend proxy also treats `auth/google` as an auth response path and stores the JWT cookie.
+
+## Organization members and invites
+
+One organization can have many workspace users. The first registrant is the **owner**. Owners invite **interviewers** who share the same `organizationId` data (templates, sessions, reports, analytics).
+
+| Method | Endpoint | Access | Description |
+| --- | --- | --- | --- |
+| GET | `/organization/members` | Owner, interviewer | List workspace members (owner + interviewers). |
+| POST | `/organization/invites` | Owner | Create a pending interviewer invite; returns `token` and `inviteUrlPath`. |
+| GET | `/organization/invites` | Owner | List recent invites for the workspace. |
+| DELETE | `/organization/invites/:inviteId` | Owner | Cancel a pending invite. |
+| DELETE | `/organization/members/:memberId` | Owner | Remove an interviewer from the workspace (owner cannot be removed). |
+| GET | `/organization/invites/token/:token` | Public | Preview a valid invite (email, org name, expiry). |
+| POST | `/organization/invites/accept` | Public | Accept invite with name + password; creates interviewer and returns JWT like login. |
+
+Create invite request:
+
+```json
+{ "email": "colleague@example.com" }
+```
+
+Accept invite request:
+
+```json
+{
+  "token": "invite-token-from-link",
+  "name": "Alex Interviewer",
+  "password": "minimum-8-characters"
+}
+```
+
+Invite links are high-entropy, expire after 7 days, and are single-use. When email is configured (`EMAIL_PROVIDER=gmail` with SMTP credentials, or `RESEND_API_KEY`), `POST /organization/invites` emails the absolute `inviteUrl` and returns `emailDelivery: { status: "sent" | "skipped" | "failed", reason?, messageId?, provider? }`. Gmail SMTP can reach any recipient within Google’s limits; Resend’s `onboarding@resend.dev` sender can only mail the Resend account email unless a domain is verified. Without a provider, invite creation still succeeds with `emailDelivery.status = "skipped"` so the owner can copy `inviteUrlPath` / `inviteUrl` manually. The frontend proxy treats `organization/invites/accept` as an auth response path and stores the JWT in the HttpOnly cookie.
+
+Role labels for UI:
+
+| API `role` | Product meaning |
+| --- | --- |
+| `organization` | Workspace owner (company admin) |
+| `interviewer` | Invited teammate |
+| `candidate` | Invite-only assessment participant (not a workspace member) |
 
 ## Templates
 
@@ -45,11 +97,26 @@ All template routes require workspace authentication.
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| GET | `/templates` | List organization-visible templates with modules/questions. |
-| POST | `/templates` | Create a nested template. |
-| GET | `/templates/:id` | Read one scoped template. |
+| GET | `/templates/catalog` | List **prebuilt blueprints** (read-only library; not org-owned). |
+| GET | `/templates/catalog/:catalogId` | Full prebuilt template for preview. |
+| POST | `/templates/from-catalog` | Deep-clone a prebuilt into the caller's organization (ready to assign or edit). |
+| GET | `/templates` | List **organization-owned** templates. |
+| POST | `/templates` | Create a nested template (blank or custom). |
+| POST | `/templates/:id/duplicate` | Duplicate an org-owned template in the same workspace. |
+| GET | `/templates/:id` | Read one scoped org template. |
 | PUT | `/templates/:id` | Replace template fields and nested modules/questions. |
 | DELETE | `/templates/:id` | Delete one scoped template. |
+
+Clone request:
+
+```json
+{
+  "catalogId": "prebuilt-software-engineer-assessment",
+  "title": "Optional custom title for my copy"
+}
+```
+
+`POST /templates/from-catalog` creates new UUIDs for the template, modules, and questions under the JWT organization. Editing that copy never changes the shared catalog. Sessions should only reference org-owned template ids.
 
 The backend derives `createdById` and organization ownership from the JWT. A template contains title, description, target role, time limit, scoring rules, ordered modules, weights, settings, and questions.
 
@@ -57,7 +124,7 @@ The backend derives `createdById` and organization ownership from the JWT. A tem
 
 | Method | Endpoint | Access | Description |
 | --- | --- | --- | --- |
-| POST | `/sessions` | Workspace | Create/reuse an invite-only candidate and assign a scoped template. |
+| POST | `/sessions` | Workspace | Create/reuse an invite-only candidate and assign a scoped template; emails the assessment link when Resend is configured (`emailDelivery` on the response). |
 | GET | `/sessions` | Workspace | List scoped sessions; optional `candidateId`, `templateId`, and `status` filters. |
 | GET | `/sessions/:id` | Workspace | Read one session with candidate/template labels and report readiness. |
 | PUT | `/sessions/:id/start` | Workspace | Start a not-started session; idempotent while in progress. |
@@ -73,9 +140,22 @@ Session creation request:
   "candidateName": "Dara Candidate",
   "candidateEmail": "dara@example.com",
   "templateId": "template-id",
-  "expiresAt": "2026-08-01T23:59:59.999Z"
+  "expiresAt": "2026-08-01T23:59:59.999Z",
+  "title": "Final Round with Dara",
+  "interviewType": "Technical Interview",
+  "interviewers": ["Sophia Kim", "Michael Chen"],
+  "notes": "Focus on system design.",
+  "targetRole": "Backend Engineer",
+  "department": "Engineering",
+  "sessionDate": "2026-07-20",
+  "startTime": "14:30",
+  "durationMin": 90,
+  "language": "English",
+  "timeZone": "GMT+07:00 Phnom Penh"
 }
 ```
+
+Optional workspace metadata is stored and returned on list/detail reads (`title`, `interviewers`, `interviewerName`, `scheduledAt`, `notes`, `department`, etc.).
 
 Candidate session payloads omit template scoring rules, question rubrics, internal ownership fields, and coding-bank contents. Non-coding questions are selected deterministically from the assigned template; coding questions come from the dedicated coding endpoints.
 

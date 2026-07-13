@@ -29,8 +29,11 @@ const navigation: Array<{ label: string; href: string; key: string; icon: IconNa
   { label: "Analytics", href: "/analytics", key: "analytics", icon: "analytics" },
 ];
 
-const adminNavigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
-  { label: "User & Roles", href: "/users", key: "users", icon: "users" },
+const ownerNavigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
+  { label: "Team", href: "/users", key: "users", icon: "users" },
+];
+
+const sharedSecondaryNavigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
   { label: "Setting", href: "/settings", key: "settings", icon: "settings" },
 ];
 
@@ -198,6 +201,9 @@ export function AppShell({
 }
 
 function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => void }) {
+  const { user } = useAuth();
+  const isOwner = user?.role === "organization" || user?.role === "admin";
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-[82px] items-center px-5">
@@ -207,9 +213,17 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
         <div className="space-y-2">
           {navigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
-        <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Admin</p>
+        {isOwner ? (
+          <>
+            <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Workspace</p>
+            <div className="mt-3 space-y-2">
+              {ownerNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
+            </div>
+          </>
+        ) : null}
+        <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Account</p>
         <div className="mt-3 space-y-2">
-          {adminNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
+          {sharedSecondaryNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
       </nav>
     </div>

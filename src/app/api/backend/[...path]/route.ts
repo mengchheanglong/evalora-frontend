@@ -3,7 +3,7 @@ import { handleMockBackendRequest } from "@/lib/mock-backend";
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/$/, "");
 const SESSION_COOKIE = "evalora_session";
-const AUTH_RESPONSE_PATHS = new Set(["auth/login", "auth/register"]);
+const AUTH_RESPONSE_PATHS = new Set(["auth/login", "auth/register", "auth/google", "organization/invites/accept"]);
 const USE_MOCK_BACKEND = process.env.NEXT_PUBLIC_USE_MOCK_BACKEND !== "false";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
@@ -53,44 +53,56 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   try {
+    const isBodyless = request.method === "GET" || request.method === "HEAD";
     const backendResponse = await fetch(target, {
       method: request.method,
       headers,
-      body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer(),
+      body: isBodyless ? undefined : await request.arrayBuffer(),
       cache: "no-store",
       redirect: "manual",
+      // Prefer reusing TCP connections to Nest during multi-request page loads.
+      keepalive: true,
     });
-    const responseText = await backendResponse.text();
-    const responseHeaders = new Headers();
-    responseHeaders.set("Content-Type", backendResponse.headers.get("content-type") ?? "application/json; charset=utf-8");
 
-    let outgoingBody = responseText;
-    let sessionToken: string | undefined;
-    if (backendResponse.ok && AUTH_RESPONSE_PATHS.has(relativePath) && responseText) {
-      const payload = JSON.parse(responseText) as { token?: string; [key: string]: unknown };
-      sessionToken = payload.token;
-      delete payload.token;
-      outgoingBody = JSON.stringify(payload);
+    // Auth responses need token stripping; stream other bodies through as text once.
+    const contentType = backendResponse.headers.get("content-type") ?? "application/json; charset=utf-8";
+    const responseHeaders = new Headers();
+    responseHeaders.set("Content-Type", contentType);
+
+    if (backendResponse.ok && AUTH_RESPONSE_PATHS.has(relativePath)) {
+      const responseText = await backendResponse.text();
+      let outgoingBody = responseText;
+      let sessionToken: string | undefined;
+      if (responseText) {
+        const payload = JSON.parse(responseText) as { token?: string; [key: string]: unknown };
+        sessionToken = payload.token;
+        delete payload.token;
+        outgoingBody = JSON.stringify(payload);
+      }
+      const response = new NextResponse(outgoingBody || null, {
+        status: backendResponse.status,
+        headers: responseHeaders,
+      });
+      if (sessionToken) {
+        response.cookies.set(SESSION_COOKIE, sessionToken, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: 60 * 60 * 24,
+        });
+      }
+      return response;
     }
 
-    const response = new NextResponse(outgoingBody || null, {
+    const responseText = await backendResponse.text();
+    const response = new NextResponse(responseText || null, {
       status: backendResponse.status,
       headers: responseHeaders,
     });
-
-    if (sessionToken) {
-      response.cookies.set(SESSION_COOKIE, sessionToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        maxAge: 60 * 60 * 24,
-      });
-    }
     if (relativePath === "auth/logout" && backendResponse.ok) {
       response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
     }
-
     return response;
   } catch {
     return NextResponse.json(

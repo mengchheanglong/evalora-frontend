@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
-import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
+import { ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, getErrorMessage } from "@/lib/api";
 import type { ActivityItem, AnalyticsSummary, InterviewSession, ModulePerformance } from "@/lib/types";
 
-// Define the shape of the real trend data
+// Define the shape of the real trend data from backend
 interface TrendDataPoint {
-  date: string; // ISO date string like "2026-07-01"
-  score: number; // Average score for that period
+  date: string;
+  score: number;
 }
 
 export default function DashboardPage() {
@@ -26,6 +26,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError("");
     try {
+      // Fetch all real data in parallel
       const [nextSummary, nextActivity, nextSessions, nextTrend] = await Promise.all([
         apiGet<AnalyticsSummary>("/analytics/summary"),
         apiGet<ActivityItem[]>("/analytics/activity"),
@@ -51,7 +52,7 @@ export default function DashboardPage() {
   return (
     <AppShell
       active="dashboard"
-      // Updated button to be blue (sky-500) like other pages
+      // Blue button matching other pages
       actions={
         <Link 
           className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm hidden h-10 sm:inline-flex" 
@@ -68,7 +69,7 @@ export default function DashboardPage() {
       {!loading && !error && summary ? (
         <DashboardContent 
           activity={activity} 
-          summary={summary} 
+          summary={summary}
           sessions={sessions}
           trendData={trendData}
         />
@@ -79,12 +80,12 @@ export default function DashboardPage() {
 
 function DashboardContent({ 
   activity, 
-  summary, 
+  summary,
   sessions,
-  trendData 
+  trendData
 }: { 
   activity: ActivityItem[]; 
-  summary: AnalyticsSummary; 
+  summary: AnalyticsSummary;
   sessions: InterviewSession[];
   trendData: TrendDataPoint[];
 }) {
@@ -97,7 +98,7 @@ function DashboardContent({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
   
-  // This will dynamically output something like "Jul 1, 2026 - Jul 31, 2026"
+  // Dynamically outputs the real current month range (e.g., "Jul 1, 2026 - Jul 31, 2026")
   const realDateRange = `${formatDate(startOfMonth)} - ${formatDate(endOfMonth)}`;
   // -----------------------------
 
@@ -143,16 +144,14 @@ function DashboardContent({
 
   return (
     <div className="space-y-6">
-      {/* Custom Header matching Figma */}
+      {/* Custom Header with Real Date */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Welcome back, Here's what's happening with your assessments today.
+            Live pipeline metrics from your organization workspace.
           </p>
         </div>
-        
-        {/* UPDATED: Now uses the real dynamic date */}
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm cursor-pointer">
           <Icon name="calendar" size={16} className="text-gray-400" />
           <span className="text-sm font-medium text-gray-700">{realDateRange}</span>
@@ -192,9 +191,10 @@ function DashboardContent({
     </div>
   );
 }
+
 // --- Sub-Components ---
 
-// Updated StatCard to match Interview Session page exactly
+// Updated to match Interview Session page style (uses 'detail' instead of 'change')
 function StatCard({ label, value, detail, icon, tone }: {
   label: string; value: string; detail: string; icon: IconName; tone: string;
 }) {
@@ -203,7 +203,7 @@ function StatCard({ label, value, detail, icon, tone }: {
       <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${tone}`}>
         <Icon name={icon} size={24} />
       </span>
-      <div>
+      <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-gray-500">{label}</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
         <p className="text-[10px] text-gray-400 mt-1">{detail}</p>
@@ -212,9 +212,8 @@ function StatCard({ label, value, detail, icon, tone }: {
   );
 }
 
-// UPDATED: Performance Chart now uses REAL data dynamically
+// UPDATED: Uses REAL backend trend data dynamically
 function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
-  // If backend returns no data, show a clean empty state
   if (!data || data.length === 0) {
     return (
       <div>
@@ -230,24 +229,20 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
     );
   }
 
-  // Calculate min/max for the Y-axis
   const scores = data.map(d => d.score);
-  const max = Math.max(...scores, 100); // Cap at 100 for percentage
+  const max = Math.max(...scores, 100);
   const min = Math.min(...scores, 0);
   const range = max - min || 1;
-  
   const width = 100;
   const height = 100;
-
-  // Generate SVG path points dynamically based on data length
+  
   const points = data.map((point, i) => {
     const x = (i / (data.length - 1)) * width;
     const y = height - ((point.score - min) / range) * (height - 10) - 5;
     return `${x},${y}`;
   });
-  const pathD = `M ${points.join(" L ")}`;
+  const pathD = points.length > 1 ? `M ${points.join(" L ")}` : "";
 
-  // Format dates for X-axis labels dynamically
   const formatLabel = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -262,27 +257,19 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
           <option>By Month</option>
         </select>
       </div>
-      
       <div className="relative h-48 w-full">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full overflow-visible">
-          {/* Grid lines */}
           {[0, 25, 50, 75, 100].map((y) => (
             <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#f3f4f6" strokeWidth="0.5" />
           ))}
-          {/* Line */}
           <path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          {/* Area under line */}
           <path d={`${pathD} L 100,100 L 0,100 Z`} fill="#8b5cf6" opacity="0.05" />
-          
-          {/* Data points (dots) */}
           {points.map((point, i) => {
             const [cx, cy] = point.split(',');
             return <circle key={i} cx={cx} cy={cy} r="1.5" fill="#8b5cf6" stroke="white" strokeWidth="0.5" />;
           })}
         </svg>
       </div>
-      
-      {/* Dynamic X-Axis Labels */}
       <div className="flex justify-between text-[10px] text-gray-400 mt-2 px-1">
         {data.map((point, i) => (
           (data.length <= 5 || i === 0 || i === data.length - 1 || i === Math.floor(data.length / 2)) ? (
@@ -290,8 +277,6 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
           ) : <span key={i}></span>
         ))}
       </div>
-      
-      {/* Latest Data Tooltip */}
       <div className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-purple-50 px-3 py-2">
         <span className="text-[11px] font-semibold text-purple-800">
           Latest: {formatLabel(data[data.length - 1].date)} - Average Score: {data[data.length - 1].score}%
@@ -301,9 +286,8 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
   );
 }
 
-// UPDATED: Pie Chart now uses REAL module performance data
+// UPDATED: Uses REAL module performance data from backend
 function AssessmentPieChart({ modulePerformance, total }: { modulePerformance: ModulePerformance[]; total: number }) {
-  // Calculate real percentages based on backend data
   const totalEvaluations = modulePerformance.reduce((acc, m) => acc + m.evaluationCount, 0);
   const colors = ["#3b82f6", "#06b6d4", "#10b981", "#ef4444", "#f59e0b", "#eab308", "#8b5cf6"];
   
@@ -429,7 +413,7 @@ function TopCandidatesTable({ recentCompleted }: { recentCompleted: AnalyticsSum
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-gray-900">Tops Perform Candidates</h3>
+        <h3 className="text-sm font-bold text-gray-900">Top Perform Candidates</h3>
         <Link href="/candidates" className="text-xs font-semibold text-sky-600 hover:text-sky-700">View all</Link>
       </div>
       {topCandidates.length === 0 ? (
@@ -474,9 +458,8 @@ function TopCandidatesTable({ recentCompleted }: { recentCompleted: AnalyticsSum
   );
 }
 
-// UPDATED: Upcoming Assessments now uses REAL sessions data
+// UPDATED: Uses REAL upcoming sessions data from backend
 function UpcomingAssessmentsList({ sessions }: { sessions: InterviewSession[] }) {
-  // Filter for real upcoming sessions (not started or in progress)
   const upcoming = sessions
     .filter(s => s.status === "not_started" || s.status === "in_progress")
     .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
@@ -494,7 +477,7 @@ function UpcomingAssessmentsList({ sessions }: { sessions: InterviewSession[] })
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-gray-900">Upcoming Assessments</h3>
+        <h3 className="text-sm font-bold text-gray-900">Open pipeline</h3>
         <Link href="/assessment" className="text-xs font-semibold text-sky-600 hover:text-sky-700">View all</Link>
       </div>
       {upcoming.length === 0 ? (

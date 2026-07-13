@@ -6,14 +6,13 @@ import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, getErrorMessage } from "@/lib/api";
-import { candidateAvatarUrl } from "@/lib/candidate-avatars";
+import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import type { InterviewSession, SessionStatus } from "@/lib/types";
 
 export default function CandidatesPage() {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | SessionStatus>("all");
-  const [candidateImages, setCandidateImages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -32,25 +31,6 @@ export default function CandidatesPage() {
 
   useEffect(() => { void loadCandidates(); }, [loadCandidates]);
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem("evalora-candidate-images");
-    if (stored) setCandidateImages(JSON.parse(stored) as Record<string, string>);
-  }, []);
-
-  function handleCandidateImage(sessionId: string, file?: File) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = typeof reader.result === "string" ? reader.result : "";
-      setCandidateImages((current) => {
-        const next = { ...current, [sessionId]: image };
-        window.localStorage.setItem("evalora-candidate-images", JSON.stringify(next));
-        return next;
-      });
-    };
-    reader.readAsDataURL(file);
-  }
-
   const visible = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return sessions.filter((session) => (!normalized || [session.candidateName, session.candidateEmail ?? "", session.targetRole ?? "", session.templateTitle ?? ""].some((value) => value.toLowerCase().includes(normalized))) && (statusFilter === "all" || session.status === statusFilter));
@@ -60,10 +40,9 @@ export default function CandidatesPage() {
     <AppShell
       active="candidates"
       actions={
-        <div className="hidden items-center gap-3 sm:flex">
-          <button className="button-secondary h-10 rounded-[8px] border-neutral-200 px-4 text-[12px]" type="button"><Icon name="file" size={15} /> Import Candidates</button>
-          <Link className="button-primary h-10 rounded-[8px] !bg-primary-700 px-4 text-[12px] hover:!bg-primary-600" href="/assessment/create"><Icon name="plus" size={15} /> Add Candidate</Link>
-        </div>
+        <Link className="button-primary hidden h-10 rounded-[8px] !bg-primary-700 px-4 text-[12px] hover:!bg-primary-600 sm:inline-flex" href="/assessment/create">
+          <Icon name="plus" size={15} /> Invite candidate
+        </Link>
       }
       description="View and manage all candidates across your organization."
       title="Candidates"
@@ -81,10 +60,19 @@ export default function CandidatesPage() {
                   <Icon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400" name="search" size={15} />
                   <input className="control h-10 rounded-[7px] pr-9 text-[12px]" onChange={(event) => setQuery(event.target.value)} placeholder="Search candidates..." type="search" value={query} />
                 </label>
-                <button className="button-secondary ml-auto h-10 rounded-[7px] px-4 text-[12px]" type="button"><Icon name="file" size={14} /> Export</button>
-                <label className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-neutral-600">
-                  <span className="whitespace-nowrap">Sort by:</span>
-                  <select className="control h-10 w-[128px] rounded-[7px] text-[12px]" defaultValue="newest"><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="score">Score</option></select>
+                <label className="ml-auto flex shrink-0 items-center gap-2 text-[12px] font-semibold text-neutral-600">
+                  <span className="whitespace-nowrap">Status:</span>
+                  <select
+                    className="control h-10 w-[140px] rounded-[7px] text-[12px]"
+                    onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                    value={statusFilter}
+                  >
+                    <option value="all">All</option>
+                    <option value="not_started">Not started</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="expired">Expired</option>
+                  </select>
                 </label>
               </div>
               {visible.length ? (
@@ -104,16 +92,14 @@ export default function CandidatesPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
-                        {visible.map((session, index) => (
+                        {visible.map((session) => (
                           <tr className="transition hover:bg-neutral-50/70" key={session.id}>
                             <td className="px-4 py-4"><input aria-label={`Select ${session.candidateName}`} className="size-4 rounded border-neutral-200" type="checkbox" /></td>
                             <td className="px-3 py-4">
                               <div className="flex items-center gap-3">
-                                <label className={`group/avatar relative flex size-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full text-[10px] font-black text-white ${avatarColor(index)}`} title="Upload candidate photo">
-                                  {candidateImages[session.id] || candidateAvatarUrl(session.candidateName, session.candidateId) ? <img alt="" className="size-full object-cover" src={candidateImages[session.id] ?? candidateAvatarUrl(session.candidateName, session.candidateId)} /> : initials(session.candidateName)}
-                                  <span className="absolute inset-0 hidden items-center justify-center bg-black/45 text-[9px] font-bold group-hover/avatar:flex">Edit</span>
-                                  <input accept="image/*" className="sr-only" onChange={(event) => handleCandidateImage(session.id, event.target.files?.[0])} type="file" />
-                                </label>
+                                <span className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br text-[10px] font-black ${candidateAvatarTone(session.candidateName)}`}>
+                                  {candidateInitials(session.candidateName)}
+                                </span>
                                 <Link className="group" href={`/candidates/${session.id}`}>
                                 <span>
                                   <span className="block font-bold text-neutral-900 group-hover:text-primary-700">{session.candidateName}</span>
@@ -268,7 +254,5 @@ function ScoreCircle({ score }: { score?: number }) {
     </span>
   );
 }
-function initials(name: string) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "EV"; }
 function formatDate(value?: string) { return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value)) : "-"; }
 function percent(value: number, total: number) { return total ? Math.round((value / total) * 1000) / 10 : 0; }
-function avatarColor(index: number) { return ["bg-[#6d5dfc]", "bg-[#e36b8c]", "bg-[#0f172a]", "bg-[#1fb6a6]", "bg-[#f59e0b]", "bg-[#8b5cf6]"][index % 6]; }

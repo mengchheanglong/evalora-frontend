@@ -7,7 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
-import { candidateAvatarUrl } from "@/lib/candidate-avatars";
+import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, ReviewerNote, SessionStatus } from "@/lib/types";
 
 export default function CandidateDetailPage() {
@@ -97,12 +97,11 @@ export default function CandidateDetailPage() {
 }
 
 function ProfileHero({ session, template }: { session: InterviewSession; template: AssessmentTemplate }) {
-  const avatarUrl = candidateAvatarUrl(session.candidateName, session.candidateId);
   return (
     <section className="card grid gap-6 rounded-[10px] p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
       <div className="flex flex-wrap items-center gap-6">
-        <span className="grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-100 to-violet-100 text-[30px] font-black text-primary-700 ring-8 ring-neutral-50">
-          {avatarUrl ? <img alt="" className="size-full object-cover" src={avatarUrl} /> : initials(session.candidateName)}
+        <span className={`grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br text-[30px] font-black ring-8 ring-neutral-50 ${candidateAvatarTone(session.candidateName)}`}>
+          {candidateInitials(session.candidateName)}
         </span>
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -112,17 +111,17 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
           <p className="mt-2 text-[13px] font-semibold text-neutral-600">{session.targetRole ?? template.roleType}</p>
           <div className="mt-4 grid gap-2 text-[12px] text-neutral-600">
             <ProfileMeta icon="mail" text={`Email: ${session.candidateEmail ?? "No email"}`} />
-            <ProfileMeta icon="globe" text="Location: Phnom Penh" />
-            <ProfileMeta icon="calendar" text={`Applied On: ${formatDate(session.createdAt)}`} />
+            <ProfileMeta icon="calendar" text={`Invited: ${formatDate(session.createdAt)}`} />
+            <ProfileMeta icon="clipboard" text={`Access code: ${session.accessCode}`} />
           </div>
         </div>
       </div>
       <dl className="grid content-center gap-3 border-neutral-100 text-[12px] lg:border-l lg:pl-8">
-        <Meta label="Candidate ID" value={session.candidateId ?? session.id} />
-        <Meta label="Source" value="LinkedIn" />
+        <Meta label="Session ID" value={session.id} />
+        <Meta label="Template" value={template.title} />
         <Meta label="Current Status" value={statusLabel(session.status)} />
-        <Meta label="Owner / Recruiter" value="Maya Chen" />
-        <Meta label="Tags" value={tagList(template)} />
+        <Meta label="Interviewer" value={session.interviewerName ?? "Workspace team"} />
+        <Meta label="Modules" value={tagList(template)} />
       </dl>
     </section>
   );
@@ -144,33 +143,36 @@ function Tabs({ reportReady, sessionId }: { reportReady: boolean; sessionId: str
 function AboutCard({ session }: { session: InterviewSession }) {
   return (
     <article className="card rounded-[10px] p-5">
-      <h2 className="text-[14px] font-black text-neutral-900">About Candidate</h2>
-      <p className="mt-3 text-[12px] leading-5 text-neutral-600">Candidate for {session.targetRole ?? "the assigned role"} with assessment evidence collected through Evalora&apos;s structured interview workflow.</p>
+      <h2 className="text-[14px] font-black text-neutral-900">About session</h2>
+      <p className="mt-3 text-[12px] leading-5 text-neutral-600">
+        Assessment invite for {session.targetRole ?? "the assigned role"}. Candidate data below comes only from this session record.
+      </p>
       <dl className="mt-5 space-y-3 text-[11px]">
-        <Meta label="Experience" value="3.2 years" />
-        <Meta label="Current Company" value="TechSolutions Co., Ltd." />
-        <Meta label="Education" value="KIT" />
-        <Meta label="Availability" value="2 weeks notice period" />
+        <Meta label="Email" value={session.candidateEmail ?? "—"} />
+        <Meta label="Department" value={session.department ?? "—"} />
+        <Meta label="Scheduled" value={formatDateTime(session.scheduledAt)} />
+        <Meta label="Language" value={session.language ?? "—"} />
       </dl>
     </article>
   );
 }
 
 function SkillsCard({ report, template }: { report: CandidateReport | null; template: AssessmentTemplate }) {
-  const skills = report ? Object.entries(report.moduleScores).map(([label, score]) => ({ label, value: Math.round(score * 20) })) : template.modules.slice(0, 5).map((module, index) => ({ label: module.title, value: 90 - index * 6 }));
+  const skills = report
+    ? Object.entries(report.moduleScores).map(([label, score]) => ({ label, value: Math.round(score * 20) }))
+    : template.modules.slice(0, 5).map((module) => ({ label: module.title, value: null as number | null }));
   return (
     <article className="card rounded-[10px] p-5">
-      <h2 className="text-[14px] font-black text-neutral-900">Skills</h2>
+      <h2 className="text-[14px] font-black text-neutral-900">Module scores</h2>
       <div className="mt-4 space-y-3">
         {skills.map((skill) => (
-          <div className="grid grid-cols-[92px_1fr_34px] items-center gap-2 text-[10px]" key={skill.label}>
+          <div className="grid grid-cols-[1fr_auto] items-center gap-2 text-[10px]" key={skill.label}>
             <span className="truncate font-bold text-neutral-700">{skill.label}</span>
-            <span className="h-1.5 rounded-full bg-neutral-200"><span className="block h-full rounded-full bg-primary-500" style={{ width: `${skill.value}%` }} /></span>
-            <span className="font-bold text-neutral-700">{skill.value}%</span>
+            <span className="font-bold text-neutral-700">{skill.value == null ? "Pending" : `${skill.value}%`}</span>
           </div>
         ))}
       </div>
-      <button className="mt-5 text-[11px] font-bold text-primary-700" type="button">View all skills ({skills.length})</button>
+      {!report ? <p className="mt-4 text-[11px] text-neutral-500">Scores appear after report generation.</p> : null}
     </article>
   );
 }
@@ -190,15 +192,17 @@ function LatestSessionCard({ session, template }: { session: InterviewSession; t
       <dl className="mt-4 space-y-2 text-[11px]">
         <Meta label="Date" value={formatDate(session.updatedAt ?? session.createdAt)} />
         <Meta label="Duration" value={`${template.timeLimitMin ?? 60} min`} />
-        <Meta label="Interviewers" value="Maya Chen" />
+        <Meta label="Interviewers" value={session.interviewerName ?? (session.interviewers?.join(", ") || "—")} />
       </dl>
       <div className="mt-4">
         <div className="mb-1 flex justify-between text-[10px] font-bold text-neutral-500"><span>Progress</span><span>{progress}%</span></div>
         <div className="h-2 rounded-full bg-neutral-100"><div className="h-full rounded-full bg-primary-500" style={{ width: `${progress}%` }} /></div>
       </div>
-      <Link className="button-primary mt-4 h-9 w-full rounded-[7px] !bg-primary-500 text-[11px] hover:!bg-primary-600" href={`/candidates/${session.id}`}>
-        View Session Details <Icon className="-rotate-90" name="chevron" size={12} />
-      </Link>
+      {session.status !== "completed" && session.status !== "expired" ? (
+        <Link className="button-secondary mt-4 h-9 w-full rounded-[7px] text-[11px]" href={`/assessment/${encodeURIComponent(session.accessCode)}`}>
+          Open candidate link <Icon className="-rotate-90" name="chevron" size={12} />
+        </Link>
+      ) : null}
     </article>
   );
 }
@@ -221,23 +225,28 @@ function RecentActivityCard({ session, responses, notes }: { session: InterviewS
           </div>
         ))}
       </div>
-      <button className="mt-4 text-[11px] font-bold text-primary-700" type="button">View all activity</button>
     </article>
   );
 }
 
 function OverallSummary({ report, session }: { report: CandidateReport | null; session: InterviewSession }) {
-  const score = Math.round((report?.overallScore ?? session.overallScore ?? 3.25) * 20);
+  const hasScore = report?.overallScore != null || session.overallScore != null;
+  const score = hasScore ? Math.round(((report?.overallScore ?? session.overallScore ?? 0) / 5) * 100) : null;
   return (
     <article className="card rounded-[10px] p-6">
       <h2 className="text-[15px] font-black text-neutral-900">Overall Summary</h2>
-      <div className="mx-auto mt-5 grid size-40 place-items-center rounded-full text-[34px] font-black text-[#6b63f6]" style={{ background: `conic-gradient(#6765f2 ${score * 3.6}deg, #d8f4ff 0deg)` }}>
-        <span className="grid size-32 place-items-center rounded-full bg-white">{score}%</span>
+      <div className="mx-auto mt-5 grid size-40 place-items-center rounded-full text-[34px] font-black text-[#6b63f6]" style={{ background: `conic-gradient(#6765f2 ${(score ?? 0) * 3.6}deg, #d8f4ff 0deg)` }}>
+        <span className="grid size-32 place-items-center rounded-full bg-white">{score == null ? "—" : `${score}%`}</span>
       </div>
-      <h3 className="mt-4 text-center text-[14px] font-black text-neutral-900">{score >= 75 ? "Good Candidate" : "Needs Review"}</h3>
-      <p className="mt-2 text-center text-[12px] leading-5 text-neutral-600">{report?.summary ?? `${session.candidateName} is currently moving through the assessment workflow. Summary evidence will update after report generation.`}</p>
-      <SummaryList items={report?.strengths ?? ["Technical reasoning", "Communication", "Structured answers"]} title="Strengths" />
-      <SummaryList items={report?.improvementAreas ?? ["System design", "Communication depth"]} title="Areas to Improve" />
+      <h3 className="mt-4 text-center text-[14px] font-black text-neutral-900">{report ? "Advisory review ready" : "Awaiting report"}</h3>
+      <p className="mt-2 text-center text-[12px] leading-5 text-neutral-600">{report?.summary ?? `${session.candidateName} is progressing through the assessment. Summary appears after report generation.`}</p>
+      {report ? (
+        <>
+          <SummaryList items={report.strengths} title="Strengths" />
+          <SummaryList items={report.improvementAreas} title="Areas to improve" />
+        </>
+      ) : null}
+      {report?.advisoryNotice ? <p className="mt-4 text-center text-[10px] text-neutral-500">{report.advisoryNotice}</p> : null}
     </article>
   );
 }
@@ -247,27 +256,83 @@ function QuickActions({ session, report, copied, generating, copyInvite, generat
     <article className="card rounded-[10px] p-5">
       <h2 className="text-[15px] font-black text-neutral-900">Quick Actions</h2>
       <div className="mt-4 divide-y divide-neutral-100">
-        <ActionButton icon="calendar" label="Schedule New Interview" />
-        <button className="flex w-full items-center gap-3 py-3 text-left text-[13px] font-bold text-neutral-700 hover:text-primary-700" onClick={() => void copyInvite()} type="button"><Icon name="mail" size={17} /><span>{copied ? "Invitation Copied" : "Send Assessment Invitation"}</span><Icon className="ml-auto -rotate-90" name="chevron" size={12} /></button>
-        <ActionButton icon="trend" label="Move to Next Stage" />
-        <ActionButton icon="file" label="Add Note" />
-        {report ? <Link className="flex items-center gap-3 py-3 text-[13px] font-bold text-neutral-700 hover:text-primary-700" href={`/reports/${session.id}`}><Icon name="report" size={17} /><span>Open Report</span><Icon className="ml-auto -rotate-90" name="chevron" size={12} /></Link> : session.status === "completed" ? <button className="flex w-full items-center gap-3 py-3 text-left text-[13px] font-bold text-neutral-700 hover:text-primary-700" disabled={generating} onClick={() => void generateReport()} type="button"><Icon name="report" size={17} /><span>{generating ? "Generating Report" : "Generate Report"}</span><Icon className="ml-auto -rotate-90" name="chevron" size={12} /></button> : null}
-        <ActionButton danger icon="paperPlane" label="Reject Candidate" />
+        <button className="flex w-full items-center gap-3 py-3 text-left text-[13px] font-bold text-neutral-700 hover:text-primary-700" onClick={() => void copyInvite()} type="button">
+          <Icon name="mail" size={17} />
+          <span>{copied ? "Invitation copied" : "Copy assessment invitation"}</span>
+          <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
+        </button>
+        {report ? (
+          <Link className="flex items-center gap-3 py-3 text-[13px] font-bold text-neutral-700 hover:text-primary-700" href={`/reports/${session.id}`}>
+            <Icon name="report" size={17} />
+            <span>Open report</span>
+            <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
+          </Link>
+        ) : session.status === "completed" ? (
+          <button className="flex w-full items-center gap-3 py-3 text-left text-[13px] font-bold text-neutral-700 hover:text-primary-700" disabled={generating} onClick={() => void generateReport()} type="button">
+            <Icon name="report" size={17} />
+            <span>{generating ? "Generating report" : "Generate report"}</span>
+            <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
+          </button>
+        ) : null}
+        {report ? (
+          <Link className="flex items-center gap-3 py-3 text-[13px] font-bold text-neutral-700 hover:text-primary-700" href={`/reports/${session.id}`}>
+            <Icon name="file" size={17} />
+            <span>Add reviewer note</span>
+            <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
+          </Link>
+        ) : null}
       </div>
     </article>
   );
 }
 
-function ActionButton({ icon, label, danger = false }: { icon: "calendar" | "trend" | "file" | "paperPlane"; label: string; danger?: boolean }) {
-  return <button className={`flex w-full items-center gap-3 py-3 text-left text-[13px] font-bold ${danger ? "text-red-600 hover:text-red-700" : "text-neutral-700 hover:text-primary-700"}`} type="button"><Icon name={icon} size={17} /><span>{label}</span><Icon className="ml-auto -rotate-90" name="chevron" size={12} /></button>;
+function ProfileMeta({ icon, text }: { icon: "mail" | "calendar" | "clipboard"; text: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <Icon className="text-neutral-400" name={icon} size={14} />
+      {text}
+    </span>
+  );
 }
-
-function ProfileMeta({ icon, text }: { icon: "mail" | "globe" | "calendar"; text: string }) { return <span className="flex items-center gap-2"><Icon className="text-neutral-400" name={icon} size={14} />{text}</span>; }
-function SummaryList({ title, items }: { title: string; items: string[] }) { return <div className="mt-4"><h4 className="text-[12px] font-black text-neutral-900">{title}</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-[11px] leading-5 text-neutral-600">{items.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>; }
-function Meta({ label, value }: { label: string; value: string }) { return <div className="flex items-center justify-between gap-4 border-b border-neutral-100 pb-2 last:border-0 last:pb-0"><dt className="text-neutral-500">{label}</dt><dd className="text-right font-bold text-neutral-900">{value}</dd></div>; }
-function StatusBadge({ status }: { status: SessionStatus }) { const style = { not_started: "bg-amber-50 text-amber-700", in_progress: "bg-sky-50 text-sky-700", completed: "bg-emerald-50 text-emerald-700", expired: "bg-rose-50 text-rose-700" }[status]; return <span className={`rounded-[5px] px-2 py-1 text-[10px] font-bold ${style}`}>{statusLabel(status)}</span>; }
-function statusLabel(status: SessionStatus) { return { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Withdrawn" }[status]; }
-function tagList(template: AssessmentTemplate) { return template.modules.slice(0, 3).map((module) => module.title.replace(" Assessment", "")).join(", "); }
-function initials(name: string) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "EV"; }
-function formatDate(value?: string) { return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value)) : "-"; }
-function formatDateTime(value?: string) { return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "-"; }
+function SummaryList({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="mt-4">
+      <h4 className="text-[12px] font-black text-neutral-900">{title}</h4>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-[11px] leading-5 text-neutral-600">
+        {items.slice(0, 3).map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-neutral-100 pb-2 last:border-0 last:pb-0">
+      <dt className="text-neutral-500">{label}</dt>
+      <dd className="text-right font-bold text-neutral-900">{value}</dd>
+    </div>
+  );
+}
+function StatusBadge({ status }: { status: SessionStatus }) {
+  const style = {
+    not_started: "bg-amber-50 text-amber-700",
+    in_progress: "bg-sky-50 text-sky-700",
+    completed: "bg-emerald-50 text-emerald-700",
+    expired: "bg-rose-50 text-rose-700",
+  }[status];
+  return <span className={`rounded-[5px] px-2 py-1 text-[10px] font-bold ${style}`}>{statusLabel(status)}</span>;
+}
+function statusLabel(status: SessionStatus) {
+  return { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];
+}
+function tagList(template: AssessmentTemplate) {
+  return template.modules.slice(0, 3).map((module) => module.title.replace(" Assessment", "")).join(", ") || "—";
+}
+function formatDate(value?: string) {
+  return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value)) : "—";
+}
+function formatDateTime(value?: string) {
+  return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
+}
