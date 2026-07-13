@@ -213,8 +213,8 @@ export default function HomePage() {
               </div>
               <div className="mt-[26px] flex items-end justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex size-[48px] items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white shrink-0">
-                    <img alt="" className="size-full object-cover" src={testimonial.avatarUrl} />
+                  <span className="inline-flex size-[48px] items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-primary-50 text-[13px] font-black text-primary-700 shrink-0">
+                    {testimonial.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
                   </span>
                   <div>
                     <p className="font-bold text-[14px] text-neutral-950">{testimonial.name}</p>

@@ -25,6 +25,51 @@ export interface AuthResponse {
   message: string;
 }
 
+/** Workspace teammate (owner or interviewer). */
+export interface WorkspaceMember {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  roleLabel: string;
+  organizationId?: string;
+  createdAt?: string;
+  isCurrentUser?: boolean;
+}
+
+export type InviteStatus = "pending" | "accepted" | "cancelled" | "expired";
+
+export interface EmailDelivery {
+  status: "sent" | "skipped" | "failed" | "queued";
+  reason?: string;
+  messageId?: string;
+  provider?: "resend" | "gmail" | "none";
+}
+
+export interface WorkspaceInvite {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: InviteStatus;
+  token: string;
+  inviteUrlPath: string;
+  inviteUrl?: string;
+  invitedBy?: { id: string; name: string };
+  expiresAt: string;
+  createdAt?: string;
+  acceptedAt?: string;
+  emailDelivery?: EmailDelivery;
+}
+
+export interface InvitePreview {
+  email: string;
+  organizationName: string;
+  role: UserRole;
+  roleLabel: string;
+  expiresAt: string;
+  inviterName?: string;
+}
+
 export interface Question {
   id: string;
   questionText: string;
@@ -64,9 +109,23 @@ export interface InterviewSession {
   templateId: string;
   templateTitle?: string;
   targetRole?: string;
+  title?: string;
+  interviewType?: string;
+  interviewers?: string[];
+  interviewerName?: string;
+  interviewerRole?: string;
+  notes?: string;
+  department?: string;
+  scheduledAt?: string;
+  durationMin?: number;
+  language?: string;
+  timeZone?: string;
+  createdById?: string;
   organizationId?: string;
   status: SessionStatus;
   accessCode: string;
+  assessmentUrl?: string;
+  emailDelivery?: EmailDelivery;
   overallScore?: number;
   reportReady?: boolean;
   reportStatus?: "generated" | "pending";

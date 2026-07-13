@@ -4,17 +4,34 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { AuthDivider, AuthLayout } from "@/components/auth-layout";
-import { GoogleIcon, Icon } from "@/components/icons";
+import { AuthLayout } from "@/components/auth-layout";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { Icon } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
 import { getErrorMessage } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [organizationName, setOrganizationName] = useState("");
+
+  async function finishGoogleSignUp(credential: string) {
+    setError("");
+    setSubmitting(true);
+    try {
+      await loginWithGoogle(credential, organizationName || undefined);
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to sign up with Google."));
+      throw requestError;
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,21 +64,31 @@ export default function RegisterPage() {
   return (
     <AuthLayout
       headline={<><span className="block">Start with structure.</span><span className="block text-[#149bc8]">Scale with clarity.</span></>}
-      lead="Create an interviewer workspace for templates, candidate invitations, evidence-based reports, and analytics."
+      lead="Create a company workspace. You become the owner and can invite interviewers to share templates, sessions, and reports."
       panelClassName="max-w-[560px]"
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <p className="text-[11px] font-bold uppercase text-[#118bb5]">Create your workspace</p>
           <h1 className="mt-2 text-[32px] font-black leading-tight text-[#151922]">Set up Evalora</h1>
-          <p className="mt-2 text-sm leading-6 text-neutral-600">Your account is created as an interviewer with a private workspace.</p>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">Your account becomes the workspace owner. Invite teammates later from Team — candidates still use assessment links only.</p>
         </div>
 
         {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field autoComplete="name" label="Full name" name="name" placeholder="Alex Morgan" />
-          <Field autoComplete="organization" label="Organization" name="organizationName" placeholder="Acme Talent" />
+          <label className="block">
+            <span className="text-[12px] font-bold text-neutral-800">Organization</span>
+            <input
+              autoComplete="organization"
+              className="control mt-2 h-12"
+              name="organizationName"
+              onChange={(event) => setOrganizationName(event.target.value)}
+              placeholder="Acme Talent"
+              value={organizationName}
+            />
+          </label>
         </div>
         <Field autoComplete="email" label="Work email" name="email" placeholder="alex@company.com" type="email" />
 
@@ -69,7 +96,7 @@ export default function RegisterPage() {
           <PasswordField label="Password" name="password" onToggle={() => setShowPassword((shown) => !shown)} shown={showPassword} />
           <PasswordField label="Confirm password" name="confirmation" onToggle={() => setShowPassword((shown) => !shown)} shown={showPassword} />
         </div>
-        <p className="text-[11px] leading-5 text-neutral-500">Use at least 8 characters. Account access is for interviewers and workspace administrators; candidates use invitation links.</p>
+        <p className="text-[11px] leading-5 text-neutral-500">Use at least 8 characters. This signup creates the organization owner. Interviewers join by invite; candidates use assessment links.</p>
 
         <label className="flex items-center gap-2 text-[11px] leading-5 text-neutral-500">
           <input className="size-5 shrink-0 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500" type="checkbox" />
@@ -83,11 +110,7 @@ export default function RegisterPage() {
           {submitting ? "Creating workspace" : "Create workspace"}
         </button>
 
-        <AuthDivider label="or continue with" />
-        <button className="button-secondary h-12 w-full" type="button">
-          <GoogleIcon />
-          <span>Sign in with google</span>
-        </button>
+        <GoogleSignInButton disabled={submitting} mode="signup" onCredential={finishGoogleSignUp} onError={setError} />
 
         <p className="text-center text-[13px] text-neutral-500">
           Already have an account? <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/login">login</Link>

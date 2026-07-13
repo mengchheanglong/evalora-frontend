@@ -5,8 +5,9 @@ The browser calls backend APIs through `/api/backend/*`; the route handler forwa
 | Route | Access | Purpose | Backend dependency |
 | --- | --- | --- | --- |
 | `/` | Public | Product overview and workspace entry. | None |
-| `/login` | Public | Interviewer/organization login. | `POST /api/auth/login` |
-| `/register` | Public | Create an interviewer workspace. | `POST /api/auth/register` |
+| `/login` | Public | Workspace login (owner or interviewer). | `POST /api/auth/login` |
+| `/register` | Public | Create a **workspace owner** and organization. | `POST /api/auth/register` |
+| `/invite/[token]` | Public | Accept teammate invite; create interviewer account in that org. | `GET /api/organization/invites/token/:token`, `POST /api/organization/invites/accept` |
 | `/dashboard` | Workspace | Pipeline, recent completions, activity, and module performance. | `GET /api/analytics/summary`, `GET /api/analytics/activity` |
 | `/templates` | Workspace | Search, inspect, assign, and delete templates. | `GET/DELETE /api/templates` |
 | `/templates/create` | Workspace | Build a weighted multi-module assessment. | `POST /api/templates` |
@@ -17,5 +18,7 @@ The browser calls backend APIs through `/api/backend/*`; the route handler forwa
 | `/candidates/[sessionId]` | Workspace | Candidate details, assigned template, saved responses, and report readiness. | `GET /api/sessions/:id`, `GET /api/responses/session/:id`, report endpoints |
 | `/reports/[sessionId]` | Workspace | Evidence-backed advisory report and reviewer notes. | `GET/POST /api/reports/:sessionId/*` |
 | `/analytics` | Workspace | Completion, score distribution, module averages, and evidence themes. | `GET /api/analytics/*` |
+| `/users` | Workspace (Team) | List members; **owner** invites/removes interviewers and manages pending invites. | `/api/organization/members`, `/api/organization/invites*` |
+| `/settings` | Workspace | Account/org preferences UI (mostly local mock for MVP). | Optional |
 
-The legacy password-reset, email-verification, settings, and user-management pages are not linked from the production navigation because the backend does not yet expose those workflows.
+Password-reset and email-verification pages remain unlinked from primary navigation until those backend workflows exist.

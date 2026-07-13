@@ -55,76 +55,63 @@ function DashboardContent({ activity, summary }: { activity: ActivityItem[]; sum
     {
       label: "Total Candidates",
       value: summary.totalCandidates.toLocaleString(),
-      change: 18,
-      changeType: "increase" as const,
+      detail: `${summary.totalSessions} sessions`,
       icon: "users" as IconName,
       tone: "bg-purple-100 text-purple-600",
     },
     {
       label: "Completed",
       value: summary.completedAssessments.toLocaleString(),
-      change: 16,
-      changeType: "increase" as const,
+      detail: `${Math.round(summary.completionRate * 100)}% completion`,
       icon: "check" as IconName,
       tone: "bg-emerald-100 text-emerald-600",
     },
     {
       label: "In progress",
       value: summary.inProgressAssessments.toLocaleString(),
-      change: 8,
-      changeType: "decrease" as const,
+      detail: `${summary.pendingAssessments} not started`,
       icon: "clock" as IconName,
       tone: "bg-sky-100 text-sky-600",
     },
     {
       label: "Average Score",
-      value: summary.averageScore ? `${Math.round((summary.averageScore / 5) * 100)}%` : "0%",
-      change: 6,
-      changeType: "increase" as const,
+      value: summary.averageScore ? `${Math.round((summary.averageScore / 5) * 100)}%` : "—",
+      detail: summary.averageScore ? `${summary.averageScore.toFixed(1)}/5 scale` : "No reports yet",
       icon: "report" as IconName,
       tone: "bg-orange-100 text-orange-600",
     },
     {
-      label: "Pass Rate",
-      value: `${Math.round(summary.completionRate * 100)}%`,
-      change: 8,
-      changeType: "increase" as const,
-      icon: "crown" as IconName,
+      label: "Templates",
+      value: summary.totalTemplates.toLocaleString(),
+      detail: `${summary.expiredAssessments} expired`,
+      icon: "clipboard" as IconName,
       tone: "bg-purple-100 text-purple-600",
     },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Custom Header matching Figma */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Welcome back, Here's what's happening with your assessments today.
+            Live pipeline metrics from your organization workspace.
           </p>
-        </div>
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm cursor-pointer">
-          <Icon name="calendar" size={16} className="text-gray-400" />
-          <span className="text-sm font-medium text-gray-700">May 1, 2026 - May 31, 2026</span>
-          <Icon name="chevron" size={14} className="text-gray-400 rotate-90" />
         </div>
       </div>
 
-      {/* Top Stats Cards */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {statsData.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
       </section>
 
-      {/* Middle Section: Charts & Activities */}
       <section className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <PerformanceChart />
+          <ModulePerformanceList modules={summary.modulePerformance} />
         </div>
         <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <AssessmentPieChart total={summary.totalCandidates} />
+          <StatusBreakdownChart breakdown={summary.statusBreakdown} total={summary.totalSessions} />
         </div>
         <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <RecentActivitiesList activity={activity} />
@@ -137,7 +124,7 @@ function DashboardContent({ activity, summary }: { activity: ActivityItem[]; sum
           <TopCandidatesTable recentCompleted={summary.recentCompleted} />
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <UpcomingAssessmentsList />
+          <PipelineList activity={activity} />
         </div>
       </section>
     </div>
@@ -146,133 +133,94 @@ function DashboardContent({ activity, summary }: { activity: ActivityItem[]; sum
 
 // --- Sub-Components ---
 
-function StatCard({ label, value, change, changeType, icon, tone }: {
-  label: string; value: string; change: number; changeType: "increase" | "decrease"; icon: IconName; tone: string;
+function StatCard({ label, value, detail, icon, tone }: {
+  label: string; value: string; detail: string; icon: IconName; tone: string;
 }) {
-  const isIncrease = changeType === "increase";
-  
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex items-start gap-4">
-      {/* Icon on the left */}
       <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${tone}`}>
         <Icon name={icon} size={24} />
       </span>
-      
-      {/* Text and Trend on the right */}
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-gray-500">{label}</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        <div className="flex items-center gap-1 mt-2">
-          <Icon
-            name="chevron"
-            size={14}
-            className={`${isIncrease ? "text-emerald-500 -rotate-90" : "text-rose-500 rotate-90"}`}
-          />
-          <span className={`text-xs font-semibold ${isIncrease ? "text-emerald-500" : "text-rose-500"}`}>
-            {change}%
-          </span>
-          <span className="text-xs text-gray-400">vs last month</span>
-        </div>
+        <p className="mt-2 text-xs text-gray-400">{detail}</p>
       </div>
     </div>
   );
 }
 
-function PerformanceChart() {
-  // Mock data for the line chart
-  const data = [20, 35, 25, 45, 40, 60, 55, 75, 70, 85, 80, 90];
-  const max = 100;
-  const min = 0;
-  const range = max - min || 1;
-  const width = 100;
-  const height = 100;
-  const points = data.map((val, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((val - min) / range) * (height - 10) - 5;
-    return `${x},${y}`;
-  });
-  const pathD = `M ${points.join(" L ")}`;
-
+function ModulePerformanceList({ modules }: { modules: AnalyticsSummary["modulePerformance"] }) {
+  const rows = [...modules].sort((a, b) => b.average - a.average).slice(0, 6);
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-gray-900">Assessment Performance Trend</h3>
-        <select className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 outline-none">
-          <option>By Day</option>
-          <option>By Week</option>
-          <option>By Month</option>
-        </select>
-      </div>
-      <div className="relative h-48 w-full">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full overflow-visible">
-          {[0, 25, 50, 75, 100].map((y) => (
-            <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#f3f4f6" strokeWidth="0.5" />
-          ))}
-          <path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={`${pathD} L 100,100 L 0,100 Z`} fill="#8b5cf6" opacity="0.05" />
-        </svg>
-      </div>
-      <div className="flex justify-between text-[10px] text-gray-400 mt-2">
-        <span>May 1</span><span>May 6</span><span>May 11</span><span>May 16</span><span>May 21</span><span>May 26</span>
-      </div>
-      <div className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-purple-50 px-3 py-2">
-        <span className="text-[11px] font-semibold text-purple-800">May 21, 2026 - Average Score: 83%</span>
-      </div>
-    </div>
-  );
-}
-
-function AssessmentPieChart({ total }: { total: number }) {
-  const segments = [
-    { label: "AI Interview", value: 16.66, color: "#3b82f6" },
-    { label: "Coding Test", value: 16.66, color: "#06b6d4" },
-    { label: "Behavioral", value: 16.66, color: "#10b981" },
-    { label: "Communication", value: 16.66, color: "#ef4444" },
-    { label: "Leadership", value: 16.66, color: "#f59e0b" },
-    { label: "Other", value: 16.70, color: "#eab308" },
-  ];
-
-  let cumulativePercent = 0;
-  const getCoordinatesForPercent = (percent: number) => {
-    const x = Math.cos(2 * Math.PI * percent);
-    const y = Math.sin(2 * Math.PI * percent);
-    return [x, y];
-  };
-
-  return (
-    <div>
-      <h3 className="text-sm font-bold text-gray-900 mb-4">Assessment by Types</h3>
-      <div className="flex flex-col items-center">
-        <div className="relative w-36 h-36">
-          <svg viewBox="-1 -1 2 2" className="w-full h-full -rotate-90">
-            {segments.map((seg, i) => {
-              const startPercent = cumulativePercent / 100;
-              const endPercent = (cumulativePercent + seg.value) / 100;
-              cumulativePercent += seg.value;
-              const [startX, startY] = getCoordinatesForPercent(startPercent);
-              const [endX, endY] = getCoordinatesForPercent(endPercent);
-              const largeArcFlag = seg.value > 50 ? 1 : 0;
-              const pathData = [`M ${startX} ${startY}`, `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`, `L 0 0`].join(" ");
-              return <path key={i} d={pathData} fill={seg.color} stroke="white" strokeWidth="0.05" />;
-            })}
-            <circle cx="0" cy="0" r="0.6" fill="white" />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-xl font-bold text-gray-900">{total.toLocaleString()}</span>
-            <span className="text-[10px] text-gray-500">Total</span>
-          </div>
-        </div>
-        <div className="w-full mt-4 space-y-2">
-          {segments.map((seg, i) => (
-            <div key={i} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: seg.color }} />
-                <span className="text-gray-600">{seg.label}({seg.value}%)</span>
+      <h3 className="text-sm font-bold text-gray-900 mb-4">Module performance</h3>
+      {rows.length === 0 ? (
+        <p className="text-xs text-gray-500 text-center py-8">No evaluation data yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((module) => (
+            <div className="flex items-center justify-between gap-3 text-xs" key={`${module.moduleType}-${module.title}`}>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900 truncate">{module.title}</p>
+                <p className="text-[10px] text-gray-400">{module.evaluationCount} evaluations</p>
               </div>
+              <p className="font-bold text-gray-900">{module.average.toFixed(1)}/5</p>
             </div>
           ))}
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function StatusBreakdownChart({
+  breakdown,
+  total,
+}: {
+  breakdown: AnalyticsSummary["statusBreakdown"];
+  total: number;
+}) {
+  const colors: Record<string, string> = {
+    completed: "#10b981",
+    in_progress: "#0ea5e9",
+    not_started: "#f59e0b",
+    expired: "#f43f5e",
+  };
+  const labels: Record<string, string> = {
+    completed: "Completed",
+    in_progress: "In progress",
+    not_started: "Not started",
+    expired: "Expired",
+  };
+  const safeTotal = total || 1;
+
+  return (
+    <div>
+      <h3 className="text-sm font-bold text-gray-900 mb-4">Sessions by status</h3>
+      {total === 0 ? (
+        <p className="text-xs text-gray-500 text-center py-8">No sessions yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {breakdown.map((row) => {
+            const pct = Math.round((row.count / safeTotal) * 100);
+            return (
+              <div className="text-xs" key={row.status}>
+                <div className="mb-1 flex justify-between gap-2">
+                  <span className="font-semibold text-gray-700">{labels[row.status] ?? row.status}</span>
+                  <span className="font-bold text-gray-900">{row.count} ({pct}%)</span>
+                </div>
+                <div className="h-2 rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, backgroundColor: colors[row.status] ?? "#94a3b8" }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -382,37 +330,40 @@ function TopCandidatesTable({ recentCompleted }: { recentCompleted: AnalyticsSum
   );
 }
 
-function UpcomingAssessmentsList() {
-  // Mock data for upcoming assessments
-  const upcoming = [
-    { date: "JUN 03", name: "Alex Thompson", role: "Full Stack Developer Interview", time: "2h ago" },
-    { date: "JUN 03", name: "Alex Thompson", role: "Full Stack Developer Interview", time: "4h ago" },
-    { date: "JUN 02", name: "Alex Thompson", role: "Full Stack Developer Interview", time: "1d ago" },
-    { date: "JUN 01", name: "Alex Thompson", role: "Full Stack Developer Interview", time: "2d ago" },
-    { date: "JUN 01", name: "Alex Thompson", role: "Full Stack Developer Interview", time: "2d ago" },
-  ];
+function PipelineList({ activity }: { activity: ActivityItem[] }) {
+  const openItems = activity.filter((item) => item.status === "not_started" || item.status === "in_progress").slice(0, 6);
+  const formatRelative = (date: string) => {
+    const minutes = Math.max(0, Math.round((Date.now() - new Date(date).getTime()) / 60_000));
+    if (minutes < 60) return `${Math.max(1, minutes)}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-gray-900">Upcoming Assessments</h3>
+        <h3 className="text-sm font-bold text-gray-900">Open pipeline</h3>
         <Link href="/assessment" className="text-xs font-semibold text-sky-600 hover:text-sky-700">View all</Link>
       </div>
-      <div className="space-y-4">
-        {upcoming.map((item, i) => (
-          <div key={i} className="flex items-center gap-4">
-            <div className="flex flex-col items-center justify-center w-12 h-12 bg-gray-50 rounded-lg border border-gray-100">
-              <span className="text-[10px] font-bold text-sky-600">{item.date.split(" ")[0]}</span>
-              <span className="text-sm font-bold text-gray-900">{item.date.split(" ")[1]}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-900 truncate">{item.name}</p>
-              <p className="text-[10px] text-gray-400 truncate">{item.role}</p>
-            </div>
-            <span className="text-[10px] text-gray-400">{item.time}</span>
-          </div>
-        ))}
-      </div>
+      {openItems.length === 0 ? (
+        <p className="text-xs text-gray-500 text-center py-8">No open assessments right now.</p>
+      ) : (
+        <div className="space-y-4">
+          {openItems.map((item) => (
+            <Link className="flex items-center gap-4 rounded-lg p-1 transition hover:bg-gray-50" href={`/candidates/${item.sessionId}`} key={item.id}>
+              <div className="flex flex-col items-center justify-center w-12 h-12 bg-gray-50 rounded-lg border border-gray-100">
+                <span className="text-[10px] font-bold text-sky-600 uppercase">{item.status === "in_progress" ? "LIVE" : "NEW"}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-900 truncate">{item.candidateName}</p>
+                <p className="text-[10px] text-gray-400 truncate">{item.assessmentName}</p>
+              </div>
+              <span className="text-[10px] text-gray-400">{formatRelative(item.createdAt)}</span>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

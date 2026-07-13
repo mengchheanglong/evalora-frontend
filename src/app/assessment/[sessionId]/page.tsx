@@ -39,8 +39,10 @@ export default function CandidateAssessmentPage() {
     setView("loading");
     setPageError("");
     try {
-      const nextSession = await apiGet<CandidateAccessSession>(`/sessions/access/${encodeURIComponent(accessCode)}`);
-      const savedResponses = await apiGet<CandidateResponse[]>(`/responses/access/${encodeURIComponent(accessCode)}`);
+      const [nextSession, savedResponses] = await Promise.all([
+        apiGet<CandidateAccessSession>(`/sessions/access/${encodeURIComponent(accessCode)}`),
+        apiGet<CandidateResponse[]>(`/responses/access/${encodeURIComponent(accessCode)}`),
+      ]);
       const nextAnswers: Record<string, Answer> = {};
       const nextFollowUps: Record<string, FollowUp> = {};
       for (const response of savedResponses) {

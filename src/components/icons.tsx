@@ -2,8 +2,6 @@ import type { ReactNode, SVGProps } from "react";
 
 export type IconName =
   | "analytics"
-  | "bell"
-  | "building"
   | "calendar"
   | "check"
   | "chevron"
@@ -71,21 +69,6 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M8 17V9" />
       <path d="M12 17V6" />
       <path d="M16 17v-5" />
-    </>
-  ),
-  bell: (
-    <>
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </>
-  ),
-  building: (
-    <>
-      <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
-      <path d="M16 8h2a2 2 0 0 1 2 2v11" />
-      <path d="M8 7h4" />
-      <path d="M8 11h4" />
-      <path d="M8 15h4" />
     </>
   ),
   calendar: (
@@ -321,7 +304,7 @@ const icons: Record<IconName, ReactNode> = {
 
 export function GoogleIcon() {
   return (
-    <svg aria-hidden="true" height="24" viewBox="0 0 24 24" width="24">
+    <svg aria-hidden="true" height="20" viewBox="0 0 24 24" width="20">
       <path d="M22.6 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5.1 5.1 0 0 1-2.2 3.3v2.7h3.5c2-1.9 3.4-4.6 3.4-8Z" fill="#4285F4" />
       <path d="M12 23c3 0 5.5-1 7.3-2.7l-3.5-2.7c-1 .7-2.2 1-3.8 1-2.9 0-5.4-2-6.3-4.6H2.1v2.8A11 11 0 0 0 12 23Z" fill="#34A853" />
       <path d="M5.7 14a6.6 6.6 0 0 1 0-4.2V7H2.1a11 11 0 0 0 0 9.8Z" fill="#FBBC05" />
@@ -330,13 +313,3 @@ export function GoogleIcon() {
   );
 }
 
-export function GmailIcon() {
-  return (
-    <svg aria-hidden="true" height="24" viewBox="0 0 24 24" width="24">
-      <path d="M4 6.5v11h3.2V9.7L12 13.3l4.8-3.6v7.8H20v-11l-8 6Z" fill="#EA4335" />
-      <path d="M4 6.5 12 12l8-5.5v3.3L12 15.3 4 9.8Z" fill="#FBBC04" />
-      <path d="M4 6.5v11h3.2V9.7Z" fill="#4285F4" />
-      <path d="M16.8 9.7v7.8H20v-11Z" fill="#34A853" />
-    </svg>
-  );
-}

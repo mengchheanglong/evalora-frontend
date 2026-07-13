@@ -9,8 +9,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body>
+    // suppressHydrationWarning: the inline theme script sets data-theme / color-scheme
+    // from localStorage before React hydrates, so server HTML intentionally differs.
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var theme=localStorage.getItem("evalora-theme")||"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme==="dark"?"dark":"light"}catch(e){}`,

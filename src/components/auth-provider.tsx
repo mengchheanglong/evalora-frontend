@@ -14,11 +14,36 @@ interface AuthContextValue {
   status: AuthStatus;
   login(input: LoginInput): Promise<AuthUser>;
   register(input: RegisterInput): Promise<AuthUser>;
+  loginWithGoogle(credential: string, organizationName?: string): Promise<AuthUser>;
   logout(): Promise<void>;
   refresh(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AUTH_CACHE_KEY = "evalora-auth-user";
+
+function readCachedUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(AUTH_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (!parsed?.id || !parsed?.email || !parsed?.role) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user: AuthUser | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(AUTH_CACHE_KEY);
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -29,13 +54,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = await apiGet<AuthUser>("/auth/me");
       setUser(currentUser);
       setStatus("authenticated");
+      writeCachedUser(currentUser);
     } catch {
       setUser(null);
       setStatus("anonymous");
+      writeCachedUser(null);
     }
   }, []);
 
   useEffect(() => {
+    // Instant shell paint from session cache, then revalidate with /auth/me.
+    const cached = readCachedUser();
+    if (cached) {
+      setUser(cached);
+      setStatus("authenticated");
+    }
     void refresh();
   }, [refresh]);
 
@@ -43,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await apiPost<AuthResponse>("/auth/login", input);
     setUser(result.user);
     setStatus("authenticated");
+    writeCachedUser(result.user);
     return result.user;
   }, []);
 
@@ -50,6 +84,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await apiPost<AuthResponse>("/auth/register", input);
     setUser(result.user);
     setStatus("authenticated");
+    writeCachedUser(result.user);
+    return result.user;
+  }, []);
+
+  const loginWithGoogle = useCallback(async (credential: string, organizationName?: string) => {
+    const result = await apiPost<AuthResponse>("/auth/google", {
+      credential,
+      organizationName: organizationName?.trim() || undefined,
+    });
+    setUser(result.user);
+    setStatus("authenticated");
+    writeCachedUser(result.user);
     return result.user;
   }, []);
 
@@ -59,10 +105,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setUser(null);
       setStatus("anonymous");
+      writeCachedUser(null);
     }
   }, []);
 
-  const value = useMemo(() => ({ user, status, login, register, logout, refresh }), [user, status, login, register, logout, refresh]);
+  const value = useMemo(
+    () => ({ user, status, login, register, loginWithGoogle, logout, refresh }),
+    [user, status, login, register, loginWithGoogle, logout, refresh],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

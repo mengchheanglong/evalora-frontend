@@ -19,8 +19,7 @@ export default function SettingsPage() {
   return (
     <AppShell
       active="settings"
-      actions={<button className="button-secondary h-9 rounded-[7px] px-3 text-[12px]" type="button"><Icon name="clock" size={14} />Reset to default</button>}
-      description="Manage your account, organization, and application preferences."
+      description="Account preferences for this workspace. Full org profile editing is not wired to the backend yet."
       title="Settings"
     >
       <div className="mx-auto max-w-[1100px] space-y-4">

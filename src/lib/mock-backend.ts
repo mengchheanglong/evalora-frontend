@@ -22,15 +22,54 @@ import type {
 } from "@/lib/types";
 
 const mockUser: AuthUser = {
-  id: "user-demo-interviewer",
+  id: "user-demo-owner",
   name: "Maya Chen",
   email: "maya@evalora.demo",
-  role: "interviewer",
+  role: "organization",
   organizationId: "org-demo",
 };
 
 const now = Date.now();
 const iso = (offsetHours: number) => new Date(now + offsetHours * 60 * 60 * 1000).toISOString();
+
+type MockMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: AuthUser["role"];
+  roleLabel: string;
+  organizationId?: string;
+  createdAt?: string;
+  isCurrentUser?: boolean;
+};
+
+type MockInvite = {
+  id: string;
+  email: string;
+  role: AuthUser["role"];
+  status: "pending" | "accepted" | "cancelled" | "expired";
+  token: string;
+  inviteUrlPath: string;
+  invitedBy?: { id: string; name: string };
+  expiresAt: string;
+  createdAt?: string;
+  acceptedAt?: string;
+};
+
+const mockMembers: MockMember[] = [
+  {
+    id: mockUser.id,
+    name: mockUser.name,
+    email: mockUser.email,
+    role: "organization",
+    roleLabel: "Owner",
+    organizationId: mockUser.organizationId,
+    createdAt: iso(-720),
+    isCurrentUser: true,
+  },
+];
+
+const mockInvites: MockInvite[] = [];
 
 const templates: AssessmentTemplate[] = [
   {
@@ -438,10 +477,114 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   const body = method === "GET" || method === "HEAD" ? undefined : await readJson(request);
 
   if (relativePath === "auth/me" && method === "GET") return json(mockUser);
-  if ((relativePath === "auth/login" || relativePath === "auth/register") && method === "POST") {
+  if ((relativePath === "auth/login" || relativePath === "auth/register" || relativePath === "auth/google") && method === "POST") {
+    const input = asRecord(body);
+    if (relativePath === "auth/google") {
+      const credential = String(input.credential ?? input.idToken ?? "").trim();
+      if (!credential) return json({ message: "Google credential is required." }, 400);
+      return json<AuthResponse>({
+        user: {
+          ...mockUser,
+          name: "Google Demo User",
+          email: "google.demo@evalora.demo",
+        },
+        message: "Google sign-in successful (mock).",
+      });
+    }
     return json<AuthResponse>({ user: mockUser, message: "Signed in to mock workspace." });
   }
   if (relativePath === "auth/logout" && method === "POST") return json({ message: "Signed out." });
+
+  if (relativePath === "organization/members" && method === "GET") {
+    return json(
+      mockMembers.map((member) => ({
+        ...member,
+        isCurrentUser: member.id === mockUser.id,
+      })),
+    );
+  }
+  if (relativePath === "organization/invites" && method === "GET") return json(mockInvites);
+  if (relativePath === "organization/invites" && method === "POST") {
+    const input = asRecord(body);
+    const email = String(input.email ?? "").trim().toLowerCase();
+    if (!email) return json({ message: "Email is required." }, 400);
+    if (mockMembers.some((member) => member.email === email)) {
+      return json({ message: "This person is already a member of your workspace." }, 409);
+    }
+    if (mockInvites.some((invite) => invite.email === email && invite.status === "pending")) {
+      return json({ message: "A pending invitation already exists for this email." }, 409);
+    }
+    const token = `mock-invite-${Math.random().toString(36).slice(2, 10)}`;
+    const invite: MockInvite = {
+      id: `invite-${Date.now()}`,
+      email,
+      role: "interviewer",
+      status: "pending",
+      token,
+      inviteUrlPath: `/invite/${token}`,
+      invitedBy: { id: mockUser.id, name: mockUser.name },
+      expiresAt: iso(168),
+      createdAt: new Date().toISOString(),
+    };
+    mockInvites.unshift(invite);
+    return json(
+      {
+        ...invite,
+        inviteUrl: `http://localhost:3010${invite.inviteUrlPath}`,
+        emailDelivery: {
+          status: "skipped",
+          reason: "Mock backend does not send real email. Share the invite link manually.",
+        },
+      },
+      201,
+    );
+  }
+  if (segments[0] === "organization" && segments[1] === "invites" && segments[2] === "token" && segments[3] && method === "GET") {
+    const invite = mockInvites.find((row) => row.token === decodeURIComponent(segments[3]) && row.status === "pending");
+    if (!invite) return json({ message: "Invitation not found." }, 404);
+    return json({
+      email: invite.email,
+      organizationName: "Evalora Demo Workspace",
+      role: invite.role,
+      roleLabel: "Interviewer",
+      expiresAt: invite.expiresAt,
+      inviterName: invite.invitedBy?.name,
+    });
+  }
+  if (relativePath === "organization/invites/accept" && method === "POST") {
+    const input = asRecord(body);
+    const invite = mockInvites.find((row) => row.token === String(input.token ?? "") && row.status === "pending");
+    if (!invite) return json({ message: "Invitation not found." }, 404);
+    invite.status = "accepted";
+    invite.acceptedAt = new Date().toISOString();
+    const joined: MockMember = {
+      id: `user-${Date.now()}`,
+      name: String(input.name ?? "New Interviewer"),
+      email: invite.email,
+      role: "interviewer",
+      roleLabel: "Interviewer",
+      organizationId: mockUser.organizationId,
+      createdAt: new Date().toISOString(),
+    };
+    mockMembers.push(joined);
+    return json<AuthResponse>({
+      user: { id: joined.id, name: joined.name, email: joined.email, role: "interviewer", organizationId: joined.organizationId },
+      message: "Invitation accepted. Welcome to the workspace.",
+    });
+  }
+  if (segments[0] === "organization" && segments[1] === "invites" && segments[2] && method === "DELETE") {
+    const invite = mockInvites.find((row) => row.id === decodeURIComponent(segments[2]));
+    if (!invite) return json({ message: "Invitation not found." }, 404);
+    invite.status = "cancelled";
+    return json({ id: invite.id, cancelled: true });
+  }
+  if (segments[0] === "organization" && segments[1] === "members" && segments[2] && method === "DELETE") {
+    const id = decodeURIComponent(segments[2]);
+    const index = mockMembers.findIndex((member) => member.id === id && member.role === "interviewer");
+    if (index < 0) return json({ message: "Member not found." }, 404);
+    mockMembers.splice(index, 1);
+    return json({ id, removed: true });
+  }
 
   if (relativePath === "templates" && method === "GET") return json(templates);
   if (relativePath === "templates" && method === "POST") {
@@ -481,7 +624,17 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
       updatedAt: new Date().toISOString(),
     };
     sessions.unshift(session);
-    return json(session, 201);
+    return json(
+      {
+        ...session,
+        assessmentUrl: `http://localhost:3010/assessment/${session.accessCode}`,
+        emailDelivery: {
+          status: "skipped",
+          reason: "Mock backend does not send real email. Share the assessment link manually.",
+        },
+      },
+      201,
+    );
   }
   if (segments[0] === "sessions" && segments[1] === "access" && segments[2]) return handleCandidateSession(method, decodeURIComponent(segments[2]), segments[3]);
   if (segments[0] === "sessions" && segments[1] && method === "GET") {
