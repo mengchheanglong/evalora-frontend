@@ -297,8 +297,8 @@ export default function TemplatesPage() {
                   value={searchQuery}
                 />
               </label>
-              <Link className="button-secondary h-10 rounded-xl px-4 text-[12px] shadow-sm" href="/templates/create">
-                <Icon name="plus" size={15} /> Blank template
+              <Link className="button-primary h-10 rounded-xl px-4 text-[12px] shadow-sm" href="/templates/create">
+                <Icon name="plus" size={15} /> Create from scratch
               </Link>
             </div>
           </div>

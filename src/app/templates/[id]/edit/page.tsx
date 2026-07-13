@@ -51,6 +51,13 @@ export default function EditTemplatePage() {
   const [notice, setNotice] = useState("");
   const [dirty, setDirty] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("created") === "1") {
+      setNotice("Template created. You can keep refining modules and questions here.");
+    }
+  }, []);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [roleType, setRoleType] = useState("");
