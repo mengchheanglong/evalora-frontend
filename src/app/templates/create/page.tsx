@@ -77,9 +77,9 @@ export default function CreateTemplatePage() {
 
       // Call Backend API
       const createdTemplate = await apiPost<AssessmentTemplate>("/templates", payload);
-      
-      // On Success: Redirect to templates list (or to /templates/${createdTemplate.id}/edit if you build an edit page for modules)
-      router.push("/templates");
+
+      // Open the question editor next so modules/questions can be added.
+      router.push(`/templates/${encodeURIComponent(createdTemplate.id)}/edit`);
       router.refresh();
       
     } catch (requestError) {

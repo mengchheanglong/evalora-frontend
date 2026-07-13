@@ -101,6 +101,19 @@ export interface AssessmentTemplate {
   modules: AssessmentModule[];
 }
 
+/** Read-only prebuilt blueprint from GET /templates/catalog */
+export interface CatalogTemplateSummary {
+  id: string;
+  title: string;
+  description: string;
+  roleType: string;
+  timeLimitMin?: number;
+  moduleCount: number;
+  questionCount: number;
+  moduleTypes: ModuleType[];
+  source: "prebuilt";
+}
+
 export interface InterviewSession {
   id: string;
   candidateId?: string;

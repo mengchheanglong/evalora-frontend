@@ -10,6 +10,7 @@ import type {
   CandidateCodeSubmitResult,
   CandidateReport,
   CandidateResponse,
+  CatalogTemplateSummary,
   CodeQuestion,
   CodeRunResult,
   InterviewSession,
@@ -71,178 +72,159 @@ const mockMembers: MockMember[] = [
 
 const mockInvites: MockInvite[] = [];
 
-const templates: AssessmentTemplate[] = [
-  {
-    id: "tpl-software-engineer",
+/** Compact mock catalog blueprints (full banks live in the Nest prebuilt catalog). */
+function buildCatalogTemplate(input: {
+  id: string;
+  title: string;
+  description: string;
+  roleType: string;
+  timeLimitMin: number;
+  modules: Array<{ type: ModuleType; title: string; description: string; questions: string[] }>;
+}): AssessmentTemplate {
+  return {
+    id: input.id,
+    title: input.title,
+    description: input.description,
+    roleType: input.roleType,
+    timeLimitMin: input.timeLimitMin,
+    scoringRules: { passScore: 3.5, scale: "1-5", advisoryOnly: true, source: "prebuilt-researched-v2" },
+    modules: input.modules.map((module, moduleIndex) => ({
+      id: `${input.id}-mod-${moduleIndex + 1}`,
+      type: module.type,
+      title: module.title,
+      description: module.description,
+      weight: 1,
+      orderIndex: moduleIndex + 1,
+      questions: module.questions.map((questionText, questionIndex) => ({
+        id: `${input.id}-q-${moduleIndex + 1}-${questionIndex + 1}`,
+        questionText,
+        questionType: (module.type === "coding"
+          ? "coding"
+          : module.type === "work_style"
+            ? "scale"
+            : module.type === "communication"
+              ? "roleplay"
+              : "scenario") as QuestionType,
+        rubric: ["clarity", "evidence", "judgment", "impact"],
+      })),
+    })),
+  };
+}
+
+/** Read-only prebuilt library (mirrors backend GET /templates/catalog role set). */
+const catalogTemplates: AssessmentTemplate[] = [
+  buildCatalogTemplate({
+    id: "prebuilt-software-engineer-assessment",
     title: "Software Engineer Assessment",
-    description: "Technical reasoning, JavaScript coding, debugging habits, and collaboration evidence.",
+    description: "Coding, debugging, system design, communication, and engineering behavioral evidence.",
     roleType: "Software Engineer",
-    timeLimitMin: 75,
-    scoringRules: { passScore: 3.6, scale: "1-5", advisoryOnly: true },
-    createdById: mockUser.id,
-    organizationId: mockUser.organizationId,
+    timeLimitMin: 90,
     modules: [
-      {
-        id: "mod-se-ai",
-        type: "ai_interview",
-        title: "AI Interview",
-        description: "Role-relevant project discussion with one adaptive follow-up.",
-        weight: 1,
-        orderIndex: 1,
-        questions: [
-          {
-            id: "q-se-ai-1",
-            questionText: "Tell us about a technical project you owned. What trade-offs did you make and how did you measure success?",
-            questionType: "scenario",
-            rubric: ["clarity", "ownership", "trade-offs", "impact"],
-          },
-          {
-            id: "q-se-ai-2",
-            questionText: "Describe a time you had to learn a new system quickly. What did you do first?",
-            questionType: "short_answer",
-          },
-        ],
-      },
-      {
-        id: "mod-se-code",
-        type: "coding",
-        title: "Coding Assessment",
-        description: "JavaScript tasks with sample runs and hidden-test style feedback.",
-        weight: 1.5,
-        orderIndex: 2,
-        questions: [],
-      },
-      {
-        id: "mod-se-debug",
-        type: "debugging",
-        title: "Debugging",
-        description: "Root-cause analysis and prevention reasoning.",
-        weight: 1,
-        orderIndex: 3,
-        questions: [
-          {
-            id: "q-se-debug-1",
-            questionText: "A production bug appears only for a small percentage of users. How would you isolate and verify the fix?",
-            questionType: "short_answer",
-          },
-        ],
-      },
-      {
-        id: "mod-se-work",
-        type: "work_style",
-        title: "Work Style",
-        description: "Collaboration, feedback, and ownership preferences.",
-        weight: 1,
-        orderIndex: 4,
-        questions: [
-          {
-            id: "q-se-work-1",
-            questionText: "How strongly do you prefer to clarify ownership before beginning a cross-functional task?",
-            questionType: "scale",
-          },
-        ],
-      },
+      { type: "ai_interview", title: "AI Interview", description: "Technical ownership discussion.", questions: ["Tell us about a technical project you owned. What trade-offs did you make and how did you measure success?", "Describe a time you had to learn a new system quickly. What did you do first?"] },
+      { type: "coding", title: "Coding", description: "Practical JavaScript tasks.", questions: ["Implement a function that returns whether any two numbers sum to the target.", "Normalize a list of display names: trim, drop blanks, and title-case words."] },
+      { type: "debugging", title: "Debugging", description: "Root-cause analysis.", questions: ["A production bug appears only for a small percentage of users. How would you isolate and verify the fix?"] },
+      { type: "problem_solving", title: "System Design", description: "Architecture judgment.", questions: ["Design a rate-limited public API for a mobile client. What trade-offs matter first?"] },
+      { type: "communication", title: "Communication", description: "Engineering updates.", questions: ["Write a short update explaining a delayed release and recovery plan."] },
+      { type: "behavioral", title: "Behavioral", description: "Ownership and collaboration.", questions: ["Tell us about a technical disagreement with a teammate. What changed your mind or theirs?"] },
     ],
-  },
-  {
-    id: "tpl-product-manager",
+  }),
+  buildCatalogTemplate({
+    id: "prebuilt-frontend-developer-assessment",
+    title: "Frontend Developer Assessment",
+    description: "UI coding, debugging, accessibility, performance, and collaboration for frontend screens.",
+    roleType: "Frontend Developer",
+    timeLimitMin: 85,
+    modules: [
+      { type: "coding", title: "Frontend Coding", description: "UI logic tasks.", questions: ["Implement a debounce utility and describe which bugs you would test for.", "Group UI events by type and sort by frequency descending."] },
+      { type: "debugging", title: "UI Debugging", description: "Browser and state issues.", questions: ["A React page re-renders on every keystroke and feels laggy. How do you isolate the cause?", "Users report a form sometimes submits stale values. Walk through your debugging approach."] },
+      { type: "ai_interview", title: "Frontend Interview", description: "Architecture and a11y.", questions: ["How do you make a complex modal dialog accessible?", "A dashboard is slow on first load. What measurements would you prioritize?"] },
+      { type: "communication", title: "Communication", description: "Design/PM collaboration.", questions: ["Write a short note explaining why a polished animation should slip to next sprint."] },
+      { type: "behavioral", title: "Behavioral", description: "Delivery ownership.", questions: ["Tell us about a UI feature you owned end-to-end. How did you measure success?"] },
+      { type: "work_style", title: "Work Style", description: "Quality preferences.", questions: ["How strongly do you prefer automated UI tests before merging user-facing changes?"] },
+    ],
+  }),
+  buildCatalogTemplate({
+    id: "prebuilt-product-manager-assessment",
     title: "Product Manager Assessment",
-    description: "Structured product judgment, communication, leadership, and behavioral evidence.",
+    description: "Product judgment, prioritization, stakeholder communication, and cross-functional leadership.",
     roleType: "Product Manager",
-    timeLimitMin: 60,
-    scoringRules: { passScore: 3.5, scale: "1-5", advisoryOnly: true },
-    createdById: mockUser.id,
-    organizationId: mockUser.organizationId,
+    timeLimitMin: 75,
     modules: [
-      {
-        id: "mod-pm-problem",
-        type: "problem_solving",
-        title: "Problem Solving",
-        description: "Ambiguous product scenarios and validation strategy.",
-        weight: 1.2,
-        orderIndex: 1,
-        questions: [
-          {
-            id: "q-pm-problem-1",
-            questionText: "A key activation metric drops after launch. How would you investigate and decide what to do next?",
-            questionType: "scenario",
-          },
-        ],
-      },
-      {
-        id: "mod-pm-comm",
-        type: "communication",
-        title: "Communication",
-        description: "Stakeholder clarity and decision framing.",
-        weight: 1,
-        orderIndex: 2,
-        questions: [
-          {
-            id: "q-pm-comm-1",
-            questionText: "Write a short update to leadership explaining a delayed release and your recovery plan.",
-            questionType: "roleplay",
-          },
-        ],
-      },
-      {
-        id: "mod-pm-lead",
-        type: "leadership",
-        title: "Leadership",
-        description: "Conflict handling and accountable prioritization.",
-        weight: 1,
-        orderIndex: 3,
-        questions: [
-          {
-            id: "q-pm-lead-1",
-            questionText: "Two senior stakeholders disagree on priority. How would you move the team toward a decision?",
-            questionType: "scenario",
-          },
-        ],
-      },
+      { type: "problem_solving", title: "Product Judgment", description: "Ambiguous product scenarios.", questions: ["A key activation metric drops 18% after a release. How would you investigate?", "Engineering can only ship one of three competing features. How would you choose?"] },
+      { type: "communication", title: "Stakeholder Communication", description: "Executive-ready writing.", questions: ["Write a short leadership update explaining a delayed launch and recovery plan."] },
+      { type: "leadership", title: "Cross-functional Leadership", description: "Influence without authority.", questions: ["Two senior stakeholders push conflicting priorities. How do you move the team toward one decision?"] },
+      { type: "behavioral", title: "Behavioral Evidence", description: "Past product ownership.", questions: ["Walk through a product you owned from discovery to launch."] },
+      { type: "work_style", title: "Work Style", description: "Operating preferences.", questions: ["How strongly do you prefer written decision records before committing Engineering capacity?"] },
+      { type: "ai_interview", title: "AI Product Interview", description: "Open-ended product sense.", questions: ["Pick a product you know well. Which one metric would you optimize and which would you refuse to sacrifice?"] },
     ],
-  },
-  {
-    id: "tpl-hr-generalist",
+  }),
+  buildCatalogTemplate({
+    id: "prebuilt-data-analyst-assessment",
+    title: "Data Analyst Assessment",
+    description: "Analytical problem solving, metric design, experimentation judgment, and insight communication.",
+    roleType: "Data Analyst",
+    timeLimitMin: 70,
+    modules: [
+      { type: "problem_solving", title: "Analytical Problem Solving", description: "Investigation structure.", questions: ["Weekly active users fell 12%. Outline your investigation plan.", "An A/B test shows +4% lift with p=0.08 after two days. What do you recommend?"] },
+      { type: "communication", title: "Insight Communication", description: "Decision-ready writing.", questions: ["Write a 5-bullet executive summary that a feature is not driving retention."] },
+      { type: "behavioral", title: "Behavioral Evidence", description: "Past analytical impact.", questions: ["Tell us about an analysis that changed a real business decision."] },
+      { type: "work_style", title: "Work Style", description: "Rigor preferences.", questions: ["How strongly do you prefer fully reproducible analysis before sharing conclusions?"] },
+      { type: "leadership", title: "Analytical Leadership", description: "Standards and influence.", questions: ["How would you establish a shared metric dictionary when teams disagree on definitions?"] },
+      { type: "ai_interview", title: "Analytics Interview", description: "Open-ended judgment.", questions: ["If you joined as the first analyst on a product, what would you instrument in month one?"] },
+    ],
+  }),
+  buildCatalogTemplate({
+    id: "prebuilt-team-leader-assessment",
+    title: "Team Leader Assessment",
+    description: "Leadership judgment, communication, problem solving, and people-management evidence.",
+    roleType: "Team Leader",
+    timeLimitMin: 75,
+    modules: [
+      { type: "leadership", title: "Leadership Scenarios", description: "Conflict and accountability.", questions: ["Two strong team members disagree publicly and progress is blocked. How would you handle it?", "A reliable teammate starts missing deadlines and says they are overloaded. How do you handle it?"] },
+      { type: "communication", title: "Communication", description: "Stakeholder clarity.", questions: ["Write a short update to leadership explaining a delayed release and recovery plan."] },
+      { type: "behavioral", title: "Behavioral", description: "Past leadership evidence.", questions: ["Describe a time you had to reset expectations with your team under pressure."] },
+      { type: "problem_solving", title: "Problem Solving", description: "Delivery under constraints.", questions: ["Your team is likely to miss an important deadline. What do you communicate and change?"] },
+      { type: "work_style", title: "Work Style", description: "Operating rhythm.", questions: ["How strongly do you prefer written decision logs after major team meetings?"] },
+      { type: "ai_interview", title: "Leadership Interview", description: "Adaptive scenarios.", questions: ["How would you coach a team that is overusing AI tools without reviewing quality?"] },
+    ],
+  }),
+  buildCatalogTemplate({
+    id: "prebuilt-hr-generalist-assessment",
     title: "HR Generalist Assessment",
-    description: "Behavioral, ethics, communication, and workplace scenario prompts.",
+    description: "Behavioral, ethics, communication, and workplace scenario prompts for HR screens.",
     roleType: "HR Generalist",
-    timeLimitMin: 50,
-    scoringRules: { passScore: 3.4, scale: "1-5", advisoryOnly: true },
-    createdById: mockUser.id,
-    organizationId: mockUser.organizationId,
+    timeLimitMin: 75,
     modules: [
-      {
-        id: "mod-hr-behavior",
-        type: "behavioral",
-        title: "Behavioral",
-        description: "Evidence of judgment, empathy, and professionalism.",
-        weight: 1,
-        orderIndex: 1,
-        questions: [
-          {
-            id: "q-hr-behavior-1",
-            questionText: "Describe a time you handled sensitive employee information. How did you protect trust?",
-            questionType: "scenario",
-          },
-        ],
-      },
-      {
-        id: "mod-hr-comm",
-        type: "communication",
-        title: "Communication",
-        description: "Clear, respectful workplace communication.",
-        weight: 1,
-        orderIndex: 2,
-        questions: [
-          {
-            id: "q-hr-comm-1",
-            questionText: "A manager asks for advice on a tense team conflict. How would you respond?",
-            questionType: "roleplay",
-          },
-        ],
-      },
+      { type: "behavioral", title: "Behavioral", description: "Judgment and professionalism.", questions: ["Describe a time you handled sensitive employee information. How did you protect trust?", "Tell us about resolving a workplace conflict between peers."] },
+      { type: "communication", title: "Communication", description: "Clear workplace communication.", questions: ["A manager asks for advice on a tense team conflict. How would you respond?"] },
+      { type: "work_style", title: "Work Style", description: "Process and confidentiality.", questions: ["How strongly do you prefer documented process for every employee request?"] },
+      { type: "problem_solving", title: "Problem Solving", description: "People process issues.", questions: ["Hiring funnel conversion dropped sharply. How would you investigate?"] },
+      { type: "leadership", title: "People Leadership", description: "Influence and standards.", questions: ["How would you roll out a new performance review process with resistant managers?"] },
+      { type: "ai_interview", title: "AI Ethics Interview", description: "Responsible people tech.", questions: ["When is it appropriate to use AI screening tools, and what human review bar would you set?"] },
     ],
-  },
+  }),
+  buildCatalogTemplate({
+    id: "prebuilt-customer-success-assessment",
+    title: "Customer Success Assessment",
+    description: "Customer communication, churn handling, account problem solving, and relationship ownership.",
+    roleType: "Customer Success",
+    timeLimitMin: 65,
+    modules: [
+      { type: "communication", title: "Customer Communication", description: "Calm professional writing.", questions: ["A customer is frustrated after three failed tickets. Write your first reply email.", "You must tell a customer their requested feature will not ship this quarter. How do you communicate it?"] },
+      { type: "problem_solving", title: "Account Problem Solving", description: "Churn and adoption.", questions: ["Usage dropped 40% for a renewing account. What is your 48-hour action plan?"] },
+      { type: "behavioral", title: "Behavioral Evidence", description: "Past customer outcomes.", questions: ["Tell us about a time you saved an at-risk customer relationship."] },
+      { type: "leadership", title: "Customer Leadership", description: "Alignment and escalation.", questions: ["Two stakeholders at a customer disagree on success criteria. How do you lead alignment?"] },
+      { type: "work_style", title: "Work Style", description: "CRM and proactivity.", questions: ["How strongly do you prefer updating CRM notes the same day as every interaction?"] },
+      { type: "ai_interview", title: "CS Interview", description: "Account strategy.", questions: ["What would your first 90 days look like owning a book of 40 mid-market accounts?"] },
+    ],
+  }),
+];
+
+/** Organization-owned copies used by sessions and "My templates". */
+const templates: AssessmentTemplate[] = [
+  cloneTemplateIntoOrg(catalogTemplates[0], "tpl-software-engineer"),
+  cloneTemplateIntoOrg(catalogTemplates[4], "tpl-team-leader"),
+  cloneTemplateIntoOrg(catalogTemplates[5], "tpl-hr-generalist"),
 ];
 
 const sessions: InterviewSession[] = [
@@ -288,8 +270,8 @@ const sessions: InterviewSession[] = [
     candidateId: "cand-sofia",
     candidateName: "Sofia Williams",
     candidateEmail: "sofia.williams@example.com",
-    templateId: "tpl-product-manager",
-    templateTitle: "Product Manager Assessment",
+    templateId: "tpl-team-leader",
+    templateTitle: "Team Leader Assessment",
     targetRole: "Product Manager",
     organizationId: mockUser.organizationId,
     status: "completed",
@@ -344,8 +326,8 @@ const sessions: InterviewSession[] = [
     candidateId: "cand-liam",
     candidateName: "Liam Chen",
     candidateEmail: "liam.chen@example.com",
-    templateId: "tpl-product-manager",
-    templateTitle: "Product Manager Assessment",
+    templateId: "tpl-team-leader",
+    templateTitle: "Team Leader Assessment",
     targetRole: "Product Analyst",
     organizationId: mockUser.organizationId,
     status: "in_progress",
@@ -586,6 +568,37 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     return json({ id, removed: true });
   }
 
+  // Prebuilt catalog (must be registered before /templates/:id)
+  if (relativePath === "templates/catalog" && method === "GET") {
+    return json(catalogTemplates.map(toCatalogSummary));
+  }
+  if (segments[0] === "templates" && segments[1] === "catalog" && segments[2] && method === "GET") {
+    const catalogId = decodeURIComponent(segments[2]).toLowerCase();
+    const found = catalogTemplates.find(
+      (template) => template.id.toLowerCase() === catalogId || template.id.toLowerCase() === `prebuilt-${catalogId}`,
+    );
+    return jsonOr404(found, "Catalog template not found.");
+  }
+  if (relativePath === "templates/from-catalog" && method === "POST") {
+    const input = asRecord(body);
+    const catalogId = String(input.catalogId ?? "").trim().toLowerCase();
+    if (!catalogId) return json({ message: "Catalog template id is required." }, 400);
+    const source = catalogTemplates.find(
+      (template) => template.id.toLowerCase() === catalogId || template.id.toLowerCase() === `prebuilt-${catalogId}`,
+    );
+    if (!source) return json({ message: "Catalog template not found." }, 404);
+    const title = typeof input.title === "string" && input.title.trim() ? input.title.trim() : source.title;
+    const cloned = cloneTemplateIntoOrg(source, undefined, title, {
+      ...(typeof source.scoringRules === "object" && source.scoringRules && !Array.isArray(source.scoringRules)
+        ? (source.scoringRules as Record<string, unknown>)
+        : {}),
+      clonedFromCatalogId: source.id,
+      advisoryOnly: true,
+    });
+    templates.unshift(cloned);
+    return json(cloned, 201);
+  }
+
   if (relativePath === "templates" && method === "GET") return json(templates);
   if (relativePath === "templates" && method === "POST") {
     const input = asRecord(body);
@@ -593,8 +606,59 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     templates.unshift(template);
     return json(template, 201);
   }
+  if (segments[0] === "templates" && segments[1] && segments[2] === "duplicate" && method === "POST") {
+    const id = decodeURIComponent(segments[1]);
+    const source = templates.find((template) => template.id === id);
+    if (!source) return json({ message: "Template not found." }, 404);
+    const copy = cloneTemplateIntoOrg(source, undefined, `${source.title} (Copy)`);
+    templates.unshift(copy);
+    return json(copy, 201);
+  }
   if (segments[0] === "templates" && segments[1] && method === "GET") {
     return jsonOr404(templates.find((template) => template.id === decodeURIComponent(segments[1])), "Template not found.");
+  }
+  if (segments[0] === "templates" && segments[1] && method === "PUT") {
+    const id = decodeURIComponent(segments[1]);
+    const index = templates.findIndex((template) => template.id === id);
+    if (index < 0) return json({ message: "Template not found." }, 404);
+    const input = asRecord(body);
+    const existing = templates[index];
+    const nextModules = Array.isArray(input.modules)
+      ? input.modules.map((item, moduleIndex) => {
+          const module = asRecord(item);
+          const questions = Array.isArray(module.questions) ? module.questions : [];
+          return {
+            id: `mod-${id}-${moduleIndex + 1}`,
+            type: String(module.type ?? "behavioral") as ModuleType,
+            title: String(module.title ?? "Module"),
+            description: String(module.description ?? ""),
+            weight: Number(module.weight ?? 1),
+            orderIndex: Number(module.orderIndex ?? moduleIndex + 1),
+            settings: toJsonValue(module.settings),
+            questions: questions.map((question, questionIndex) => {
+              const record = asRecord(question);
+              return {
+                id: `q-${id}-${moduleIndex + 1}-${questionIndex + 1}`,
+                questionText: String(record.questionText ?? ""),
+                questionType: String(record.questionType ?? "short_answer") as QuestionType,
+                options: toJsonValue(record.options),
+                rubric: toJsonValue(record.rubric),
+              };
+            }),
+          };
+        })
+      : existing.modules;
+    const updated: AssessmentTemplate = {
+      ...existing,
+      title: typeof input.title === "string" ? input.title : existing.title,
+      description: typeof input.description === "string" ? input.description : existing.description,
+      roleType: typeof input.roleType === "string" ? input.roleType : existing.roleType,
+      timeLimitMin: input.timeLimitMin !== undefined ? Number(input.timeLimitMin) : existing.timeLimitMin,
+      scoringRules: input.scoringRules !== undefined ? toJsonValue(input.scoringRules) : existing.scoringRules,
+      modules: nextModules,
+    };
+    templates[index] = updated;
+    return json(updated);
   }
   if (segments[0] === "templates" && segments[1] && method === "DELETE") {
     const id = decodeURIComponent(segments[1]);
@@ -840,6 +904,58 @@ function createThemes() {
   return {
     strengths: [{ label: "Clear trade-offs", count: 7 }, { label: "Ownership", count: 6 }, { label: "Structured communication", count: 5 }],
     improvementAreas: [{ label: "Testing depth", count: 4 }, { label: "Metric design", count: 3 }, { label: "Prioritization detail", count: 2 }],
+  };
+}
+
+function toCatalogSummary(template: AssessmentTemplate): CatalogTemplateSummary {
+  const modules = template.modules ?? [];
+  const questionCount = modules.reduce((total, module) => total + (module.questions?.length ?? 0), 0);
+  return {
+    id: template.id,
+    title: template.title,
+    description: template.description,
+    roleType: template.roleType,
+    timeLimitMin: template.timeLimitMin,
+    moduleCount: modules.length,
+    questionCount,
+    moduleTypes: modules.map((module) => module.type),
+    source: "prebuilt",
+  };
+}
+
+/** Deep-clone a catalog or org template into a new org-owned row with fresh ids. */
+function cloneTemplateIntoOrg(
+  source: AssessmentTemplate,
+  fixedId?: string,
+  titleOverride?: string,
+  scoringRules?: JsonValue,
+): AssessmentTemplate {
+  const id = fixedId ?? `tpl-${slug(titleOverride ?? source.title)}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  return {
+    id,
+    title: titleOverride ?? source.title,
+    description: source.description,
+    roleType: source.roleType,
+    timeLimitMin: source.timeLimitMin,
+    scoringRules: scoringRules ?? toJsonValue(source.scoringRules),
+    createdById: mockUser.id,
+    organizationId: mockUser.organizationId,
+    modules: (source.modules ?? []).map((module, index) => ({
+      id: `mod-${id}-${index + 1}`,
+      type: module.type,
+      title: module.title,
+      description: module.description,
+      weight: module.weight,
+      orderIndex: module.orderIndex,
+      settings: toJsonValue(module.settings),
+      questions: (module.questions ?? []).map((question, questionIndex) => ({
+        id: `q-${id}-${index + 1}-${questionIndex + 1}`,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        options: toJsonValue(question.options),
+        rubric: toJsonValue(question.rubric),
+      })),
+    })),
   };
 }
 

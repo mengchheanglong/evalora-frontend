@@ -1,105 +1,56 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
-import { apiGet, apiDelete, getErrorMessage } from "@/lib/api";
-import type { AssessmentTemplate } from "@/lib/types";
+import { apiDelete, apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import type { AssessmentTemplate, CatalogTemplateSummary, ModuleType, Question, QuestionType } from "@/lib/types";
 
-// --- UI Types (Matches Figma Design) ---
-type TemplateStatus = "Active" | "Draft" | "Archived";
-type TemplateCategory = "Technical" | "Behavioral" | "Leadership" | "Communication" | "General";
+type MainTab = "library" | "mine";
+type PreviewSource = "catalog" | "mine";
 
-interface TemplateRow {
-  id: string;
-  title: string;
-  description: string;
-  category: TemplateCategory;
-  targetRoles: string;
-  modulesCount: number;
-  questionsCount: number;
-  lastUpdate: string;
-  updatedBy: string;
-  status: TemplateStatus;
-  icon: IconName;
-  iconColor: string;
-}
+const ROLE_FILTERS = [
+  { id: "all", label: "All roles" },
+  { id: "engineering", label: "Engineering" },
+  { id: "product", label: "Product" },
+  { id: "data", label: "Data" },
+  { id: "leadership", label: "Leadership" },
+  { id: "people", label: "People" },
+  { id: "customer", label: "Customer" },
+] as const;
 
-// --- Helper: Map Backend Data to UI Structure ---
-function mapTemplateToRow(template: AssessmentTemplate): TemplateRow {
-  // Calculate real question count from modules
-  const questionsCount = template.modules.reduce((acc, m) => acc + (m.questions?.length || 0), 0);
-  
-  // Infer Category from roleType
-  let category: TemplateCategory = "General";
-  const roleLower = template.roleType.toLowerCase();
-  if (roleLower.includes("developer") || roleLower.includes("engineer") || roleLower.includes("data") || roleLower.includes("technical")) {
-    category = "Technical";
-  } else if (roleLower.includes("behavioral")) {
-    category = "Behavioral";
-  } else if (roleLower.includes("lead") || roleLower.includes("manager")) {
-    category = "Leadership";
-  } else if (roleLower.includes("communication")) {
-    category = "Communication";
-  }
-
-  // Infer Icon and Color from the first module's type
-  let icon: IconName = "clipboard";
-  let iconColor = "bg-gray-100 text-gray-600";
-  const firstModuleType = template.modules[0]?.type;
-  
-  if (firstModuleType === "coding" || firstModuleType === "debugging") {
-    icon = "code"; iconColor = "bg-indigo-100 text-indigo-600";
-  } else if (firstModuleType === "behavioral") {
-    icon = "users"; iconColor = "bg-orange-100 text-orange-600";
-  } else if (firstModuleType === "leadership") {
-    icon = "crown"; iconColor = "bg-blue-100 text-blue-600";
-  } else if (firstModuleType === "communication") {
-    icon = "message"; iconColor = "bg-sky-100 text-sky-600";
-  } else if (firstModuleType === "ai_interview") {
-    icon = "message"; iconColor = "bg-purple-100 text-purple-600";
-  }
-
-  // Note: The backend type doesn't explicitly have updatedAt or createdByName, 
-  // so we use placeholders. If your backend adds them, update this logic.
-  const lastUpdate = (template as any).updatedAt 
-    ? new Date((template as any).updatedAt).toLocaleDateString() 
-    : "N/A";
-  const updatedBy = (template as any).createdByName || "System";
-
-  return {
-    id: template.id,
-    title: template.title,
-    description: template.description,
-    category,
-    targetRoles: template.roleType,
-    modulesCount: template.modules.length,
-    questionsCount,
-    lastUpdate,
-    updatedBy,
-    status: "Active", // Default to Active since backend doesn't track status yet
-    icon,
-    iconColor,
-  };
-}
+type RoleFilterId = (typeof ROLE_FILTERS)[number]["id"];
 
 export default function TemplatesPage() {
-  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const router = useRouter();
+  const [mainTab, setMainTab] = useState<MainTab>("library");
+  const [catalog, setCatalog] = useState<CatalogTemplateSummary[]>([]);
+  const [mine, setMine] = useState<AssessmentTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeTab, setActiveTab] = useState<"All" | TemplateCategory>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilterId>("all");
+  const [busyId, setBusyId] = useState("");
+  const [preview, setPreview] = useState<AssessmentTemplate | null>(null);
+  const [previewSource, setPreviewSource] = useState<PreviewSource>("catalog");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [activeModuleId, setActiveModuleId] = useState("");
+  const [questionSearch, setQuestionSearch] = useState("");
 
-  // Fetch real data from backend
-  const loadTemplates = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await apiGet<AssessmentTemplate[]>("/templates");
-      setTemplates(data.map(mapTemplateToRow));
+      const [nextCatalog, nextMine] = await Promise.all([
+        apiGet<CatalogTemplateSummary[]>("/templates/catalog"),
+        apiGet<AssessmentTemplate[]>("/templates"),
+      ]);
+      setCatalog(nextCatalog);
+      setMine(nextMine);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -108,242 +59,771 @@ export default function TemplatesPage() {
   }, []);
 
   useEffect(() => {
-    void loadTemplates();
-  }, [loadTemplates]);
+    void load();
+  }, [load]);
 
-  // Real Delete Functionality
-  async function deleteTemplate(id: string, title: string) {
-    if (!window.confirm(`Delete "${title}"? This action cannot be undone.`)) return;
+  useEffect(() => {
+    if (!preview?.modules?.length) {
+      setActiveModuleId("");
+      return;
+    }
+    const sorted = [...preview.modules].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    setActiveModuleId(sorted[0]?.id ?? "");
+    setQuestionSearch("");
+  }, [preview]);
+
+  const filteredCatalog = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return catalog.filter((item) => {
+      if (!matchesRoleFilter(item.roleType, roleFilter)) return false;
+      if (!q) return true;
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.roleType.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q)
+      );
+    });
+  }, [catalog, searchQuery, roleFilter]);
+
+  const filteredMine = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return mine.filter((item) => {
+      if (!matchesRoleFilter(item.roleType, roleFilter)) return false;
+      if (!q) return true;
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.roleType.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q)
+      );
+    });
+  }, [mine, searchQuery, roleFilter]);
+
+  const previewQuestionCount = useMemo(() => {
+    if (!preview) return 0;
+    return (preview.modules ?? []).reduce((total, module) => total + (module.questions?.length ?? 0), 0);
+  }, [preview]);
+
+  const sortedModules = useMemo(() => {
+    if (!preview?.modules) return [];
+    return [...preview.modules].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  }, [preview]);
+
+  const filteredPreviewModules = useMemo(() => {
+    const q = questionSearch.trim().toLowerCase();
+    if (!q) return sortedModules;
+    return sortedModules
+      .map((module) => ({
+        ...module,
+        questions: (module.questions ?? []).filter(
+          (question) =>
+            question.questionText.toLowerCase().includes(q) ||
+            question.questionType.toLowerCase().includes(q) ||
+            module.title.toLowerCase().includes(q),
+        ),
+      }))
+      .filter((module) => (module.questions?.length ?? 0) > 0 || module.title.toLowerCase().includes(q));
+  }, [sortedModules, questionSearch]);
+
+  async function useCatalogTemplate(catalogId: string, next: "mine" | "session" | "edit" = "mine") {
+    setBusyId(catalogId);
     setNotice("");
+    setError("");
     try {
-      await apiDelete(`/templates/${id}`);
-      setTemplates((prev) => prev.filter((t) => t.id !== id));
-      setNotice("Template deleted successfully.");
+      const cloned = await apiPost<AssessmentTemplate>("/templates/from-catalog", { catalogId });
+      setMine((current) => [cloned, ...current.filter((item) => item.id !== cloned.id)]);
+      setPreview(null);
+      setMainTab("mine");
+      if (next === "edit") {
+        setNotice(`"${cloned.title}" added. Opening editor…`);
+        router.push(`/templates/${encodeURIComponent(cloned.id)}/edit`);
+        router.refresh();
+        return;
+      }
+      if (next === "session") {
+        setNotice(`"${cloned.title}" added to your workspace. Opening session create…`);
+        router.push(`/assessment/create?templateId=${encodeURIComponent(cloned.id)}`);
+        router.refresh();
+        return;
+      }
+      setNotice(`"${cloned.title}" is in My templates — open Edit to change questions, or Assign as-is.`);
     } catch (requestError) {
-      setError(getErrorMessage(requestError, "Unable to delete this template."));
+      setError(getErrorMessage(requestError, "Unable to add this template to your workspace."));
+    } finally {
+      setBusyId("");
     }
   }
 
-  // Filter logic
-  const filteredTemplates = useMemo(() => {
-    return templates.filter((t) => {
-      const matchesTab = activeTab === "All" || t.category === activeTab;
-      const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            t.targetRoles.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesTab && matchesSearch;
-    });
-  }, [templates, activeTab, searchQuery]);
-
-  // Stats calculation based on real data
-  const stats = useMemo(() => ({
-    total: templates.length,
-    active: templates.filter((t) => t.status === "Active").length,
-    draft: templates.filter((t) => t.status === "Draft").length,
-    archived: templates.filter((t) => t.status === "Archived").length,
-  }), [templates]);
-
-  const tabs: Array<"All" | TemplateCategory> = ["All", "Technical", "Behavioral", "Leadership", "Communication", "General"];
-
-  if (loading) {
-    return <AppShell active="templates" title="" description=""><PageLoader label="Loading assessment templates" /></AppShell>;
+  async function openCatalogPreview(catalogId: string) {
+    setPreviewSource("catalog");
+    setPreview(null);
+    setPreviewLoading(true);
+    setError("");
+    try {
+      setPreview(await apiGet<AssessmentTemplate>(`/templates/catalog/${encodeURIComponent(catalogId)}`));
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to load template questions."));
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
-  if (error && !templates.length) {
-    return <AppShell active="templates" title="" description=""><ErrorState message={error} onRetry={() => void loadTemplates()} /></AppShell>;
+  async function openMinePreview(templateId: string) {
+    setPreviewSource("mine");
+    setPreview(null);
+    setPreviewLoading(true);
+    setError("");
+    try {
+      const cached = mine.find((item) => item.id === templateId);
+      const detail = await apiGet<AssessmentTemplate>(`/templates/${encodeURIComponent(templateId)}`).catch(() => cached ?? null);
+      if (!detail) throw new Error("Template not found.");
+      setPreview(detail);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to load template questions."));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function duplicateMine(id: string) {
+    setBusyId(id);
+    setNotice("");
+    try {
+      const copy = await apiPost<AssessmentTemplate>(`/templates/${encodeURIComponent(id)}/duplicate`);
+      setMine((current) => [copy, ...current]);
+      setNotice(`Duplicated as "${copy.title}".`);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to duplicate template."));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function deleteMine(id: string, title: string) {
+    if (!window.confirm(`Delete "${title}"? Sessions using it may be affected.`)) return;
+    setBusyId(id);
+    setNotice("");
+    try {
+      await apiDelete(`/templates/${encodeURIComponent(id)}`);
+      setMine((current) => current.filter((item) => item.id !== id));
+      if (preview?.id === id) setPreview(null);
+      setNotice("Template deleted.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to delete template."));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  if (loading) {
+    return (
+      <AppShell active="templates" title="Assessment Templates" description="Browse, review questions, and assign assessments.">
+        <PageLoader label="Loading templates" />
+      </AppShell>
+    );
+  }
+
+  if (error && !catalog.length && !mine.length) {
+    return (
+      <AppShell active="templates" title="Assessment Templates" description="Browse, review questions, and assign assessments.">
+        <ErrorState message={error} onRetry={() => void load()} />
+      </AppShell>
+    );
   }
 
   return (
-    <AppShell active="templates" title="" description="">
-      <div className="space-y-6">
+    <AppShell
+      active="templates"
+      title="Assessment Templates"
+      description="Review every question first, then add a pack to your workspace or assign a candidate."
+    >
+      <div className="space-y-5">
         {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
         {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Assessment Templates</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Created and manage assessment templates for different roles and evaluation types.
-            </p>
+        {/* How it works */}
+        <section className="overflow-hidden rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 via-white to-sky-50 p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary-700">How templates work</p>
+              <h2 className="mt-1 text-[18px] font-black tracking-tight text-neutral-950">See the questions before you commit</h2>
+              <p className="mt-1.5 text-[13px] leading-6 text-neutral-600">
+                Open any prebuilt pack, read every question, then copy it to your workspace. Edit questions anytime, or assign candidates without changing anything.
+              </p>
+            </div>
+            <ol className="grid grid-cols-4 gap-2 sm:min-w-[380px]">
+              {[
+                { step: "1", label: "Review", detail: "All questions" },
+                { step: "2", label: "Use", detail: "Copy to workspace" },
+                { step: "3", label: "Edit", detail: "Change questions" },
+                { step: "4", label: "Assign", detail: "Invite candidate" },
+              ].map((item) => (
+                <li className="rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 text-center shadow-sm" key={item.step}>
+                  <span className="mx-auto flex size-6 items-center justify-center rounded-full bg-primary-500 text-[11px] font-black text-white">
+                    {item.step}
+                  </span>
+                  <p className="mt-1.5 text-[12px] font-black text-neutral-900">{item.label}</p>
+                  <p className="text-[10px] font-medium text-neutral-500">{item.detail}</p>
+                </li>
+              ))}
+            </ol>
           </div>
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-              <Icon name="menu" size={16} /> Filters
-            </button>
-            <select className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 outline-none">
-              <option>All Categories</option>
-            </select>
-            <Link href="/templates/create" className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm">
-              <Icon name="plus" size={16} /> New Template
-            </Link>
+        </section>
+
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-sm">
+              <TabButton active={mainTab === "library"} onClick={() => setMainTab("library")}>
+                Prebuilt library
+                <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black ${mainTab === "library" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"}`}>
+                  {catalog.length}
+                </span>
+              </TabButton>
+              <TabButton active={mainTab === "mine"} onClick={() => setMainTab("mine")}>
+                My templates
+                <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black ${mainTab === "mine" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"}`}>
+                  {mine.length}
+                </span>
+              </TabButton>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
+                <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" name="search" size={16} />
+                <input
+                  className="control h-10 w-full rounded-xl border-neutral-200 pl-9 text-[13px] shadow-sm"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by title or role…"
+                  type="search"
+                  value={searchQuery}
+                />
+              </label>
+              <Link className="button-secondary h-10 rounded-xl px-4 text-[12px] shadow-sm" href="/templates/create">
+                <Icon name="plus" size={15} /> Blank template
+              </Link>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {ROLE_FILTERS.map((filter) => {
+              const active = roleFilter === filter.id;
+              return (
+                <button
+                  className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
+                    active
+                      ? "bg-neutral-900 text-white shadow-sm"
+                      : "border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
+                  }`}
+                  key={filter.id}
+                  onClick={() => setRoleFilter(filter.id)}
+                  type="button"
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Total Templates" value={stats.total} detail="Across all categories" icon="clipboard" tone="bg-purple-100 text-purple-600" />
-          <StatCard label="Active Templates" value={stats.active} detail="Currently in use" icon="check" tone="bg-blue-100 text-blue-600" />
-          <StatCard label="Draft Templates" value={stats.draft} detail="Not yet published" icon="clock" tone="bg-blue-100 text-blue-600" />
-          <StatCard label="Archived Templates" value={stats.archived} detail="Temporarily archived" icon="folder" tone="bg-yellow-100 text-yellow-600" />
-        </section>
-
-        {/* Main Content Card */}
-        <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          {/* Tabs and Search */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200 px-5 py-4 gap-4">
-            <div className="flex items-center gap-6 overflow-x-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`text-sm font-medium whitespace-nowrap pb-1 border-b-2 transition-colors ${
-                    activeTab === tab ? "text-sky-600 border-sky-600" : "text-gray-500 border-transparent hover:text-gray-700"
-                  }`}
-                >
-                  {tab === "All" ? "All Templates" : tab}
-                </button>
-              ))}
-            </div>
-            <div className="relative w-full sm:w-64">
-              <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={16} />
-              <input
-                type="search"
-                placeholder="Search Template..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Table */}
-          {filteredTemplates.length > 0 ? (
+        {mainTab === "library" ? (
+          filteredCatalog.length === 0 ? (
+            <EmptyState description="Try another role filter or search term." title="No prebuilt templates match" />
+          ) : (
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredCatalog.map((item) => {
+                const theme = roleTheme(item.roleType);
+                return (
+                  <article
+                    className="group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-lg"
+                    key={item.id}
+                  >
+                    <div className={`h-1.5 w-full ${theme.bar}`} />
+                    <button className="flex flex-1 flex-col p-5 text-left" disabled={previewLoading} onClick={() => void openCatalogPreview(item.id)} type="button">
+                      <div className="flex items-start gap-3">
+                        <span className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${theme.iconBg}`}>
+                          <Icon name={theme.icon} size={22} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-700">Prebuilt</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${theme.badge}`}>{item.roleType}</span>
+                          </div>
+                          <h2 className="mt-2 text-[16px] font-black leading-snug text-neutral-950 group-hover:text-primary-800">{item.title}</h2>
+                        </div>
+                      </div>
+                      <p className="mt-3 line-clamp-3 flex-1 text-[12px] leading-5 text-neutral-600">{item.description}</p>
+                      <dl className="mt-4 grid grid-cols-3 gap-2">
+                        <Stat label="Modules" value={item.moduleCount} />
+                        <Stat label="Questions" value={item.questionCount} />
+                        <Stat label="Minutes" value={item.timeLimitMin ?? "—"} />
+                      </dl>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {item.moduleTypes.slice(0, 4).map((type) => (
+                          <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-[10px] font-bold capitalize text-neutral-600" key={type}>
+                            {type.replaceAll("_", " ")}
+                          </span>
+                        ))}
+                        {item.moduleTypes.length > 4 ? (
+                          <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-500">+{item.moduleTypes.length - 4}</span>
+                        ) : null}
+                      </div>
+                      <p className="mt-4 inline-flex items-center gap-1 text-[12px] font-bold text-primary-700">
+                        Review all questions
+                        <Icon className="transition group-hover:translate-x-0.5" name="chevron" size={14} />
+                      </p>
+                    </button>
+                    <div className="grid grid-cols-2 gap-2 border-t border-neutral-100 bg-neutral-50/60 p-3">
+                      <button
+                        className="button-secondary h-10 rounded-xl text-[12px]"
+                        disabled={previewLoading || busyId === item.id}
+                        onClick={() => void openCatalogPreview(item.id)}
+                        type="button"
+                      >
+                        <Icon name="eye" size={14} /> Review
+                      </button>
+                      <button
+                        className="button-primary h-10 rounded-xl text-[12px]"
+                        disabled={busyId === item.id}
+                        onClick={() => void useCatalogTemplate(item.id, "mine")}
+                        type="button"
+                      >
+                        {busyId === item.id ? "Adding…" : "Use as-is"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )
+        ) : filteredMine.length === 0 ? (
+          <EmptyState
+            action={
+              <button className="button-primary" onClick={() => setMainTab("library")} type="button">
+                Browse prebuilt library
+              </button>
+            }
+            description="Open a prebuilt pack, review every question, then add it to your workspace."
+            title="No workspace templates yet"
+          />
+        ) : (
+          <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <tr>
-                    <th className="px-5 py-3">Template Name</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3">Target Roles</th>
-                    <th className="px-4 py-3">Modules</th>
-                    <th className="px-4 py-3">Questions</th>
-                    <th className="px-4 py-3">Last Updates</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-5 py-3 text-right">Actions</th>
+              <table className="w-full min-w-[920px] text-left text-[12px]">
+                <thead className="bg-neutral-50 text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+                  <tr className="border-b border-neutral-100">
+                    <th className="px-5 py-3.5">Template</th>
+                    <th className="px-3 py-3.5">Role</th>
+                    <th className="px-3 py-3.5">Modules</th>
+                    <th className="px-3 py-3.5">Questions</th>
+                    <th className="px-3 py-3.5">Time</th>
+                    <th className="px-3 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredTemplates.map((template) => (
-                    <tr key={template.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${template.iconColor}`}>
-                            <Icon name={template.icon} size={20} />
-                          </span>
-                          <div>
-                            <p className="font-bold text-gray-900">{template.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 max-w-[250px] truncate">{template.description}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4"><CategoryBadge category={template.category} /></td>
-                      <td className="px-4 py-4 text-gray-600 text-xs">{template.targetRoles}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5 text-gray-700">
-                          <Icon name="clipboard" size={14} className="text-gray-400" />
-                          <span className="font-medium">{template.modulesCount}</span>
-                          <span className="text-xs text-gray-400">Modules</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5 text-gray-700">
-                          <Icon name="message" size={14} className="text-gray-400" />
-                          <span className="font-medium">{template.questionsCount}</span>
-                          <span className="text-xs text-gray-400">Questions</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-xs text-gray-500">
-                        {template.lastUpdate}
-                        <br />
-                        <span className="text-gray-400">by {template.updatedBy}</span>
-                      </td>
-                      <td className="px-4 py-4"><StatusBadge status={template.status} /></td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link href={`/templates/${template.id}/edit`} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Edit">
-                            <Icon name="code" size={16} /> 
-                          </Link>
-                          <button 
-                            onClick={() => deleteTemplate(template.id, template.title)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
-                            title="Delete"
-                          >
-                            <Icon name="more" size={16} /> 
+                <tbody className="divide-y divide-neutral-100">
+                  {filteredMine.map((template) => {
+                    const moduleCount = template.modules?.length ?? 0;
+                    const questionCount = (template.modules ?? []).reduce((total, module) => total + (module.questions?.length ?? 0), 0);
+                    const theme = roleTheme(template.roleType);
+                    return (
+                      <tr className="transition hover:bg-sky-50/40" key={template.id}>
+                        <td className="px-5 py-4">
+                          <button className="flex items-start gap-3 text-left" onClick={() => void openMinePreview(template.id)} type="button">
+                            <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${theme.iconBg}`}>
+                              <Icon name={theme.icon} size={16} />
+                            </span>
+                            <span>
+                              <span className="block font-bold text-primary-800 hover:underline">{template.title}</span>
+                              <span className="mt-0.5 block max-w-md truncate text-[11px] text-neutral-500">
+                                {template.description || "Click to review all questions"}
+                              </span>
+                            </span>
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-3 py-4">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${theme.badge}`}>{template.roleType}</span>
+                        </td>
+                        <td className="px-3 py-4 font-bold text-neutral-800">{moduleCount}</td>
+                        <td className="px-3 py-4 font-bold text-neutral-800">{questionCount}</td>
+                        <td className="px-3 py-4 text-neutral-600">{template.timeLimitMin ? `${template.timeLimitMin} min` : "—"}</td>
+                        <td className="px-3 py-4">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <button className="button-secondary h-9 rounded-lg px-3 text-[11px]" disabled={previewLoading} onClick={() => void openMinePreview(template.id)} type="button">
+                              View
+                            </button>
+                            <Link className="button-secondary h-9 rounded-lg px-3 text-[11px]" href={`/templates/${encodeURIComponent(template.id)}/edit`}>
+                              Edit
+                            </Link>
+                            <Link className="button-primary h-9 rounded-lg px-3 text-[11px]" href={`/assessment/create?templateId=${encodeURIComponent(template.id)}`}>
+                              Assign
+                            </Link>
+                            <button className="button-secondary h-9 rounded-lg px-3 text-[11px]" disabled={busyId === template.id} onClick={() => void duplicateMine(template.id)} type="button">
+                              Duplicate
+                            </button>
+                            <button
+                              className="h-9 rounded-lg border border-rose-200 px-3 text-[11px] font-bold text-rose-600 hover:bg-rose-50"
+                              disabled={busyId === template.id}
+                              onClick={() => void deleteMine(template.id, template.title)}
+                              type="button"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className="p-10 text-center">
-              <EmptyState 
-                action={<Link href="/templates/create" className="button-primary">Create Template</Link>}
-                title="No templates found" 
-                description="Try adjusting your search or filter, or create a new template." 
-                icon="clipboard" 
-              />
+          </section>
+        )}
+
+        {/* Full question review drawer */}
+        {preview || previewLoading ? (
+          <div className="fixed inset-0 z-50 flex justify-end bg-neutral-950/45 backdrop-blur-[2px]" onClick={(event) => event.target === event.currentTarget && setPreview(null)} role="presentation">
+            <div
+              aria-labelledby="template-preview-title"
+              aria-modal="true"
+              className="flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl animate-in slide-in-from-right"
+              role="dialog"
+            >
+              <header className="shrink-0 border-b border-neutral-100 bg-gradient-to-r from-white to-sky-50/50 px-5 py-4 sm:px-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary-700">
+                      {previewSource === "catalog" ? "Prebuilt catalog · full question bank" : "Workspace template · full question bank"}
+                    </p>
+                    <h3 className="mt-1 text-[20px] font-black tracking-tight text-neutral-950" id="template-preview-title">
+                      {preview?.title ?? "Loading questions…"}
+                    </h3>
+                    {preview ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-neutral-600">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${roleTheme(preview.roleType).badge}`}>{preview.roleType}</span>
+                        <span>{preview.timeLimitMin ? `${preview.timeLimitMin} min` : "Flexible time"}</span>
+                        <span className="text-neutral-300">·</span>
+                        <span>{sortedModules.length} modules</span>
+                        <span className="text-neutral-300">·</span>
+                        <span>{previewQuestionCount} questions</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button className="shrink-0 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-[12px] font-bold text-neutral-600 shadow-sm hover:bg-neutral-50" onClick={() => setPreview(null)} type="button">
+                    Close
+                  </button>
+                </div>
+                {preview ? (
+                  <label className="relative mt-4 block">
+                    <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" name="search" size={15} />
+                    <input
+                      className="control h-10 w-full rounded-xl border-neutral-200 bg-white pl-9 text-[13px] shadow-sm"
+                      onChange={(event) => setQuestionSearch(event.target.value)}
+                      placeholder="Filter questions in this template…"
+                      type="search"
+                      value={questionSearch}
+                    />
+                  </label>
+                ) : null}
+              </header>
+
+              <div className="flex min-h-0 flex-1">
+                {previewLoading || !preview ? (
+                  <div className="flex flex-1 items-center justify-center p-8">
+                    <PageLoader label="Loading all questions" />
+                  </div>
+                ) : (
+                  <>
+                    <nav className="hidden w-56 shrink-0 overflow-y-auto border-r border-neutral-100 bg-neutral-50/80 p-3 lg:block">
+                      <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-neutral-400">Modules</p>
+                      <ul className="space-y-1">
+                        {sortedModules.map((module, index) => {
+                          const active = activeModuleId === module.id;
+                          return (
+                            <li key={module.id}>
+                              <button
+                                className={`w-full rounded-xl px-2.5 py-2 text-left transition ${
+                                  active ? "bg-white shadow-sm ring-1 ring-primary-100" : "hover:bg-white/70"
+                                }`}
+                                onClick={() => {
+                                  setActiveModuleId(module.id);
+                                  document.getElementById(`module-${module.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                }}
+                                type="button"
+                              >
+                                <span className="text-[10px] font-bold text-neutral-400">M{index + 1}</span>
+                                <span className={`mt-0.5 block text-[12px] font-bold leading-4 ${active ? "text-primary-800" : "text-neutral-800"}`}>
+                                  {module.title}
+                                </span>
+                                <span className="mt-0.5 block text-[10px] font-medium text-neutral-500">{module.questions?.length ?? 0} questions</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </nav>
+
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                      {preview.description ? <p className="mb-4 text-[13px] leading-6 text-neutral-600">{preview.description}</p> : null}
+                      <div className="mb-5 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-[12px] font-medium leading-5 text-sky-950">
+                        Read every question below before adding this pack. Use as-is to create your own copy — the shared catalog never changes.
+                      </div>
+
+                      {filteredPreviewModules.length === 0 ? (
+                        <EmptyState description="Try a different search term." title="No questions match" />
+                      ) : (
+                        <div className="space-y-5 pb-8">
+                          {filteredPreviewModules.map((module, moduleIndex) => {
+                            const questions = module.questions ?? [];
+                            const originalIndex = sortedModules.findIndex((item) => item.id === module.id);
+                            return (
+                              <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm" id={`module-${module.id}`} key={module.id}>
+                                <header className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 bg-neutral-50/80 px-4 py-3.5">
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                                      Module {(originalIndex >= 0 ? originalIndex : moduleIndex) + 1}
+                                    </p>
+                                    <h4 className="mt-0.5 text-[15px] font-black text-neutral-950">{module.title}</h4>
+                                    {module.description ? <p className="mt-1 max-w-2xl text-[12px] leading-5 text-neutral-500">{module.description}</p> : null}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-neutral-600 ring-1 ring-neutral-200">
+                                      {module.type.replaceAll("_", " ")}
+                                    </span>
+                                    <span className="rounded-full bg-primary-50 px-2.5 py-1 text-[10px] font-bold text-primary-700 ring-1 ring-primary-100">
+                                      {questions.length} Q · weight {module.weight}
+                                    </span>
+                                  </div>
+                                </header>
+                                {questions.length === 0 ? (
+                                  <p className="px-4 py-5 text-[12px] text-neutral-500">No questions in this module.</p>
+                                ) : (
+                                  <ol className="divide-y divide-neutral-100">
+                                    {questions.map((question, questionIndex) => (
+                                      <li className="px-4 py-4 transition hover:bg-sky-50/30" key={question.id}>
+                                        <div className="flex items-start gap-3">
+                                          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-[11px] font-black text-white">
+                                            {questionIndex + 1}
+                                          </span>
+                                          <div className="min-w-0 flex-1">
+                                            <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
+                                              {formatQuestionType(question.questionType)}
+                                            </span>
+                                            <p className="mt-2 text-[13.5px] font-semibold leading-6 text-neutral-900">{question.questionText}</p>
+                                            <QuestionExtras question={question} />
+                                          </div>
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                )}
+                              </section>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {preview ? (
+                <footer className="shrink-0 border-t border-neutral-100 bg-white px-5 py-4 sm:px-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[11px] leading-5 text-neutral-500">
+                      {previewSource === "catalog"
+                        ? "Adding creates your org-owned copy with new IDs. Catalog stays shared and read-only."
+                        : "This is your workspace copy. Assign it when you are ready."}
+                    </p>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button className="button-secondary h-10 rounded-xl px-4 text-[12px]" onClick={() => setPreview(null)} type="button">
+                        Close
+                      </button>
+                      {previewSource === "catalog" ? (
+                        <>
+                          <button
+                            className="button-secondary h-10 rounded-xl px-4 text-[12px]"
+                            disabled={busyId === preview.id}
+                            onClick={() => void useCatalogTemplate(preview.id, "session")}
+                            type="button"
+                          >
+                            Use & assign
+                          </button>
+                          <button
+                            className="button-secondary h-10 rounded-xl px-4 text-[12px]"
+                            disabled={busyId === preview.id}
+                            onClick={() => void useCatalogTemplate(preview.id, "edit")}
+                            type="button"
+                          >
+                            Use & edit questions
+                          </button>
+                          <button
+                            className="button-primary h-10 rounded-xl px-4 text-[12px]"
+                            disabled={busyId === preview.id}
+                            onClick={() => void useCatalogTemplate(preview.id, "mine")}
+                            type="button"
+                          >
+                            {busyId === preview.id ? "Adding…" : "Use as-is"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Link
+                            className="button-secondary h-10 rounded-xl px-4 text-[12px]"
+                            href={`/templates/${encodeURIComponent(preview.id)}/edit`}
+                            onClick={() => setPreview(null)}
+                          >
+                            Edit questions
+                          </Link>
+                          <Link
+                            className="button-primary h-10 rounded-xl px-4 text-[12px]"
+                            href={`/assessment/create?templateId=${encodeURIComponent(preview.id)}`}
+                            onClick={() => setPreview(null)}
+                          >
+                            Assign candidate
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </footer>
+              ) : null}
             </div>
-          )}
-        </section>
+          </div>
+        ) : null}
       </div>
     </AppShell>
   );
 }
 
-// --- Sub-Components ---
-
-function StatCard({ label, value, detail, icon, tone }: { label: string; value: number; detail: string; icon: IconName; tone: string }) {
+function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex items-start gap-4">
-      <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${tone}`}>
-        <Icon name={icon} size={24} />
-      </span>
-      <div>
-        <p className="text-xs font-medium text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        <p className="text-[10px] text-gray-400 mt-1">{detail}</p>
-      </div>
+    <div className="rounded-xl bg-neutral-50 px-2 py-2 text-center ring-1 ring-neutral-100">
+      <dt className="text-[10px] font-semibold text-neutral-500">{label}</dt>
+      <dd className="mt-0.5 text-[14px] font-black text-neutral-900">{value}</dd>
     </div>
   );
 }
 
-function CategoryBadge({ category }: { category: TemplateCategory }) {
-  const styles: Record<TemplateCategory, string> = {
-    Technical: "bg-indigo-50 text-indigo-600 border-indigo-100",
-    Behavioral: "bg-orange-50 text-orange-600 border-orange-100",
-    Leadership: "bg-blue-50 text-blue-600 border-blue-100",
-    Communication: "bg-sky-50 text-sky-600 border-sky-100",
-    General: "bg-gray-50 text-gray-600 border-gray-100",
-  };
+function QuestionExtras({ question }: { question: Question }) {
+  const options = formatOptions(question.options);
+  const rubric = formatRubric(question.rubric);
+  if (!options.length && !rubric.length) return null;
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${styles[category]}`}>
-      {category}
-    </span>
+    <div className="mt-2.5 space-y-2">
+      {options.length ? (
+        <ul className="space-y-1 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2.5">
+          {options.map((option, index) => (
+            <li className="text-[12px] leading-5 text-neutral-700" key={`${question.id}-opt-${index}`}>
+              <span className="mr-1.5 inline-flex size-5 items-center justify-center rounded-md bg-white text-[10px] font-black text-neutral-500 ring-1 ring-neutral-200">
+                {String.fromCharCode(65 + index)}
+              </span>
+              {option}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {rubric.length ? (
+        <div className="flex flex-wrap gap-1">
+          {rubric.map((cue) => (
+            <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 ring-1 ring-amber-100" key={cue}>
+              {cue}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
-function StatusBadge({ status }: { status: TemplateStatus }) {
-  const styles: Record<TemplateStatus, string> = {
-    Active: "text-green-600 bg-green-50",
-    Draft: "text-gray-500 bg-gray-50",
-    Archived: "text-gray-400 bg-gray-50",
-  };
+function matchesRoleFilter(roleType: string, filter: RoleFilterId): boolean {
+  if (filter === "all") return true;
+  const role = roleType.toLowerCase();
+  if (filter === "engineering") return role.includes("software") || role.includes("frontend") || role.includes("engineer") || role.includes("developer");
+  if (filter === "product") return role.includes("product");
+  if (filter === "data") return role.includes("data") || role.includes("analyst");
+  if (filter === "leadership") return role.includes("leader") || role.includes("manager") && !role.includes("product");
+  if (filter === "people") return role.includes("hr") || role.includes("people");
+  if (filter === "customer") return role.includes("customer") || role.includes("success") || role.includes("support");
+  return true;
+}
+
+function roleTheme(roleType: string): { icon: IconName; iconBg: string; badge: string; bar: string } {
+  const role = roleType.toLowerCase();
+  if (role.includes("software") || role.includes("frontend") || role.includes("developer")) {
+    return { icon: "code", iconBg: "bg-indigo-100 text-indigo-700", badge: "bg-indigo-50 text-indigo-700", bar: "bg-indigo-500" };
+  }
+  if (role.includes("product")) {
+    return { icon: "sparkle", iconBg: "bg-violet-100 text-violet-700", badge: "bg-violet-50 text-violet-700", bar: "bg-violet-500" };
+  }
+  if (role.includes("data") || role.includes("analyst")) {
+    return { icon: "analytics", iconBg: "bg-teal-100 text-teal-700", badge: "bg-teal-50 text-teal-700", bar: "bg-teal-500" };
+  }
+  if (role.includes("leader") || role.includes("manager")) {
+    return { icon: "crown", iconBg: "bg-blue-100 text-blue-700", badge: "bg-blue-50 text-blue-700", bar: "bg-blue-500" };
+  }
+  if (role.includes("hr") || role.includes("people")) {
+    return { icon: "users", iconBg: "bg-orange-100 text-orange-700", badge: "bg-orange-50 text-orange-700", bar: "bg-orange-500" };
+  }
+  if (role.includes("customer") || role.includes("success")) {
+    return { icon: "message", iconBg: "bg-sky-100 text-sky-700", badge: "bg-sky-50 text-sky-700", bar: "bg-sky-500" };
+  }
+  return { icon: "clipboard", iconBg: "bg-neutral-100 text-neutral-700", badge: "bg-neutral-100 text-neutral-700", bar: "bg-primary-500" };
+}
+
+function formatQuestionType(type: QuestionType | string): string {
+  return String(type).replaceAll("_", " ");
+}
+
+function formatOptions(options: Question["options"]): string[] {
+  if (options == null) return [];
+  if (Array.isArray(options)) {
+    return options
+      .map((item) => {
+        if (typeof item === "string" || typeof item === "number") return String(item);
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          const record = item as Record<string, unknown>;
+          if (typeof record.label === "string") return record.label;
+          if (typeof record.text === "string") return record.text;
+          if (typeof record.value === "string" || typeof record.value === "number") return String(record.value);
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }
+  if (typeof options === "object") {
+    return Object.values(options)
+      .map((value) => (typeof value === "string" || typeof value === "number" ? String(value) : ""))
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function formatRubric(rubric: Question["rubric"]): string[] {
+  if (rubric == null) return [];
+  if (Array.isArray(rubric)) {
+    return rubric
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && !Array.isArray(item) && typeof (item as { label?: unknown }).label === "string") {
+          return String((item as { label: string }).label);
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }
+  if (typeof rubric === "string") return [rubric];
+  return [];
+}
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${styles[status]}`}>
-      {status}
-    </span>
+    <button
+      className={`inline-flex items-center rounded-lg px-3.5 py-2 text-[12px] font-bold transition ${
+        active ? "bg-primary-500 text-white shadow-sm" : "text-neutral-600 hover:bg-neutral-50"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
