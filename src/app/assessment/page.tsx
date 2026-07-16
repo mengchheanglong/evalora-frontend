@@ -203,16 +203,19 @@ export default function SessionsPage() {
               <SelectFilter value="All Interviewers" onChange={() => {}} options={["All Interviewers", "Unassigned"]} />
               <SelectFilter value="All Time" onChange={() => {}} options={["All Time", "Today", "This Week", "This Month"]} />
             </div>
-            <div className="relative w-full lg:w-64">
-              <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={16} />
+            <label className="group flex h-11 w-full items-center gap-3 rounded-lg border border-primary-300/60 bg-primary-50/60 px-3.5 text-primary-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:border-primary-300 focus-within:border-primary-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-500/15 lg:w-72">
+              <span className="sr-only">Search sessions</span>
+              <span className="relative -top-px flex size-5 shrink-0 items-center justify-center rounded-full text-primary-700/70 transition group-focus-within:text-primary-700">
+                <Icon name="search" size={17} />
+              </span>
               <input
                 type="search"
                 placeholder="Search sessions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                className="min-w-0 flex-1 border-0 bg-transparent text-sm font-medium leading-none text-gray-800 outline-none placeholder:text-gray-500"
               />
-            </div>
+            </label>
           </div>
 
           {actionError ? (
@@ -355,7 +358,7 @@ function SelectFilter({ value, onChange, options }: { value: string; onChange: (
       >
         {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
       </select>
-      <Icon name="chevron" size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      <Icon name="chevron" size={14} className="pointer-events-none absolute right-2.5 top-[calc(50%-1px)] -translate-y-1/2 text-primary-700/60" />
     </div>
   );
 }
