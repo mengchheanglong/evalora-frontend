@@ -51,10 +51,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const currentUser = await apiGet<AuthUser>("/auth/me");
-      setUser(currentUser);
-      setStatus("authenticated");
-      writeCachedUser(currentUser);
+      // /auth/me is a soft probe: the current user when signed in, or null.
+      const currentUser = await apiGet<AuthUser | null>("/auth/me");
+      if (currentUser?.id) {
+        setUser(currentUser);
+        setStatus("authenticated");
+        writeCachedUser(currentUser);
+      } else {
+        setUser(null);
+        setStatus("anonymous");
+        writeCachedUser(null);
+      }
     } catch {
       setUser(null);
       setStatus("anonymous");
