@@ -190,15 +190,6 @@ const icons: Record<IconName, ReactNode> = {
       <circle cx="12" cy="19" r="1" />
     </>
   ),
-  trash: (
-    <>
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </>
-  ),
   paperPlane: (
     <>
       <line x1="22" x2="11" y1="2" y2="13" />
