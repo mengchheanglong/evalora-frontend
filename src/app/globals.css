@@ -294,22 +294,22 @@ textarea.control {
 [data-theme="dark"] {
   color-scheme: dark;
   /* Cool blue-black stack (hue ~220°). Elevation: bg < tint < panel < soft */
-  --theme-bg: #0a0f1a;
-  --theme-panel: #121a2b;
-  --theme-panel-soft: #1a2438;
-  --theme-panel-tint: #0e1524;
-  --theme-border: #2a364c;
-  --theme-border-strong: #3b4a66;
-  /* Off-white body copy reduces halation vs pure white on dark */
-  --theme-text: #d7dee9;
-  --theme-heading: #f4f7fb;
-  --theme-muted: #9aa8bd;
-  --theme-faint: #6b7a93;
+  --theme-bg: #07101a;
+  --theme-panel: #0f1b2a;
+  --theme-panel-soft: #172433;
+  --theme-panel-tint: #0b1420;
+  --theme-border: #243146;
+  --theme-border-strong: #33425a;
+  /* Slightly brighter, warm-off-white for body copy to improve contrast */
+  --theme-text: #e6eef6;
+  --theme-heading: #fbfdff;
+  --theme-muted: #9fb0c6;
+  --theme-faint: #7f8fa0;
   /* Active nav: low-chroma cyan wash + brighter cyan label */
-  --theme-active: #143a4f;
-  --theme-active-text: #7dd8f0;
-  --theme-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-  --theme-ring: color-mix(in srgb, #4fc9e8 28%, transparent);
+  --theme-active: #123642;
+  --theme-active-text: #7fdff5;
+  --theme-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+  --theme-ring: color-mix(in srgb, #4fc9e8 30%, transparent);
   --theme-glow: rgba(79, 201, 232, 0.16);
   /* Brand cyan shifted slightly cooler/brighter for dark backgrounds */
   --color-primary-50: #0f2433;
@@ -331,6 +331,23 @@ textarea.control {
   --color-chart-grid: #2a364c;
   --color-chart-axis: #3b4a66;
   --shadow-card: 0 18px 50px rgba(0, 0, 0, 0.32);
+}
+
+/* Improve buttons and card contrast in dark mode */
+[data-theme="dark"] .button-primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary-700) 12%, transparent), var(--color-primary-500));
+  color: #04121a;
+  box-shadow: 0 6px 18px rgba(47, 178, 228, 0.08);
+}
+
+[data-theme="dark"] .button-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 10px 26px rgba(47, 178, 228, 0.12);
+}
+
+[data-theme="dark"] .card {
+  border-color: color-mix(in srgb, var(--theme-border) 72%, transparent) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent), var(--theme-panel) !important;
 }
 
 [data-theme="ocean"] {
