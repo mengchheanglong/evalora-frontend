@@ -178,7 +178,7 @@ export default function UsersAndRolesPage() {
                 type="email"
                 value={inviteEmail}
               />
-              <button className="button-primary h-11 shrink-0 rounded-[8px] px-5 text-[12px]" disabled={inviting} type="submit">
+              <button className="session-blue-button h-11 shrink-0 px-5 text-[12px]" disabled={inviting} type="submit">
                 {inviting ? "Creating…" : "Create invite"}
               </button>
             </form>

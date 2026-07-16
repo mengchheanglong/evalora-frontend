@@ -243,6 +243,36 @@ textarea.control {
   background: #f8f9fb;
 }
 
+.session-blue-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: none;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.session-blue-button:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+
+.session-blue-button:active {
+  background: #1e40af;
+  box-shadow: none;
+  transform: translateY(0);
+}
+
 .auth-visual-panel {
   background:
     radial-gradient(circle at 18% 28%, rgba(47, 178, 228, 0.18), transparent 30%),
@@ -343,6 +373,19 @@ textarea.control {
 [data-theme="dark"] .button-primary:hover {
   filter: brightness(1.08);
   box-shadow: 0 10px 26px rgba(47, 178, 228, 0.12);
+}
+
+[data-theme="dark"] .session-blue-button {
+  border-color: #3b82f6;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .session-blue-button:hover {
+  border-color: #60a5fa;
+  background: #1d4ed8;
+  box-shadow: none;
 }
 
 [data-theme="dark"] .card {
@@ -819,13 +862,26 @@ textarea.control {
 }
 
 [data-theme="dark"] .button-primary {
-  background: linear-gradient(180deg, #5ad0ee 0%, #3ab4d4 100%) !important;
-  color: #041018 !important;
-  box-shadow: 0 8px 20px rgba(79, 201, 232, 0.18);
+  border: 1px solid #2563eb !important;
+  border-radius: 8px;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  text-shadow: none;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.22);
 }
 
 [data-theme="dark"] .button-primary:hover {
-  background: linear-gradient(180deg, #6fd6f0 0%, #4fc9e8 100%) !important;
+  background: #1d4ed8 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.3), 0 0 0 3px rgba(59, 130, 246, 0.14);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .button-primary:active {
+  background: #1e40af !important;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
+  transform: translateY(0);
 }
 
 [data-theme="ocean"] .button-primary {

@@ -178,7 +178,7 @@ export default function SessionsPage() {
           </div>
           <div className="flex items-center gap-3">
             
-            <Link href="/assessment/create" className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm">
+            <Link href="/assessment/create" className="session-blue-button px-4 py-2 text-sm">
               <Icon name="plus" size={16} /> New Session
             </Link>
           </div>
@@ -186,7 +186,7 @@ export default function SessionsPage() {
 
         {/* Stats Cards (Now Real) */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" icon="clipboard" tone="bg-purple-100 text-purple-600" />
+          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" icon="clipboard" tone="bg-violet-100 text-violet-600" />
           <StatCard label="Completed" value={String(stats.completed)} detail={stats.completedPercent} icon="check" tone="bg-emerald-100 text-emerald-600" />
           <StatCard label="In Progress" value={String(stats.inProgress)} detail={stats.inProgressPercent} icon="clock" tone="bg-sky-100 text-sky-600" />
           <StatCard label="Scheduled" value={String(stats.scheduled)} detail={stats.scheduledPercent} icon="calendar" tone="bg-blue-100 text-blue-600" />
@@ -213,7 +213,7 @@ export default function SessionsPage() {
                 placeholder="Search sessions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="min-w-0 flex-1 border-0 bg-transparent text-sm font-medium leading-none text-gray-800 outline-none placeholder:text-gray-500"
+                className="min-w-0 flex-1 border-0 !bg-transparent text-sm font-medium leading-none text-gray-800 outline-none placeholder:text-gray-500"
               />
             </label>
           </div>
@@ -318,7 +318,7 @@ export default function SessionsPage() {
           ) : (
             <div className="p-10 text-center">
               <EmptyState 
-                action={<Link href="/assessment/create" className="button-primary">Create Session</Link>}
+                action={<Link href="/assessment/create" className="session-blue-button min-h-11 px-5 text-[13px]">Create Session</Link>}
                 title="No sessions found" 
                 description="Try adjusting your search or filter, or create a new session." 
                 icon="message" 
