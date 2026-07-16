@@ -129,7 +129,7 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
   return (
     <section className="card grid gap-6 rounded-[10px] p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
       <div className="flex flex-wrap items-center gap-6">
-        <span className={`grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br text-[30px] font-black ring-8 ring-neutral-50 ${candidateAvatarTone(session.candidateName)}`}>
+        <span className={`grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-linear-to-br text-[30px] font-black ring-8 ring-neutral-50 ${candidateAvatarTone(session.candidateName)}`}>
           {candidateInitials(session.candidateName)}
         </span>
         <div>

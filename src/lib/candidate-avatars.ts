@@ -1,12 +1,14 @@
 /** Deterministic initials + pastel background from candidate name (no static stock photos). */
 
+// Each tone carries a solid `bg-*` base (guarantees the circle is always filled)
+// plus gradient stops that enhance it where the linear-gradient utility renders.
 const PALETTE = [
-  "from-sky-100 to-cyan-100 text-sky-800",
-  "from-violet-100 to-fuchsia-100 text-violet-800",
-  "from-emerald-100 to-teal-100 text-emerald-800",
-  "from-amber-100 to-orange-100 text-amber-900",
-  "from-rose-100 to-pink-100 text-rose-800",
-  "from-indigo-100 to-blue-100 text-indigo-800",
+  "bg-sky-100 from-sky-100 to-cyan-100 text-sky-800",
+  "bg-violet-100 from-violet-100 to-fuchsia-100 text-violet-800",
+  "bg-emerald-100 from-emerald-100 to-teal-100 text-emerald-800",
+  "bg-amber-100 from-amber-100 to-orange-100 text-amber-900",
+  "bg-rose-100 from-rose-100 to-pink-100 text-rose-800",
+  "bg-indigo-100 from-indigo-100 to-blue-100 text-indigo-800",
 ];
 
 function hashName(value: string): number {

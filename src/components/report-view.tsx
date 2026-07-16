@@ -25,11 +25,11 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
     <div className="space-y-6">
       {/* Hero */}
       <section className="card overflow-hidden rounded-[16px]">
-        <div className="h-1.5 w-full bg-gradient-to-r from-primary-500 via-indigo-500 to-fuchsia-500" />
+        <div className="h-1.5 w-full bg-linear-to-r from-primary-500 via-indigo-500 to-fuchsia-500" />
         <div className="grid gap-8 p-7 sm:p-9 lg:grid-cols-[1fr_auto] lg:items-center">
           {showIdentity ? (
             <div className="flex flex-wrap items-center gap-6">
-              <span className={`grid size-24 shrink-0 place-items-center rounded-[22px] bg-gradient-to-br text-[28px] font-black shadow-sm ${candidateAvatarTone(report.candidateName)}`}>
+              <span className={`grid size-24 shrink-0 place-items-center rounded-[22px] bg-linear-to-br text-[28px] font-black shadow-sm ${candidateAvatarTone(report.candidateName)}`}>
                 {candidateInitials(report.candidateName)}
               </span>
               <div className="min-w-0">
