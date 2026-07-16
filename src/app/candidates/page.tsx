@@ -69,7 +69,7 @@ export default function CandidatesPage() {
     <AppShell
       active="candidates"
       actions={
-        <Link className="button-primary hidden h-10 rounded-[8px] !bg-primary-700 px-4 text-[12px] hover:!bg-primary-600 sm:inline-flex" href="/assessment/create">
+        <Link className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm hidden h-10 sm:inline-flex" href="/assessment/create">
           <Icon name="plus" size={15} /> Invite candidate
         </Link>
       }
@@ -152,7 +152,7 @@ export default function CandidatesPage() {
                   </div>
                   <Pagination total={visible.length} />
                 </>
-              ) : <div className="p-5"><EmptyState action={!sessions.length ? <Link className="button-primary" href="/assessment/create">Invite first candidate</Link> : undefined} description={sessions.length ? "Try a different search or status filter." : "Candidate records are created automatically when you send an assessment invitation."} icon="users" title={sessions.length ? "No matching candidates" : "No candidates yet"} /></div>}
+              ) : <div className="p-5"><EmptyState action={!sessions.length ? <Link className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm transition" href="/assessment/create">Invite first candidate</Link> : undefined} description={sessions.length ? "Try a different search or status filter." : "Candidate records are created automatically when you send an assessment invitation."} icon="users" title={sessions.length ? "No matching candidates" : "No candidates yet"} /></div>}
             </section>
 
             <FiltersPanel dateFrom={dateFrom} dateTo={dateTo} onClearAll={clearAllFilters} setDateFrom={setDateFrom} setDateTo={setDateTo} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />

@@ -54,8 +54,8 @@ export function apiPut<T>(path: string, body?: unknown, options: Omit<ApiRequest
   return apiRequest<T>(path, { ...options, body, method: "PUT" });
 }
 
-export function apiDelete<T>(path: string, options: Omit<ApiRequestOptions, "body" | "method"> = {}) {
-  return apiRequest<T>(path, { ...options, method: "DELETE" });
+export function apiDelete<T>(path: string, body?: unknown, options: Omit<ApiRequestOptions, "body" | "method"> = {}) {
+  return apiRequest<T>(path, { ...options, body, method: "DELETE" });
 }
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {

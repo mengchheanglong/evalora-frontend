@@ -9,11 +9,13 @@ import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Icon } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
 import { getErrorMessage } from "@/lib/api";
+import { PASSWORD_RULES, passwordPolicyError } from "@/lib/password-policy";
 
 export default function RegisterPage() {
   const router = useRouter();
   const { register, loginWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [organizationName, setOrganizationName] = useState("");
@@ -36,9 +38,14 @@ export default function RegisterPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const password = String(form.get("password") ?? "");
+    const nextPassword = String(form.get("password") ?? "");
     const confirmation = String(form.get("confirmation") ?? "");
-    if (password !== confirmation) {
+    const policyError = passwordPolicyError(nextPassword);
+    if (policyError) {
+      setError(policyError);
+      return;
+    }
+    if (nextPassword !== confirmation) {
       setError("Passwords do not match.");
       return;
     }
@@ -49,7 +56,7 @@ export default function RegisterPage() {
       await register({
         name: String(form.get("name") ?? ""),
         email: String(form.get("email") ?? ""),
-        password,
+        password: nextPassword,
         organizationName: String(form.get("organizationName") ?? "") || undefined,
       });
       router.replace("/dashboard");
@@ -93,10 +100,30 @@ export default function RegisterPage() {
         <Field autoComplete="email" label="Work email" name="email" placeholder="alex@company.com" type="email" />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <PasswordField label="Password" name="password" onToggle={() => setShowPassword((shown) => !shown)} shown={showPassword} />
+          <PasswordField
+            label="Password"
+            name="password"
+            onChange={setPassword}
+            onToggle={() => setShowPassword((shown) => !shown)}
+            shown={showPassword}
+            value={password}
+          />
           <PasswordField label="Confirm password" name="confirmation" onToggle={() => setShowPassword((shown) => !shown)} shown={showPassword} />
         </div>
-        <p className="text-[11px] leading-5 text-neutral-500">Use at least 8 characters. This signup creates the organization owner. Interviewers join by invite; candidates use assessment links.</p>
+        <ul className="space-y-1.5 text-[11px] text-neutral-600">
+          {PASSWORD_RULES.map((rule) => {
+            const ok = password.length > 0 && rule.test(password);
+            return (
+              <li className="flex items-center gap-2" key={rule.id}>
+                <span className={`inline-flex size-4 shrink-0 items-center justify-center rounded-full text-white ${ok ? "bg-emerald-600" : "bg-neutral-300"}`}>
+                  <Icon name="check" size={10} />
+                </span>
+                <span className={ok ? "text-neutral-800" : undefined}>{rule.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-[11px] leading-5 text-neutral-500">This signup creates the organization owner. Interviewers join by invite; candidates use assessment links.</p>
 
         <label className="flex items-center gap-2 text-[11px] leading-5 text-neutral-500">
           <input className="size-5 shrink-0 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500" type="checkbox" />
@@ -129,12 +156,36 @@ function Field({ label, name, placeholder, type = "text", autoComplete }: { labe
   );
 }
 
-function PasswordField({ label, name, onToggle, shown }: { label: string; name: string; onToggle: () => void; shown: boolean }) {
+function PasswordField({
+  label,
+  name,
+  onToggle,
+  shown,
+  value,
+  onChange,
+}: {
+  label: string;
+  name: string;
+  onToggle: () => void;
+  shown: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
+}) {
   return (
     <label className="block">
       <span className="text-[12px] font-bold text-neutral-800">{label}</span>
       <span className="relative mt-2 block">
-        <input autoComplete={name === "password" ? "new-password" : "new-password"} className="control h-12 pr-11" minLength={8} name={name} placeholder="8+ characters" required type={shown ? "text" : "password"} />
+        <input
+          autoComplete="new-password"
+          className="control h-12 pr-11"
+          minLength={8}
+          name={name}
+          onChange={onChange ? (event) => onChange(event.target.value) : undefined}
+          placeholder="Aa1 + 8 chars"
+          required
+          type={shown ? "text" : "password"}
+          value={value}
+        />
         <button aria-label={shown ? "Hide password" : "Show password"} className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-neutral-400 hover:text-neutral-800" onClick={onToggle} type="button"><Icon name="eye" size={16} /></button>
       </span>
     </label>

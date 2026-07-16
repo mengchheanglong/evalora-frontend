@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { EvaloraLogo } from "@/components/logo";
 import { Icon, type IconName } from "@/components/icons";
 import { PageLoader } from "@/components/ui-states";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { apiGet } from "@/lib/api";
+import { ORG_LOGO_CHANGED_EVENT, orgInitials, readOrgLogo } from "@/lib/org-logo";
+import type { WorkspaceProfile } from "@/lib/types";
 
 type AppShellProps = {
   active: string;
@@ -18,8 +22,6 @@ type AppShellProps = {
   breadcrumbs?: Array<{ label: string; href?: string }>;
   hideSidebar?: boolean;
 };
-
-type ThemeName = "light" | "dark" | "ocean";
 
 const navigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
   { label: "Dashboard", href: "/dashboard", key: "dashboard", icon: "home" },
@@ -47,50 +49,76 @@ export function AppShell({
   breadcrumbs,
   hideSidebar = false,
 }: AppShellProps) {
-  const { logout, status, user } = useAuth();
+  const { status, user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState("");
-  const [theme, setTheme] = useState<ThemeName>("light");
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [orgLogo, setOrgLogo] = useState("");
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (status === "anonymous") router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
   }, [pathname, router, status]);
 
   useEffect(() => {
-    setProfileImage(window.localStorage.getItem("evalora-profile-image") ?? "");
-    const savedTheme = window.localStorage.getItem("evalora-theme");
-    if (savedTheme === "dark" || savedTheme === "ocean") setTheme(savedTheme);
-  }, []);
+    if (status !== "authenticated" || !user?.organizationId) return;
+    let cancelled = false;
+    setOrgLogo(readOrgLogo(user.organizationId));
+    void apiGet<WorkspaceProfile>("/organization")
+      .then((workspace) => {
+        if (cancelled) return;
+        setWorkspaceName(workspace.name);
+        setOrgLogo(readOrgLogo(workspace.id));
+      })
+      .catch(() => {
+        if (!cancelled) setWorkspaceName("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, user?.organizationId]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light";
-    window.localStorage.setItem("evalora-theme", theme);
-  }, [theme]);
+    function onLogoChange(event: Event) {
+      const detail = (event as CustomEvent<{ organizationId?: string; logo?: string }>).detail;
+      if (!user?.organizationId || detail?.organizationId !== user.organizationId) return;
+      setOrgLogo(detail.logo ?? readOrgLogo(user.organizationId));
+    }
+    window.addEventListener(ORG_LOGO_CHANGED_EVENT, onLogoChange);
+    return () => window.removeEventListener(ORG_LOGO_CHANGED_EVENT, onLogoChange);
+  }, [user?.organizationId]);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setAccountOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [accountOpen]);
 
   if (status !== "authenticated" || !user) {
     return <main className="min-h-screen bg-[#f7f8fa]"><PageLoader label="Opening your workspace" /></main>;
   }
 
   async function handleLogout() {
+    setAccountOpen(false);
     await logout();
     router.replace("/login");
     router.refresh();
   }
 
-  function handleProfileImage(file?: File) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = typeof reader.result === "string" ? reader.result : "";
-      setProfileImage(image);
-      window.localStorage.setItem("evalora-profile-image", image);
-    };
-    reader.readAsDataURL(file);
-  }
+  const displayOrgName = workspaceName || "Workspace";
+  const avatarLabel = orgInitials(displayOrgName);
 
   return (
     <main className={`min-h-screen bg-[#f7f8fa] text-[#171b24] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_1fr]"}`}>
@@ -120,53 +148,67 @@ export function AppShell({
             ) : null}
             <div className="lg:hidden"><EvaloraLogo compact href="/dashboard" /></div>
 
-            <form action="/candidates" className="relative ml-1 hidden w-full max-w-[470px] md:block">
-              <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" name="search" size={16} />
-              <input aria-label="Search candidates" className="h-10 w-full rounded-[7px] border border-transparent bg-[#f3f4f6] pl-9 pr-3 text-[13px] outline-none transition focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-50" name="q" placeholder="Search candidates by name, email, position..." type="search" />
-            </form>
-
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
               {actions}
-              <div className="relative">
-                <button aria-expanded={profileOpen} aria-haspopup="menu" className="flex h-10 items-center gap-2 rounded-[6px] border border-neutral-200 bg-white px-2 transition hover:bg-neutral-50" onClick={() => setProfileOpen((open) => !open)} type="button">
-                  <span className="flex size-7 items-center justify-center overflow-hidden rounded-[5px] bg-neutral-950 text-[10px] font-black text-white">
-                    {profileImage ? <img alt="" className="size-full object-cover" src={profileImage} /> : initials(user.name)}
-                  </span>
-                  <span className="hidden max-w-[150px] text-left sm:block">
-                    <span className="block truncate text-[12px] font-bold text-neutral-900">{user.name}</span>
-                    <span className="block truncate text-[10px] capitalize text-neutral-500">{user.role}</span>
-                  </span>
-                  <Icon className={`hidden text-neutral-400 transition sm:block ${profileOpen ? "rotate-180" : ""}`} name="chevron" size={13} />
+              <div className="hidden md:block">
+                <ThemeSwitcher compact />
+              </div>
+
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  aria-expanded={accountOpen}
+                  aria-haspopup="menu"
+                  aria-label="Organization account menu"
+                  className="flex size-10 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white shadow-sm transition hover:ring-2 hover:ring-primary-200"
+                  onClick={() => setAccountOpen((open) => !open)}
+                  type="button"
+                >
+                  {orgLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt="" className="size-full object-cover" src={orgLogo} />
+                  ) : (
+                    <span className="flex size-full items-center justify-center bg-neutral-950 text-[11px] font-black text-white">
+                      {avatarLabel}
+                    </span>
+                  )}
                 </button>
-                {profileOpen ? (
-                  <div className="absolute right-0 mt-2 w-56 rounded-[8px] border border-neutral-200 bg-white p-1.5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="menu">
-                    <div className="border-b border-neutral-100 px-3 py-2.5">
-                      <p className="truncate text-xs font-bold text-neutral-900">{user.name}</p>
-                      <p className="mt-0.5 truncate text-[11px] text-neutral-500">{user.email}</p>
-                    </div>
-                    <label className="mt-1 flex h-9 w-full cursor-pointer items-center gap-2 rounded-[5px] px-3 text-left text-xs font-semibold text-neutral-700 hover:bg-neutral-50" role="menuitem">
-                      <Icon name="file" size={15} /> Upload photo
-                      <input accept="image/*" className="sr-only" onChange={(event) => handleProfileImage(event.target.files?.[0])} type="file" />
-                    </label>
-                    <div className="mt-1 border-t border-neutral-100 px-2 py-2">
-                      <p className="px-1 text-[10px] font-black uppercase text-neutral-400">Theme</p>
-                      <div className="mt-2 grid grid-cols-3 gap-1">
-                        {(["light", "dark", "ocean"] as const).map((item) => (
-                          <button
-                            className={`h-8 rounded-[5px] text-[11px] font-bold capitalize transition ${theme === item ? "bg-primary-700 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"}`}
-                            key={item}
-                            onClick={() => setTheme(item)}
-                            type="button"
-                          >
-                            {item}
-                          </button>
-                        ))}
+
+                {accountOpen ? (
+                  <div
+                    className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-[12px] border border-neutral-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+                    role="menu"
+                  >
+                    <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white">
+                          {orgLogo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img alt="" className="size-full object-cover" src={orgLogo} />
+                          ) : (
+                            <span className="flex size-full items-center justify-center bg-neutral-950 text-[13px] font-black text-white">
+                              {avatarLabel}
+                            </span>
+                          )}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-neutral-900">{displayOrgName}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-neutral-500">{user.email}</p>
+                          <p className="mt-0.5 text-[10px] font-semibold capitalize text-neutral-400">{user.role === "organization" ? "Workspace owner" : user.role}</p>
+                        </div>
                       </div>
                     </div>
-                    <button className="mt-1 grid h-9 w-full grid-cols-[18px_1fr] items-center gap-2 rounded-[5px] px-3 text-left text-xs font-semibold text-red-600 hover:bg-red-50" onClick={() => void handleLogout()} role="menuitem" type="button">
-                      <Icon className="justify-self-start" name="lock" size={15} />
-                      <span>Sign out</span>
-                    </button>
+
+                    <div className="p-1.5">
+                      <button
+                        className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[12px] font-semibold text-red-600 transition hover:bg-red-50"
+                        onClick={() => void handleLogout()}
+                        role="menuitem"
+                        type="button"
+                      >
+                        <Icon name="lock" size={15} />
+                        Sign out
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -237,8 +279,4 @@ function SidebarLink({ active, item, onNavigate }: { active: boolean; item: { la
       <span>{item.label}</span>
     </Link>
   );
-}
-
-function initials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "EV";
 }
