@@ -405,21 +405,24 @@ export default function TemplatesPage() {
           </div>
           
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={16} style={{ color: 'var(--theme-faint)' }} />
+            <label
+              className="group flex h-10 w-full items-center gap-2.5 rounded-lg border px-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition focus-within:ring-4 focus-within:ring-primary-500/15 sm:w-64"
+              style={{
+                backgroundColor: "var(--theme-panel)",
+                borderColor: "var(--theme-border)",
+                color: "var(--theme-text)",
+              }}
+            >
+              <span className="sr-only">Search templates</span>
+              <Icon className="pointer-events-none relative -top-px shrink-0 text-primary-700/65 transition group-focus-within:text-primary-700" name="search" size={17} />
               <input
-                className="h-10 w-full sm:w-64 rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-sky-500"
-                style={{
-                  backgroundColor: 'var(--theme-panel)',
-                  borderColor: 'var(--theme-border)',
-                  color: 'var(--theme-text)',
-                }}
+                className="min-w-0 flex-1 border-0 bg-transparent text-sm font-medium leading-none outline-none placeholder:text-gray-500"
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search templates..."
                 type="search"
                 value={searchQuery}
               />
-            </div>
+            </label>
             <Link href="/templates/create" className="flex items-center gap-2 h-10 px-4 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm transition-colors">
               <Icon name="plus" size={16} /> New Template
             </Link>

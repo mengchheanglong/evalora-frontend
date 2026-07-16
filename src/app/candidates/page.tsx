@@ -84,10 +84,10 @@ export default function CandidatesPage() {
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
             <section className="card overflow-hidden rounded-[10px]">
               <div className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-4 sm:px-5">
-                <label className="relative min-w-[230px] flex-1 sm:max-w-[300px]">
+                <label className="group flex h-11 min-w-[230px] flex-1 items-center gap-2.5 rounded-[8px] border border-primary-300/70 bg-primary-50/70 px-3.5 text-primary-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition focus-within:border-primary-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-500/15 sm:max-w-[340px]">
                   <span className="sr-only">Search candidates</span>
-                  <Icon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400" name="search" size={15} />
-                  <input className="control h-10 rounded-[7px] pr-9 text-[12px]" onChange={(event) => setQuery(event.target.value)} placeholder="Search candidates..." type="search" value={query} />
+                  <input className="min-w-0 flex-1 border-0 bg-transparent text-[13px] font-medium text-neutral-800 outline-none placeholder:text-neutral-500" onChange={(event) => setQuery(event.target.value)} placeholder="Search candidates..." type="search" value={query} />
+                  <Icon className="pointer-events-none relative -top-px shrink-0 text-primary-700/70 transition group-focus-within:text-primary-700" name="search" size={17} />
                 </label>
                 <label className="ml-auto flex shrink-0 items-center gap-2 text-[12px] font-semibold text-neutral-600">
                   <span className="whitespace-nowrap">Status:</span>
