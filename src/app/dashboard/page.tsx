@@ -237,11 +237,11 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
   const height = 100;
   
   const points = data.map((point, i) => {
-    const x = (i / (data.length - 1)) * width;
+    const x = data.length > 1 ? (i / (data.length - 1)) * width : width / 2;
     const y = height - ((point.score - min) / range) * (height - 10) - 5;
     return `${x},${y}`;
   });
-  const pathD = points.length > 1 ? `M ${points.join(" L ")}` : "";
+  const pathD = points.length ? `M ${points.join(" L ")}` : "";
 
   const formatLabel = (dateString: string) => {
     const date = new Date(dateString);
@@ -263,7 +263,7 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
             <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#f3f4f6" strokeWidth="0.5" />
           ))}
           <path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={`${pathD} L 100,100 L 0,100 Z`} fill="#8b5cf6" opacity="0.05" />
+          {points.length > 1 ? <path d={`${pathD} L 100,100 L 0,100 Z`} fill="#8b5cf6" opacity="0.05" /> : null}
           {points.map((point, i) => {
             const [cx, cy] = point.split(',');
             return <circle key={i} cx={cx} cy={cy} r="1.5" fill="#8b5cf6" stroke="white" strokeWidth="0.5" />;

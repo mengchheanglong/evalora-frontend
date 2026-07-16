@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
-import { apiGet, getErrorMessage } from "@/lib/api";
+import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import type { InterviewSession, SessionStatus } from "@/lib/types";
 
@@ -13,8 +13,11 @@ export default function CandidatesPage() {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | SessionStatus>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadCandidates = useCallback(async () => {
     setLoading(true);
@@ -31,10 +34,36 @@ export default function CandidatesPage() {
 
   useEffect(() => { void loadCandidates(); }, [loadCandidates]);
 
+  const removeCandidate = useCallback(async (session: InterviewSession) => {
+    if (!window.confirm(`Delete ${session.candidateName}'s assessment record? This permanently removes the session, saved responses, and any report.`)) return;
+    setDeletingId(session.id);
+    setError("");
+    try {
+      await apiDelete(`/sessions/${session.id}`);
+      setSessions((current) => current.filter((item) => item.id !== session.id));
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Could not delete this candidate. Please try again."));
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
+
   const visible = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return sessions.filter((session) => (!normalized || [session.candidateName, session.candidateEmail ?? "", session.targetRole ?? "", session.templateTitle ?? ""].some((value) => value.toLowerCase().includes(normalized))) && (statusFilter === "all" || session.status === statusFilter));
-  }, [query, sessions, statusFilter]);
+    const fromMs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+    const toMs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+    return sessions.filter((session) =>
+      (!normalized || [session.candidateName, session.candidateEmail ?? "", session.targetRole ?? "", session.templateTitle ?? ""].some((value) => value.toLowerCase().includes(normalized)))
+      && (statusFilter === "all" || session.status === statusFilter)
+      && withinDateRange(session.createdAt, fromMs, toMs),
+    );
+  }, [query, sessions, statusFilter, dateFrom, dateTo]);
+
+  const clearAllFilters = useCallback(() => {
+    setStatusFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  }, []);
 
   return (
     <AppShell
@@ -81,8 +110,7 @@ export default function CandidatesPage() {
                     <table className="w-full min-w-[1040px] text-left text-[12px]">
                       <thead className="bg-white text-[11px] font-bold text-neutral-500">
                         <tr className="border-b border-neutral-100">
-                          <th className="w-10 px-4 py-3"><input aria-label="Select all candidates" className="size-4 rounded border-neutral-200" type="checkbox" /></th>
-                          <th className="px-3 py-3">Candidate</th>
+                          <th className="px-3 py-3 pl-4 sm:pl-5">Candidate</th>
                           <th className="px-3 py-3">Position</th>
                           <th className="px-3 py-3">Latest Session</th>
                           <th className="px-3 py-3">Status</th>
@@ -94,8 +122,7 @@ export default function CandidatesPage() {
                       <tbody className="divide-y divide-neutral-100">
                         {visible.map((session) => (
                           <tr className="transition hover:bg-neutral-50/70" key={session.id}>
-                            <td className="px-4 py-4"><input aria-label={`Select ${session.candidateName}`} className="size-4 rounded border-neutral-200" type="checkbox" /></td>
-                            <td className="px-3 py-4">
+                            <td className="px-3 py-4 pl-4 sm:pl-5">
                               <div className="flex items-center gap-3">
                                 <span className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br text-[10px] font-black ${candidateAvatarTone(session.candidateName)}`}>
                                   {candidateInitials(session.candidateName)}
@@ -115,8 +142,7 @@ export default function CandidatesPage() {
                             <td className="px-3 py-4 font-semibold text-neutral-600">{formatDate(session.createdAt)}</td>
                             <td className="px-3 py-4">
                               <div className="flex justify-end gap-2">
-                                <Link aria-label={`View ${session.candidateName}`} className="flex size-9 items-center justify-center rounded-[7px] border border-neutral-200 text-neutral-500 transition hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700" href={`/candidates/${session.id}`}><Icon name="eye" size={15} /></Link>
-                                <button aria-label={`More actions for ${session.candidateName}`} className="flex size-9 items-center justify-center rounded-[7px] border border-neutral-200 text-neutral-500 transition hover:bg-neutral-50" type="button"><Icon name="more" size={15} /></button>
+                                <button aria-label={`Delete ${session.candidateName}`} className="flex size-9 items-center justify-center rounded-[7px] border border-neutral-200 text-neutral-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === session.id} onClick={() => void removeCandidate(session)} type="button">{deletingId === session.id ? <span className="size-3.5 animate-spin rounded-full border-2 border-neutral-300 border-t-rose-500" /> : <Icon name="trash" size={15} />}</button>
                               </div>
                             </td>
                           </tr>
@@ -129,7 +155,7 @@ export default function CandidatesPage() {
               ) : <div className="p-5"><EmptyState action={!sessions.length ? <Link className="button-primary" href="/assessment/create">Invite first candidate</Link> : undefined} description={sessions.length ? "Try a different search or status filter." : "Candidate records are created automatically when you send an assessment invitation."} icon="users" title={sessions.length ? "No matching candidates" : "No candidates yet"} /></div>}
             </section>
 
-            <FiltersPanel statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
+            <FiltersPanel dateFrom={dateFrom} dateTo={dateTo} onClearAll={clearAllFilters} setDateFrom={setDateFrom} setDateTo={setDateTo} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />
           </div>
         </div>
       ) : null}
@@ -175,12 +201,12 @@ function Stat({ label, value, detail, icon, tone }: { label: string; value: numb
   );
 }
 
-function FiltersPanel({ statusFilter, setStatusFilter }: { statusFilter: "all" | SessionStatus; setStatusFilter: (value: "all" | SessionStatus) => void }) {
+function FiltersPanel({ statusFilter, setStatusFilter, dateFrom, dateTo, setDateFrom, setDateTo, onClearAll }: { statusFilter: "all" | SessionStatus; setStatusFilter: (value: "all" | SessionStatus) => void; dateFrom: string; dateTo: string; setDateFrom: (value: string) => void; setDateTo: (value: string) => void; onClearAll: () => void }) {
   return (
     <aside className="card h-fit rounded-[10px] p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[14px] font-black text-neutral-900"><Icon name="settings" size={16} /> Filters</h2>
-        <button className="text-[11px] font-bold text-primary-700 hover:text-primary-600" onClick={() => setStatusFilter("all")} type="button">Clear all</button>
+        <button className="text-[11px] font-bold text-primary-700 hover:text-primary-600" onClick={onClearAll} type="button">Clear all</button>
       </div>
       <div className="mt-5 space-y-4">
         <FilterSelect label="Status" onChange={(value) => setStatusFilter(value as "all" | SessionStatus)} value={statusFilter}>
@@ -195,10 +221,10 @@ function FiltersPanel({ statusFilter, setStatusFilter }: { statusFilter: "all" |
         <FilterSelect label="Source"><option>All Sources</option></FilterSelect>
         <div>
           <p className="mb-2 text-[11px] font-bold text-neutral-600">Added Date</p>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <input className="control h-10 rounded-[7px] text-[11px]" placeholder="Start date" type="text" />
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <input aria-label="Added from date" className="control h-10 min-w-0 rounded-[7px] px-2 text-[11px] [color-scheme:light]" max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
             <span className="text-neutral-400">-</span>
-            <input className="control h-10 rounded-[7px] text-[11px]" placeholder="End date" type="text" />
+            <input aria-label="Added to date" className="control h-10 min-w-0 rounded-[7px] px-2 text-[11px] [color-scheme:light]" min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
           </div>
         </div>
         <div>
@@ -253,6 +279,15 @@ function ScoreCircle({ score }: { score?: number }) {
       <span className="grid size-8 place-items-center rounded-full bg-white">{value}%</span>
     </span>
   );
+}
+function withinDateRange(value: string | undefined, fromMs: number | null, toMs: number | null) {
+  if (fromMs === null && toMs === null) return true;
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return false;
+  if (fromMs !== null && time < fromMs) return false;
+  if (toMs !== null && time > toMs) return false;
+  return true;
 }
 function formatDate(value?: string) { return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value)) : "-"; }
 function percent(value: number, total: number) { return total ? Math.round((value / total) * 1000) / 10 : 0; }

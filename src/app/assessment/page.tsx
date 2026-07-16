@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
-import { apiGet, getErrorMessage } from "@/lib/api";
+import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
 import type { InterviewSession, SessionStatus } from "@/lib/types";
 
 // --- UI Types (Matches Figma Design) ---
@@ -89,6 +89,8 @@ export default function SessionsPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
 
   // Fetch real data from backend
   const loadSessions = useCallback(async () => {
@@ -107,6 +109,20 @@ export default function SessionsPage() {
   useEffect(() => {
     void loadSessions();
   }, [loadSessions]);
+
+  const removeSession = useCallback(async (session: SessionRow) => {
+    if (!window.confirm(`Delete ${session.candidateName}'s session (${session.sessionId})? This permanently removes the session and its saved responses, submissions, and report.`)) return;
+    setDeletingId(session.id);
+    setActionError("");
+    try {
+      await apiDelete(`/sessions/${session.id}`);
+      setSessions((current) => current.filter((item) => item.id !== session.id));
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError, "Could not delete this session. Please try again."));
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
 
   // Filter logic based on real data
   const filteredSessions = useMemo(() => {
@@ -199,14 +215,17 @@ export default function SessionsPage() {
             </div>
           </div>
 
+          {actionError ? (
+            <div className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700" role="alert">{actionError}</div>
+          ) : null}
+
           {/* Table */}
           {filteredSessions.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   <tr>
-                    <th className="px-5 py-3 w-10"><input type="checkbox" className="rounded border-gray-300" /></th>
-                    <th className="px-4 py-3">Session ID</th>
+                    <th className="px-5 py-3">Session ID</th>
                     <th className="px-4 py-3">Candidate</th>
                     <th className="px-4 py-3">Template</th>
                     <th className="px-4 py-3">Interviewer</th>
@@ -219,18 +238,17 @@ export default function SessionsPage() {
                 <tbody className="divide-y divide-gray-100">
                   {filteredSessions.map((session) => (
                     <tr key={session.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-4"><input type="checkbox" className="rounded border-gray-300" /></td>
-                      <td className="px-4 py-4 font-mono text-xs text-gray-600">{session.sessionId}</td>
+                      <td className="px-5 py-4 font-mono text-xs text-gray-600">{session.sessionId}</td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-3">
+                        <Link href={`/candidates/${session.id}`} className="group flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs">
                             {session.candidateName.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{session.candidateName}</p>
+                            <p className="font-semibold text-gray-900 group-hover:text-sky-700">{session.candidateName}</p>
                             <p className="text-xs text-gray-500">{session.candidateEmail}</p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-4">
                         <p className="font-medium text-gray-900">{session.templateTitle}</p>
@@ -277,11 +295,15 @@ export default function SessionsPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link href={`/candidates/${session.id}`} className="p-1.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
-                            <Icon name="eye" size={16} />
-                          </Link>
-                          <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            <Icon name="more" size={16} />
+                          <button
+                            aria-label={`Delete ${session.candidateName}'s session`}
+                            disabled={deletingId === session.id}
+                            onClick={() => void removeSession(session)}
+                            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingId === session.id
+                              ? <span className="block size-4 animate-spin rounded-full border-2 border-gray-300 border-t-rose-500" />
+                              : <Icon name="trash" size={16} />}
                           </button>
                         </div>
                       </td>
@@ -325,13 +347,16 @@ function StatCard({ label, value, detail, icon, tone }: { label: string; value: 
 
 function SelectFilter({ value, onChange, options }: { value: string; onChange: (val: string) => void; options: string[] }) {
   return (
-    <select 
-      value={value} 
-      onChange={(e) => onChange(e.target.value)}
-      className="h-9 px-3 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
-    >
-      {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-    </select>
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9 cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-9 text-sm font-medium text-gray-700 outline-none transition hover:border-gray-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
+      >
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+      <Icon name="chevron" size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+    </div>
   );
 }
 

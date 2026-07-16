@@ -34,6 +34,7 @@ export default function CandidateAssessmentPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const dirtyQuestions = useRef(new Set<string>());
+  const timedOut = useRef(false);
 
   const loadAssessment = useCallback(async () => {
     setView("loading");
@@ -80,6 +81,25 @@ export default function CandidateAssessmentPage() {
     return () => window.clearInterval(timer);
   }, [session?.startedAt, session?.template.timeLimitMin, view]);
 
+  // When time runs out, drop focus so a field that was already active cannot keep
+  // receiving keystrokes behind the lock overlay.
+  useEffect(() => {
+    if (timeLeft === 0 && typeof document !== "undefined") {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+  }, [timeLeft]);
+
+  // On time-up, mark the session expired server-side so the workspace sees the
+  // candidate as "Withdrawn / Rejected". Fires once; the backend re-checks the
+  // elapsed time and ignores the call for already-finished sessions.
+  useEffect(() => {
+    if (timeLeft !== 0 || timedOut.current || session?.status !== "in_progress") return;
+    timedOut.current = true;
+    void apiPut<CandidateAccessSession>(`/sessions/access/${encodeURIComponent(accessCode)}/timeout`)
+      .then((updated) => setSession(updated))
+      .catch(() => undefined);
+  }, [timeLeft, session?.status, accessCode]);
+
   useEffect(() => () => { for (const timer of saveTimers.current.values()) clearTimeout(timer); }, []);
 
   const modules = useMemo(() => candidateModules(session?.template.modules ?? []), [session?.template.modules]);
@@ -101,6 +121,7 @@ export default function CandidateAssessmentPage() {
   }
 
   function updateAnswer(question: Question, answer: Answer) {
+    if (timeLeft === 0) return;
     setAnswers((current) => ({ ...current, [question.id]: answer }));
     dirtyQuestions.current.add(question.id);
     setSaveState("saving");
@@ -135,6 +156,7 @@ export default function CandidateAssessmentPage() {
   }
 
   async function nextQuestion() {
+    if (timeLeft === 0) return;
     if (!activeModule || !activeQuestion) return;
     const answer = answers[activeQuestion.id];
     if (!answer?.text.trim()) {
@@ -190,6 +212,7 @@ export default function CandidateAssessmentPage() {
   }
 
   async function submitAssessment() {
+    if (timeLeft === 0) return;
     if (!confirmed || !allModulesComplete(modules, answers, followUps, codingComplete)) return;
     setSubmitting(true);
     setActionError("");
@@ -212,6 +235,7 @@ export default function CandidateAssessmentPage() {
   if (view === "complete") return <CandidateComplete candidateName={session.candidateName} reportStatus={reportStatus} />;
 
   const completion = completionPercent(modules, answers, followUps, codingComplete);
+  const timeUp = timeLeft === 0;
 
   return (
     <main className="min-h-screen bg-[#f5f7f9] text-neutral-950">
@@ -238,13 +262,28 @@ export default function CandidateAssessmentPage() {
           {view === "review" ? (
             <ReviewPanel answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} submitting={submitting} />
           ) : activeModule?.type === "coding" ? (
-            <CandidateCodingAssessment accessCode={accessCode} onBack={previousQuestion} onContinue={() => { setCodingComplete(true); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
+            <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={previousQuestion} onContinue={() => { setCodingComplete(true); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
           ) : activeModule && activeQuestion ? (
-            <QuestionPanel answer={answers[activeQuestion.id]} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={activeQuestionIndex} />
+            <QuestionPanel answer={answers[activeQuestion.id]} disabled={timeUp} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { if (timeLeft === 0) return; setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={activeQuestionIndex} />
           ) : <CandidateError message="This assessment module has no candidate questions." />}
         </section>
       </div>
+
+      {timeUp ? <TimeUpModal /> : null}
     </main>
+  );
+}
+
+function TimeUpModal() {
+  return (
+    <div aria-live="assertive" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 px-5 backdrop-blur-sm" role="alertdialog">
+      <div className="w-full max-w-[440px] rounded-[14px] border border-neutral-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-100 text-red-600"><Icon name="clock" size={24} /></span>
+        <h2 className="mt-5 text-[22px] font-black text-neutral-950">Time&apos;s up</h2>
+        <p className="mt-3 text-[13px] leading-6 text-neutral-600">The time limit for this assessment has ended. You can no longer edit answers, run code, or submit new responses. Everything you saved has been preserved for the review team.</p>
+        <p className="mt-6 text-[11px] text-neutral-500">You may close this window.</p>
+      </div>
+    </div>
   );
 }
 
@@ -323,9 +362,9 @@ function WelcomeFact({ icon, title, body }: { icon: IconName; title: string; bod
   );
 }
 
-function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string }) {
+function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error, disabled }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string; disabled?: boolean }) {
   const options = questionOptions(question.options);
-  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[22px] font-black leading-8 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Back</button><button className="button-primary" onClick={onNext} type="button">Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></button></div></article></div>;
+  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[22px] font-black leading-8 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled} onClick={onBack} type="button">Back</button><button className="button-primary" disabled={disabled} onClick={onNext} type="button">Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></button></div></article></div>;
 }
 
 function ReviewPanel({ modules, answers, followUps, codingComplete, confirmed, onConfirm, onBack, onSubmit, submitting, error }: { modules: AssessmentModule[]; answers: Record<string, Answer>; followUps: Record<string, FollowUp>; codingComplete: boolean; confirmed: boolean; onConfirm: (value: boolean) => void; onBack: () => void; onSubmit: () => void; submitting: boolean; error: string }) {
@@ -343,8 +382,8 @@ function allModulesComplete(modules: AssessmentModule[], answers: Record<string,
 function completionPercent(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { return modules.length ? Math.round((modules.filter((module) => moduleComplete(module, answers, followUps, codingComplete)).length / modules.length) * 100) : 0; }
 function moduleIcon(type: AssessmentModule["type"]): IconName { return type === "coding" || type === "debugging" ? "code" : type === "leadership" ? "crown" : type === "communication" ? "paperPlane" : type === "behavioral" || type === "work_style" ? "users" : type === "problem_solving" ? "sparkle" : "message"; }
 function questionOptions(value: JsonValue | undefined): string[] { if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string"); if (value && typeof value === "object") { const record = value as Record<string, JsonValue>; for (const key of ["options", "choices", "answers"]) { const nested = record[key]; if (Array.isArray(nested)) return nested.map((item) => typeof item === "string" ? item : typeof item === "object" && item ? String((item as Record<string, JsonValue>).label ?? (item as Record<string, JsonValue>).value ?? "") : "").filter(Boolean); } } return []; }
-function ChoiceInput({ options, value, onChange }: { options: string[]; value: string; onChange: (value: string) => void }) { return <div className="grid gap-2">{options.map((option) => <label className={`flex cursor-pointer items-center gap-3 rounded-[7px] border px-4 py-3 text-[12px] font-semibold transition ${value === option ? "border-sky-300 bg-sky-50 text-sky-950" : "border-neutral-200 hover:bg-neutral-50"}`} key={option}><input checked={value === option} className="size-4 accent-[#159ac8]" name="choice" onChange={() => onChange(option)} type="radio" />{option}</label>)}</div>; }
-function ScaleInput({ value, onChange }: { value?: number; onChange: (value: number) => void }) { return <div><div className="grid grid-cols-5 gap-2">{[1, 2, 3, 4, 5].map((item) => <button className={`h-12 rounded-[6px] border text-sm font-black transition ${value === item ? "border-sky-400 bg-sky-500 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`} key={item} onClick={() => onChange(item)} type="button">{item}</button>)}</div><div className="mt-2 flex justify-between text-[10px] text-neutral-400"><span>Strongly disagree</span><span>Strongly agree</span></div></div>; }
+function ChoiceInput({ options, value, onChange, disabled }: { options: string[]; value: string; onChange: (value: string) => void; disabled?: boolean }) { return <div className="grid gap-2">{options.map((option) => <label className={`flex items-center gap-3 rounded-[7px] border px-4 py-3 text-[12px] font-semibold transition ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${value === option ? "border-sky-300 bg-sky-50 text-sky-950" : "border-neutral-200 hover:bg-neutral-50"}`} key={option}><input checked={value === option} className="size-4 accent-[#159ac8]" disabled={disabled} name="choice" onChange={() => onChange(option)} type="radio" />{option}</label>)}</div>; }
+function ScaleInput({ value, onChange, disabled }: { value?: number; onChange: (value: number) => void; disabled?: boolean }) { return <div><div className="grid grid-cols-5 gap-2">{[1, 2, 3, 4, 5].map((item) => <button className={`h-12 rounded-[6px] border text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${value === item ? "border-sky-400 bg-sky-500 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`} disabled={disabled} key={item} onClick={() => onChange(item)} type="button">{item}</button>)}</div><div className="mt-2 flex justify-between text-[10px] text-neutral-400"><span>Strongly disagree</span><span>Strongly agree</span></div></div>; }
 function numericAnswer(answer?: Answer) { const value = Number(answer?.json && typeof answer.json === "object" && !Array.isArray(answer.json) ? (answer.json as Record<string, JsonValue>).value : answer?.text); return Number.isFinite(value) ? value : undefined; }
 function formatResponseForSave(answer: string, followUp?: FollowUp) { return followUp ? `${answer.trim()}\n\nAI follow-up: ${followUp.question.trim()}\nFollow-up response: ${followUp.answer.trim()}` : answer; }
 function parseSavedResponse(value: string): { answer: string; followUp?: FollowUp } { const marker = "\n\nAI follow-up: "; const index = value.indexOf(marker); if (index < 0) return { answer: value }; const answer = value.slice(0, index); const remaining = value.slice(index + marker.length); const responseMarker = "\nFollow-up response: "; const responseIndex = remaining.indexOf(responseMarker); return responseIndex < 0 ? { answer } : { answer, followUp: { question: remaining.slice(0, responseIndex), answer: remaining.slice(responseIndex + responseMarker.length) } }; }

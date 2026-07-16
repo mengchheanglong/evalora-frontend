@@ -10,9 +10,10 @@ type CandidateCodingAssessmentProps = {
   accessCode: string;
   onBack: () => void;
   onContinue: () => void;
+  locked?: boolean;
 };
 
-export function CandidateCodingAssessment({ accessCode, onBack, onContinue }: CandidateCodingAssessmentProps) {
+export function CandidateCodingAssessment({ accessCode, onBack, onContinue, locked = false }: CandidateCodingAssessmentProps) {
   const [questions, setQuestions] = useState<CodeQuestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [codeByQuestion, setCodeByQuestion] = useState<Record<string, string>>({});
@@ -74,7 +75,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue }: Ca
   }, [terminal]);
 
   async function runCode() {
-    if (!activeQuestion) return;
+    if (!activeQuestion || locked) return;
     setRunning(true);
     setError("");
     try {
@@ -87,7 +88,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue }: Ca
   }
 
   async function submitCode() {
-    if (!activeQuestion) return;
+    if (!activeQuestion || locked) return;
     setSubmitting(true);
     setError("");
     try {
@@ -140,17 +141,17 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue }: Ca
 
           <div className="flex min-w-0 flex-col bg-[#0e1117]">
             <div className="flex h-11 items-center justify-between border-b border-white/10 px-4"><span className="flex items-center gap-2 text-[11px] font-bold text-white"><Icon name="code" size={14} /> solution.js</span><span className="text-[10px] font-semibold text-slate-400">JavaScript (Node.js)</span></div>
-            <textarea aria-label="Code editor" className="min-h-[360px] flex-1 resize-none bg-[#0e1117] p-4 font-mono text-[13px] leading-6 text-slate-100 outline-none selection:bg-sky-500/30" onChange={(event) => setCodeByQuestion((current) => ({ ...current, [activeQuestion.id]: event.target.value }))} spellCheck={false} value={activeCode} />
+            <textarea aria-label="Code editor" className="min-h-[360px] flex-1 resize-none bg-[#0e1117] p-4 font-mono text-[13px] leading-6 text-slate-100 outline-none selection:bg-sky-500/30" onChange={(event) => setCodeByQuestion((current) => ({ ...current, [activeQuestion.id]: event.target.value }))} readOnly={locked} spellCheck={false} value={activeCode} />
             <div className="border-t border-white/10 bg-[#090c11]">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-2"><span className={`text-[10px] font-bold ${output.tone}`}>{output.title}</span>{terminal ? <span className="text-[9px] text-slate-500">{Math.round(terminal.executionTime * 1000)} ms</span> : null}</div>
               <pre className="min-h-[96px] max-h-[150px] overflow-auto whitespace-pre-wrap p-4 text-[11px] leading-5 text-slate-300">{output.body}</pre>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-4 py-3"><button className="rounded-[5px] px-3 py-2 text-[11px] font-bold text-slate-300 hover:bg-white/5" onClick={onBack} type="button">Back</button><div className="flex gap-2"><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] border border-white/15 px-3 text-[11px] font-bold text-white hover:bg-white/5 disabled:opacity-50" disabled={running || submitting} onClick={() => void runCode()} type="button"><Icon name="paperPlane" size={13} />{running ? "Running" : "Run sample"}</button><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] bg-[#29b7e5] px-3 text-[11px] font-black text-[#07111f] hover:bg-[#53c7eb] disabled:opacity-50" disabled={running || submitting} onClick={() => void submitCode()} type="button"><Icon name="check" size={13} />{submitting ? "Submitting" : results[activeQuestion.id] ? "Resubmit" : "Submit"}</button></div></div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-4 py-3"><button className="rounded-[5px] px-3 py-2 text-[11px] font-bold text-slate-300 hover:bg-white/5" onClick={onBack} type="button">Back</button><div className="flex gap-2"><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] border border-white/15 px-3 text-[11px] font-bold text-white hover:bg-white/5 disabled:opacity-50" disabled={running || submitting || locked} onClick={() => void runCode()} type="button"><Icon name="paperPlane" size={13} />{running ? "Running" : "Run sample"}</button><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] bg-[#29b7e5] px-3 text-[11px] font-black text-[#07111f] hover:bg-[#53c7eb] disabled:opacity-50" disabled={running || submitting || locked} onClick={() => void submitCode()} type="button"><Icon name="check" size={13} />{submitting ? "Submitting" : results[activeQuestion.id] ? "Resubmit" : "Submit"}</button></div></div>
             </div>
           </div>
         </div>
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-white px-4 py-3 sm:px-5"><p className="text-[11px] text-neutral-500">Your latest submission for each challenge is included in the reviewer report.</p><button className="button-primary" disabled={!allSubmitted} onClick={onContinue} type="button">Continue assessment <Icon className="-rotate-90" name="chevron" size={13} /></button></footer>
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-white px-4 py-3 sm:px-5"><p className="text-[11px] text-neutral-500">Your latest submission for each challenge is included in the reviewer report.</p><button className="button-primary" disabled={!allSubmitted || locked} onClick={onContinue} type="button">Continue assessment <Icon className="-rotate-90" name="chevron" size={13} /></button></footer>
     </section>
   );
 }

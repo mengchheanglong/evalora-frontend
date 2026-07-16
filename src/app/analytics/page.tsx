@@ -198,8 +198,8 @@ function AnalyticsContent({
             <EmptyState description="Module averages appear after evaluations are saved." title="No evaluations yet" />
           ) : (
             <div className="space-y-3">
-              {topModules.map((module) => (
-                <div className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-50 pb-2 text-[12px] last:border-0" key={`${module.moduleType}-${module.title}`}>
+              {topModules.map((module, index) => (
+                <div className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-50 pb-2 text-[12px] last:border-0" key={module.moduleId ?? `${module.moduleType}-${module.title}-${index}`}>
                   <div>
                     <p className="font-bold text-gray-900">{module.title}</p>
                     <p className="text-[10px] text-gray-500">
