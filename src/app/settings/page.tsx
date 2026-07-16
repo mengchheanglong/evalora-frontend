@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { LogoMark } from "@/components/logo";
+import { useAuth } from "@/components/auth-provider";
 
 function Toggle({ checked }: { checked: boolean }) {
   return (
@@ -16,6 +20,15 @@ function Toggle({ checked }: { checked: boolean }) {
 }
 
 export default function SettingsPage() {
+  const { logout } = useAuth();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/login");
+    router.refresh();
+  }
+
   return (
     <AppShell
       active="settings"
@@ -29,14 +42,12 @@ export default function SettingsPage() {
               <h2 className="text-[15px] font-black text-neutral-900">Organization profile</h2>
               <p className="mt-1 text-[11px] font-medium text-neutral-500">Manage your account, organization, and application preferences.</p>
             </div>
-            <button className="text-[12px] font-bold text-primary-700 hover:text-primary-600" type="button">Change logo</button>
           </div>
 
           <div className="mt-8 grid gap-7 lg:grid-cols-[190px_1fr]">
             <div>
-              <p className="mb-3 text-[12px] font-bold text-neutral-900">Change Logo</p>
-              <div className="grid aspect-square w-[150px] place-items-center rounded-[8px] border border-neutral-200 bg-white">
-                <LogoMark className="size-[70px]" />
+              <div className="grid aspect-square w-[150px] place-items-center rounded-[12px] border-2 border-neutral-700 bg-gradient-to-br from-neutral-900 to-neutral-800 shadow-md hover:shadow-lg transition">
+                <LogoMark className="size-[70px] text-neutral-300" />
               </div>
               <p className="mt-3 text-[10px] leading-4 text-neutral-500">JPG, PNG or SVG. Max size 2MB.</p>
             </div>
@@ -67,6 +78,21 @@ export default function SettingsPage() {
           <PreferencesCard />
           <NotificationsCard />
           <PrivacyCard />
+        </section>
+
+        <section className="mt-4 card rounded-[10px] p-5">
+          <h2 className="text-[15px] font-black text-neutral-900">Account</h2>
+          <p className="mt-1 text-[11px] font-medium text-neutral-500">Manage your account settings.</p>
+          <div className="mt-6 flex justify-end">
+            <button 
+              className="button-danger h-9 rounded-[7px] px-4 text-[11px] font-semibold text-red-600 hover:bg-red-50 border border-red-200" 
+              onClick={() => void handleLogout()} 
+              type="button"
+            >
+              <Icon name="lock" size={14} className="mr-2 inline" />
+              Sign Out
+            </button>
+          </div>
         </section>
       </div>
     </AppShell>
