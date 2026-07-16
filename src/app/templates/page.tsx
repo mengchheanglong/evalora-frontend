@@ -354,16 +354,21 @@ export default function TemplatesPage() {
 
         {/* Clean Header & Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex rounded-lg bg-gray-100 p-1 w-fit">
+          <div className="flex rounded-lg bg-gray-100 p-1 w-fit" style={{ backgroundColor: 'var(--theme-panel-soft)', borderColor: 'var(--theme-border)' }}>
             <TabButton active={mainTab === "library"} onClick={() => setMainTab("library")}>Prebuilt Library ({catalog.length})</TabButton>
             <TabButton active={mainTab === "mine"} onClick={() => setMainTab("mine")}>My Templates ({mine.length})</TabButton>
           </div>
           
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={16} />
+              <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={16} style={{ color: 'var(--theme-faint)' }} />
               <input
                 className="h-10 w-full sm:w-64 rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                style={{
+                  backgroundColor: 'var(--theme-panel)',
+                  borderColor: 'var(--theme-border)',
+                  color: 'var(--theme-text)',
+                }}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search templates..."
                 type="search"
@@ -387,6 +392,14 @@ export default function TemplatesPage() {
                   ? "bg-gray-900 text-white shadow-sm"
                   : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
+              style={roleFilter === filter.id ? {
+                backgroundColor: 'var(--theme-heading)',
+                color: 'var(--theme-panel)',
+              } : {
+                backgroundColor: 'var(--theme-panel)',
+                borderColor: 'var(--theme-border)',
+                color: 'var(--theme-text)',
+              }}
             >
               {filter.label}
             </button>
@@ -402,7 +415,10 @@ export default function TemplatesPage() {
               {filteredCatalog.map((item) => {
                 const theme = roleTheme(item.roleType);
                 return (
-                  <article key={item.id} className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <article key={item.id} className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow" style={{
+                    backgroundColor: 'var(--theme-panel)',
+                    borderColor: 'var(--theme-border)',
+                  }}>
                     <div className={`h-1.5 w-full ${theme.bar}`} />
                     <button 
                       className="flex flex-1 flex-col p-5 text-left" 
@@ -418,30 +434,49 @@ export default function TemplatesPage() {
                             <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700">Prebuilt</span>
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${theme.badge}`}>{item.roleType}</span>
                           </div>
-                          <h3 className="text-base font-bold text-gray-900 group-hover:text-sky-600 transition-colors line-clamp-1">{item.title}</h3>
+                          <h3 className="text-base font-bold text-gray-900 group-hover:text-sky-600 transition-colors line-clamp-1" style={{
+                            color: 'var(--theme-heading)',
+                          }}>{item.title}</h3>
                         </div>
                       </div>
-                      <p className="mt-3 line-clamp-2 flex-1 text-xs leading-5 text-gray-500">{item.description}</p>
+                      <p className="mt-3 line-clamp-2 flex-1 text-xs leading-5 text-gray-500" style={{
+                        color: 'var(--theme-muted)',
+                      }}>{item.description}</p>
                       <dl className="mt-4 grid grid-cols-3 gap-2">
                         <Stat label="Modules" value={item.moduleCount} />
                         <Stat label="Questions" value={item.questionCount} />
                         <Stat label="Minutes" value={item.timeLimitMin ?? "—"} />
                       </dl>
                     </button>
-                    <div className="grid grid-cols-2 gap-2 border-t border-gray-100 bg-gray-50 p-3">
+                    <div className="grid grid-cols-2 gap-2 border-t border-gray-100 bg-gray-50 p-3" style={{
+                      borderColor: 'var(--theme-border)',
+                      backgroundColor: 'var(--theme-panel-soft)',
+                    }}>
                       <button
                         className="flex items-center justify-center gap-1.5 h-9 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                        style={{
+                          backgroundColor: 'var(--theme-panel)',
+                          borderColor: 'var(--theme-border)',
+                          color: 'var(--theme-text)',
+                        }}
                         disabled={previewLoading || busyId === item.id}
                         onClick={() => void openCatalogPreview(item.id)}
                       >
                         <Icon name="eye" size={14} /> Review
                       </button>
                       <button
-                        className="flex items-center justify-center gap-1.5 h-9 rounded-lg bg-sky-500 text-xs font-semibold text-white hover:bg-sky-600 transition-colors"
+                        className="flex items-center justify-center gap-1.5 h-8 sm:h-9 rounded-lg bg-sky-500 text-xs sm:text-sm font-semibold text-white hover:bg-sky-600 transition-colors px-3 sm:px-4 w-full sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed"
                         disabled={busyId === item.id}
                         onClick={() => void useCatalogTemplate(item.id, "mine")}
                       >
-                        {busyId === item.id ? "Adding…" : "Use as-is"}
+                        {busyId === item.id ? (
+                          <>
+                            <span className="inline-block animate-spin text-xs">⚙</span>
+                            Adding…
+                          </>
+                        ) : (
+                          "Use as-is"
+                        )}
                       </button>
                     </div>
                   </article>
@@ -457,10 +492,16 @@ export default function TemplatesPage() {
             icon="clipboard"
           />
         ) : (
-          <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" style={{
+            backgroundColor: 'var(--theme-panel)',
+            borderColor: 'var(--theme-border)',
+          }}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1000px] text-left text-sm">
-                <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{
+                  backgroundColor: 'var(--theme-panel-soft)',
+                  color: 'var(--theme-muted)',
+                }}>
                   <tr>
                     <th className="px-5 py-3.5">Template</th>
                     <th className="px-4 py-3.5">Category</th>
@@ -472,17 +513,31 @@ export default function TemplatesPage() {
                     <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100" style={{
+                  borderColor: 'var(--theme-border)',
+                }}>
                   {filteredMine.map(mapTemplateToRow).map((template) => (
-                    <tr key={template.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={template.id} className="hover:bg-gray-50 transition-colors" style={{
+                      borderColor: 'var(--theme-border)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--theme-panel-soft)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${template.iconColor}`}>
                             <Icon name={template.icon} size={20} />
                           </span>
                           <div>
-                            <p className="font-bold text-gray-900">{template.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 max-w-[250px] truncate">{template.description}</p>
+                            <p className="font-bold text-gray-900" style={{
+                              color: 'var(--theme-heading)',
+                            }}>{template.title}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 max-w-[250px] truncate" style={{
+                              color: 'var(--theme-muted)',
+                            }}>{template.description}</p>
                           </div>
                         </div>
                       </td>
@@ -491,22 +546,36 @@ export default function TemplatesPage() {
                           {template.category}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-sm text-gray-700">{template.targetRoles}</td>
+                      <td className="px-4 py-4 text-sm text-gray-700" style={{
+                        color: 'var(--theme-text)',
+                      }}>{template.targetRoles}</td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5 text-gray-700">
-                          <Icon name="clipboard" size={14} className="text-gray-400" />
+                        <div className="flex items-center gap-1.5 text-gray-700" style={{
+                          color: 'var(--theme-text)',
+                        }}>
+                          <Icon name="clipboard" size={14} className="text-gray-400" style={{
+                            color: 'var(--theme-faint)',
+                          }} />
                           <span className="font-medium">{template.modulesCount}</span>
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5 text-gray-700">
-                          <Icon name="file" size={14} className="text-gray-400" />
+                        <div className="flex items-center gap-1.5 text-gray-700" style={{
+                          color: 'var(--theme-text)',
+                        }}>
+                          <Icon name="file" size={14} className="text-gray-400" style={{
+                            color: 'var(--theme-faint)',
+                          }} />
                           <span className="font-medium">{template.questionsCount}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-xs text-gray-500">
+                      <td className="px-4 py-4 text-xs text-gray-500" style={{
+                        color: 'var(--theme-muted)',
+                      }}>
                         <p>{template.lastUpdate}</p>
-                        <p className="text-gray-400">by {template.updatedBy}</p>
+                        <p style={{
+                          color: 'var(--theme-faint)',
+                        }}>by {template.updatedBy}</p>
                       </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${
@@ -534,34 +603,58 @@ export default function TemplatesPage() {
         {/* Preview Drawer */}
         {preview || previewLoading ? (
           <div className="fixed inset-0 z-50 flex justify-end bg-gray-950/45 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && setPreview(null)}>
-            <div className="flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-300">
-              <header className="shrink-0 border-b border-gray-100 bg-gray-50 px-6 py-4">
+            <div className="flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-300" style={{
+              backgroundColor: 'var(--theme-panel)',
+            }}>
+              <header className="shrink-0 border-b border-gray-100 bg-gray-50 px-6 py-4" style={{
+                backgroundColor: 'var(--theme-panel-soft)',
+                borderColor: 'var(--theme-border)',
+              }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">
                       {previewSource === "catalog" ? "Prebuilt Catalog" : "Workspace Template"}
                     </p>
-                    <h3 className="mt-1 text-xl font-bold text-gray-900">{preview?.title ?? "Loading questions…"}</h3>
+                    <h3 className="mt-1 text-xl font-bold text-gray-900" style={{
+                      color: 'var(--theme-heading)',
+                    }}>{preview?.title ?? "Loading questions…"}</h3>
                     {preview && (
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600">
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600" style={{
+                        color: 'var(--theme-text)',
+                      }}>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${roleTheme(preview.roleType).badge}`}>{preview.roleType}</span>
                         <span>{preview.timeLimitMin ? `${preview.timeLimitMin} min` : "Flexible time"}</span>
-                        <span className="text-gray-300">•</span>
+                        <span style={{
+                          color: 'var(--theme-faint)',
+                        }}>•</span>
                         <span>{sortedModules.length} modules</span>
-                        <span className="text-gray-300">•</span>
+                        <span style={{
+                          color: 'var(--theme-faint)',
+                        }}>•</span>
                         <span>{previewQuestionCount} questions</span>
                       </div>
                     )}
                   </div>
-                  <button className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50" onClick={() => setPreview(null)}>
+                  <button className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50" style={{
+                    borderColor: 'var(--theme-border)',
+                    backgroundColor: 'var(--theme-panel)',
+                    color: 'var(--theme-text)',
+                  }} onClick={() => setPreview(null)}>
                     Close
                   </button>
                 </div>
                 {preview && (
                   <div className="relative mt-4">
-                    <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={15} />
+                    <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" name="search" size={15} style={{
+                      color: 'var(--theme-faint)',
+                    }} />
                     <input
                       className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                      style={{
+                        backgroundColor: 'var(--theme-panel)',
+                        borderColor: 'var(--theme-border)',
+                        color: 'var(--theme-text)',
+                      }}
                       onChange={(e) => setQuestionSearch(e.target.value)}
                       placeholder="Filter questions in this template…"
                       type="search"
@@ -576,8 +669,13 @@ export default function TemplatesPage() {
                   <div className="flex flex-1 items-center justify-center p-8"><PageLoader label="Loading all questions" /></div>
                 ) : (
                   <>
-                    <nav className="hidden w-60 shrink-0 overflow-y-auto border-r border-gray-100 bg-gray-50 p-4 lg:block">
-                      <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Modules</p>
+                    <nav className="hidden w-60 shrink-0 overflow-y-auto border-r border-gray-100 bg-gray-50 p-4 lg:block" style={{
+                      backgroundColor: 'var(--theme-panel-soft)',
+                      borderColor: 'var(--theme-border)',
+                    }}>
+                      <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400" style={{
+                        color: 'var(--theme-faint)',
+                      }}>Modules</p>
                       <ul className="space-y-1">
                         {sortedModules.map((module, index) => {
                           const active = activeModuleId === module.id;
@@ -585,14 +683,25 @@ export default function TemplatesPage() {
                             <li key={module.id}>
                               <button
                                 className={`w-full rounded-lg px-3 py-2.5 text-left transition ${active ? "bg-white shadow-sm ring-1 ring-sky-200" : "hover:bg-white/70"}`}
+                                style={active ? {
+                                  backgroundColor: 'var(--theme-panel)',
+                                } : {
+                                  backgroundColor: 'transparent',
+                                }}
                                 onClick={() => {
                                   setActiveModuleId(module.id);
                                   document.getElementById(`module-${module.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
                                 }}
                               >
-                                <span className="text-[10px] font-bold text-gray-400">M{index + 1}</span>
-                                <span className={`mt-0.5 block text-xs font-bold leading-4 ${active ? "text-sky-700" : "text-gray-800"}`}>{module.title}</span>
-                                <span className="mt-0.5 block text-[10px] font-medium text-gray-500">{module.questions?.length ?? 0} questions</span>
+                                <span className="text-[10px] font-bold text-gray-400" style={{
+                                  color: 'var(--theme-faint)',
+                                }}>M{index + 1}</span>
+                                <span className={`mt-0.5 block text-xs font-bold leading-4 ${active ? "text-sky-700" : "text-gray-800"}`} style={{
+                                  color: active ? '#7dd3fc' : 'var(--theme-heading)',
+                                }}>{module.title}</span>
+                                <span className="mt-0.5 block text-[10px] font-medium text-gray-500" style={{
+                                  color: 'var(--theme-muted)',
+                                }}>{module.questions?.length ?? 0} questions</span>
                               </button>
                             </li>
                           );
@@ -600,8 +709,13 @@ export default function TemplatesPage() {
                       </ul>
                     </nav>
 
-                    <div className="min-h-0 flex-1 overflow-y-auto p-6">
-                      {preview.description && <p className="mb-6 text-sm leading-6 text-gray-600">{preview.description}</p>}
+                    <div className="min-h-0 flex-1 overflow-y-auto p-6" style={{
+                      backgroundColor: 'var(--theme-panel)',
+                      color: 'var(--theme-text)',
+                    }}>
+                      {preview.description && <p className="mb-6 text-sm leading-6 text-gray-600" style={{
+                        color: 'var(--theme-muted)',
+                      }}>{preview.description}</p>}
                       <div className="mb-6 rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-xs font-medium leading-5 text-sky-900">
                         Read every question below before adding this pack. Using it creates your own editable copy.
                       </div>
@@ -614,15 +728,31 @@ export default function TemplatesPage() {
                             const questions = module.questions ?? [];
                             const originalIndex = sortedModules.findIndex((item) => item.id === module.id);
                             return (
-                              <section key={module.id} id={`module-${module.id}`} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                                <header className="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 bg-gray-50 px-5 py-4">
+                              <section key={module.id} id={`module-${module.id}`} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" style={{
+                                backgroundColor: 'var(--theme-panel)',
+                                borderColor: 'var(--theme-border)',
+                              }}>
+                                <header className="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 bg-gray-50 px-5 py-4" style={{
+                                  backgroundColor: 'var(--theme-panel-soft)',
+                                  borderColor: 'var(--theme-border)',
+                                }}>
                                   <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Module {(originalIndex >= 0 ? originalIndex : moduleIndex) + 1}</p>
-                                    <h4 className="mt-0.5 text-sm font-bold text-gray-900">{module.title}</h4>
-                                    {module.description && <p className="mt-1 max-w-2xl text-xs leading-5 text-gray-500">{module.description}</p>}
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400" style={{
+                                      color: 'var(--theme-faint)',
+                                    }}>Module {(originalIndex >= 0 ? originalIndex : moduleIndex) + 1}</p>
+                                    <h4 className="mt-0.5 text-sm font-bold text-gray-900" style={{
+                                      color: 'var(--theme-heading)',
+                                    }}>{module.title}</h4>
+                                    {module.description && <p className="mt-1 max-w-2xl text-xs leading-5 text-gray-500" style={{
+                                      color: 'var(--theme-muted)',
+                                    }}>{module.description}</p>}
                                   </div>
                                   <div className="flex flex-wrap gap-1.5">
-                                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-gray-600 ring-1 ring-gray-200">
+                                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-gray-600 ring-1 ring-gray-200" style={{
+                                      backgroundColor: 'var(--theme-panel)',
+                                      borderColor: 'var(--theme-border)',
+                                      color: 'var(--theme-text)',
+                                    }}>
                                       {module.type.replaceAll("_", " ")}
                                     </span>
                                     <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700 ring-1 ring-sky-100">
@@ -631,20 +761,31 @@ export default function TemplatesPage() {
                                   </div>
                                 </header>
                                 {questions.length === 0 ? (
-                                  <p className="px-5 py-6 text-xs text-gray-500">No questions in this module.</p>
+                                  <p className="px-5 py-6 text-xs text-gray-500" style={{
+                                    color: 'var(--theme-muted)',
+                                  }}>No questions in this module.</p>
                                 ) : (
-                                  <ol className="divide-y divide-gray-100">
+                                  <ol className="divide-y divide-gray-100" style={{
+                                    borderColor: 'var(--theme-border)',
+                                  }}>
                                     {questions.map((question, questionIndex) => (
-                                      <li key={question.id} className="px-5 py-4 transition hover:bg-sky-50/30">
+                                      <li key={question.id} className="px-5 py-4 transition hover:bg-sky-50/30" style={{
+                                        borderColor: 'var(--theme-border)',
+                                      }}>
                                         <div className="flex items-start gap-3">
-                                          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-[11px] font-black text-white">
+                                          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-[11px] font-black text-white" style={{
+                                            backgroundColor: 'var(--theme-heading)',
+                                            color: 'var(--theme-panel)',
+                                          }}>
                                             {questionIndex + 1}
                                           </span>
                                           <div className="min-w-0 flex-1">
                                             <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
                                               {formatQuestionType(question.questionType)}
                                             </span>
-                                            <p className="mt-2 text-sm font-semibold leading-6 text-gray-900">{question.questionText}</p>
+                                            <p className="mt-2 text-sm font-semibold leading-6 text-gray-900" style={{
+                                              color: 'var(--theme-heading)',
+                                            }}>{question.questionText}</p>
                                             <QuestionExtras question={question} />
                                           </div>
                                         </div>
@@ -680,8 +821,15 @@ export default function TemplatesPage() {
                           <button className="h-10 rounded-lg border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "edit")}>
                             Use & edit
                           </button>
-                          <button className="h-10 rounded-lg bg-sky-500 px-4 text-xs font-semibold text-white hover:bg-sky-600" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "mine")}>
-                            {busyId === preview.id ? "Adding…" : "Use as-is"}
+                          <button className="h-9 sm:h-10 rounded-lg bg-sky-500 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white hover:bg-sky-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "mine")}>
+                            {busyId === preview.id ? (
+                              <>
+                                <span className="inline-block animate-spin text-xs">⚙</span>
+                                {" "}Adding…
+                              </>
+                            ) : (
+                              "Use as-is"
+                            )}
                           </button>
                         </>
                       ) : (
