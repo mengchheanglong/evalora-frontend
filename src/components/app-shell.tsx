@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { EvaloraLogo } from "@/components/logo";
 import { Icon, type IconName } from "@/components/icons";
 import { PageLoader } from "@/components/ui-states";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { apiGet } from "@/lib/api";
+import { ORG_LOGO_CHANGED_EVENT, orgInitials, readOrgLogo } from "@/lib/org-logo";
+import type { WorkspaceProfile } from "@/lib/types";
 
 type AppShellProps = {
   active: string;
@@ -46,18 +49,76 @@ export function AppShell({
   breadcrumbs,
   hideSidebar = false,
 }: AppShellProps) {
-  const { status, user } = useAuth();
+  const { status, user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [orgLogo, setOrgLogo] = useState("");
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (status === "anonymous") router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
   }, [pathname, router, status]);
 
+  useEffect(() => {
+    if (status !== "authenticated" || !user?.organizationId) return;
+    let cancelled = false;
+    setOrgLogo(readOrgLogo(user.organizationId));
+    void apiGet<WorkspaceProfile>("/organization")
+      .then((workspace) => {
+        if (cancelled) return;
+        setWorkspaceName(workspace.name);
+        setOrgLogo(readOrgLogo(workspace.id));
+      })
+      .catch(() => {
+        if (!cancelled) setWorkspaceName("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, user?.organizationId]);
+
+  useEffect(() => {
+    function onLogoChange(event: Event) {
+      const detail = (event as CustomEvent<{ organizationId?: string; logo?: string }>).detail;
+      if (!user?.organizationId || detail?.organizationId !== user.organizationId) return;
+      setOrgLogo(detail.logo ?? readOrgLogo(user.organizationId));
+    }
+    window.addEventListener(ORG_LOGO_CHANGED_EVENT, onLogoChange);
+    return () => window.removeEventListener(ORG_LOGO_CHANGED_EVENT, onLogoChange);
+  }, [user?.organizationId]);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setAccountOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [accountOpen]);
+
   if (status !== "authenticated" || !user) {
     return <main className="min-h-screen bg-[#f7f8fa]"><PageLoader label="Opening your workspace" /></main>;
   }
+
+  async function handleLogout() {
+    setAccountOpen(false);
+    await logout();
+    router.replace("/login");
+    router.refresh();
+  }
+
+  const displayOrgName = workspaceName || "Workspace";
+  const avatarLabel = orgInitials(displayOrgName);
 
   return (
     <main className={`min-h-screen bg-[#f7f8fa] text-[#171b24] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_1fr]"}`}>
@@ -91,6 +152,65 @@ export function AppShell({
               {actions}
               <div className="hidden md:block">
                 <ThemeSwitcher compact />
+              </div>
+
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  aria-expanded={accountOpen}
+                  aria-haspopup="menu"
+                  aria-label="Organization account menu"
+                  className="flex size-10 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white shadow-sm transition hover:ring-2 hover:ring-primary-200"
+                  onClick={() => setAccountOpen((open) => !open)}
+                  type="button"
+                >
+                  {orgLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt="" className="size-full object-cover" src={orgLogo} />
+                  ) : (
+                    <span className="flex size-full items-center justify-center bg-neutral-950 text-[11px] font-black text-white">
+                      {avatarLabel}
+                    </span>
+                  )}
+                </button>
+
+                {accountOpen ? (
+                  <div
+                    className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-[12px] border border-neutral-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+                    role="menu"
+                  >
+                    <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white">
+                          {orgLogo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img alt="" className="size-full object-cover" src={orgLogo} />
+                          ) : (
+                            <span className="flex size-full items-center justify-center bg-neutral-950 text-[13px] font-black text-white">
+                              {avatarLabel}
+                            </span>
+                          )}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-neutral-900">{displayOrgName}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-neutral-500">{user.email}</p>
+                          <p className="mt-0.5 text-[10px] font-semibold capitalize text-neutral-400">{user.role === "organization" ? "Workspace owner" : user.role}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-1.5">
+                      <button
+                        className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[12px] font-semibold text-red-600 transition hover:bg-red-50"
+                        onClick={() => void handleLogout()}
+                        role="menuitem"
+                        type="button"
+                      >
+                        <Icon name="lock" size={15} />
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

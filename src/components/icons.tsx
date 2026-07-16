@@ -31,10 +31,12 @@ export type IconName =
   | "sparkle"
   | "star"
   | "sun"
+  | "trash"
   | "trend"
   | "user"
   | "waves"
-  | "users";
+  | "users"
+  | "x";
 
 type IconProps = SVGProps<SVGSVGElement> & {
   name: IconName;
@@ -259,6 +261,21 @@ const icons: Record<IconName, ReactNode> = {
   star: (
     <>
       <path d="m12 3 2.7 5.5 6.1.9-4.4 4.2 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.2 6.1-.9Z" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
     </>
   ),
   sun: (

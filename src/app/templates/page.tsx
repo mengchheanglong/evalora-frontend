@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
@@ -58,14 +59,14 @@ function mapTemplateToRow(template: AssessmentTemplate): TemplateRow {
   else if (roleLower.includes("communication")) category = "Communication";
 
   let icon: IconName = "clipboard";
-  let iconColor = "bg-gray-100 text-gray-600";
+  let iconColor = "tpl-icon tpl-icon-neutral";
   const firstModuleType = template.modules[0]?.type;
   
-  if (firstModuleType === "coding" || firstModuleType === "debugging") { icon = "code"; iconColor = "bg-indigo-100 text-indigo-600"; }
-  else if (firstModuleType === "behavioral") { icon = "users"; iconColor = "bg-orange-100 text-orange-600"; }
-  else if (firstModuleType === "leadership") { icon = "crown"; iconColor = "bg-blue-100 text-blue-600"; }
-  else if (firstModuleType === "communication") { icon = "message"; iconColor = "bg-sky-100 text-sky-600"; }
-  else if (firstModuleType === "ai_interview") { icon = "message"; iconColor = "bg-purple-100 text-purple-600"; }
+  if (firstModuleType === "coding" || firstModuleType === "debugging") { icon = "code"; iconColor = "tpl-icon tpl-icon-indigo"; }
+  else if (firstModuleType === "behavioral") { icon = "users"; iconColor = "tpl-icon tpl-icon-orange"; }
+  else if (firstModuleType === "leadership") { icon = "crown"; iconColor = "tpl-icon tpl-icon-blue"; }
+  else if (firstModuleType === "communication") { icon = "message"; iconColor = "tpl-icon tpl-icon-sky"; }
+  else if (firstModuleType === "ai_interview") { icon = "message"; iconColor = "tpl-icon tpl-icon-violet"; }
 
   const metadata = template as AssessmentTemplate & { updatedAt?: string; createdByName?: string };
   const lastUpdate = metadata.updatedAt ? new Date(metadata.updatedAt).toLocaleDateString() : "N/A";
@@ -90,24 +91,24 @@ function mapTemplateToRow(template: AssessmentTemplate): TemplateRow {
 function roleTheme(roleType: string): { icon: IconName; iconBg: string; badge: string; bar: string } {
   const role = roleType.toLowerCase();
   if (role.includes("software") || role.includes("frontend") || role.includes("developer") || role.includes("engineer")) {
-    return { icon: "code", iconBg: "bg-indigo-100 text-indigo-700", badge: "bg-indigo-50 text-indigo-700", bar: "bg-indigo-500" };
+    return { icon: "code", iconBg: "tpl-icon tpl-icon-indigo", badge: "tpl-chip tpl-chip-indigo", bar: "bg-indigo-500" };
   }
   if (role.includes("product")) {
-    return { icon: "clipboard", iconBg: "bg-violet-100 text-violet-700", badge: "bg-violet-50 text-violet-700", bar: "bg-violet-500" };
+    return { icon: "clipboard", iconBg: "tpl-icon tpl-icon-violet", badge: "tpl-chip tpl-chip-violet", bar: "bg-violet-500" };
   }
   if (role.includes("data") || role.includes("analyst")) {
-    return { icon: "analytics", iconBg: "bg-teal-100 text-teal-700", badge: "bg-teal-50 text-teal-700", bar: "bg-teal-500" };
+    return { icon: "analytics", iconBg: "tpl-icon tpl-icon-teal", badge: "tpl-chip tpl-chip-teal", bar: "bg-teal-500" };
   }
   if (role.includes("leader") || role.includes("manager")) {
-    return { icon: "crown", iconBg: "bg-blue-100 text-blue-700", badge: "bg-blue-50 text-blue-700", bar: "bg-blue-500" };
+    return { icon: "crown", iconBg: "tpl-icon tpl-icon-blue", badge: "tpl-chip tpl-chip-blue", bar: "bg-blue-500" };
   }
   if (role.includes("hr") || role.includes("people")) {
-    return { icon: "users", iconBg: "bg-orange-100 text-orange-700", badge: "bg-orange-50 text-orange-700", bar: "bg-orange-500" };
+    return { icon: "users", iconBg: "tpl-icon tpl-icon-orange", badge: "tpl-chip tpl-chip-orange", bar: "bg-orange-500" };
   }
   if (role.includes("customer") || role.includes("success")) {
-    return { icon: "message", iconBg: "bg-sky-100 text-sky-700", badge: "bg-sky-50 text-sky-700", bar: "bg-sky-500" };
+    return { icon: "message", iconBg: "tpl-icon tpl-icon-sky", badge: "tpl-chip tpl-chip-sky", bar: "bg-sky-500" };
   }
-  return { icon: "clipboard", iconBg: "bg-gray-100 text-gray-700", badge: "bg-gray-50 text-gray-700", bar: "bg-gray-500" };
+  return { icon: "clipboard", iconBg: "tpl-icon tpl-icon-neutral", badge: "tpl-chip tpl-chip-neutral", bar: "bg-gray-500" };
 }
 
 function matchesRoleFilter(roleType: string, filter: RoleFilterId): boolean {
@@ -175,6 +176,10 @@ export default function TemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilterId>("all");
   const [busyId, setBusyId] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [mounted, setMounted] = useState(false);
   
   // Preview State
   const [preview, setPreview] = useState<AssessmentTemplate | null>(null);
@@ -182,6 +187,27 @@ export default function TemplatesPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [activeModuleId, setActiveModuleId] = useState("");
   const [questionSearch, setQuestionSearch] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!deleteTarget) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !deleting) {
+        setDeleteTarget(null);
+        setDeleteError("");
+      }
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [deleteTarget, deleting]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -327,18 +353,37 @@ export default function TemplatesPage() {
     }
   }
 
-  async function deleteMine(id: string, title: string) {
-    if (!window.confirm(`Delete "${title}"? Sessions using it may be affected.`)) return;
-    setBusyId(id);
+  function requestDeleteMine(id: string, title: string) {
+    setError("");
     setNotice("");
+    setDeleteError("");
+    setDeleteTarget({ id, title });
+  }
+
+  function closeDeleteModal() {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteError("");
+  }
+
+  async function confirmDeleteMine() {
+    if (!deleteTarget) return;
+    const { id, title } = deleteTarget;
+    setDeleting(true);
+    setBusyId(id);
+    setDeleteError("");
+    setNotice("");
+    setError("");
     try {
       await apiDelete(`/templates/${encodeURIComponent(id)}`);
       setMine((current) => current.filter((item) => item.id !== id));
       if (preview?.id === id) setPreview(null);
-      setNotice("Template deleted.");
+      setDeleteTarget(null);
+      setNotice(`“${title}” was deleted from your workspace.`);
     } catch (requestError) {
-      setError(getErrorMessage(requestError, "Unable to delete template."));
+      setDeleteError(getErrorMessage(requestError, "Unable to delete template."));
     } finally {
+      setDeleting(false);
       setBusyId("");
     }
   }
@@ -431,7 +476,7 @@ export default function TemplatesPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700">Prebuilt</span>
+                            <span className="tpl-chip tpl-chip-sky rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">Prebuilt</span>
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${theme.badge}`}>{item.roleType}</span>
                           </div>
                           <h3 className="text-base font-bold text-gray-900 group-hover:text-sky-600 transition-colors line-clamp-1" style={{
@@ -542,7 +587,7 @@ export default function TemplatesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border bg-indigo-50 text-indigo-700 border-indigo-100">
+                        <span className="tpl-chip tpl-chip-indigo inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium">
                           {template.category}
                         </span>
                       </td>
@@ -578,8 +623,8 @@ export default function TemplatesPage() {
                         }}>by {template.updatedBy}</p>
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${
-                          template.status === "Active" ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-gray-50 text-gray-600 border-gray-100"
+                        <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
+                          template.status === "Active" ? "tpl-chip tpl-chip-emerald" : "tpl-chip tpl-chip-neutral"
                         }`}>
                           {template.status}
                         </span>
@@ -589,7 +634,7 @@ export default function TemplatesPage() {
                           <ActionButton icon="eye" label="Review" onClick={() => void openMinePreview(template.id)} />
                           <ActionButton icon="code" label="Edit" href={`/templates/${template.id}/edit`} />
                           <ActionButton icon="file" label="Duplicate" onClick={() => void duplicateMine(template.id)} disabled={busyId === template.id} />
-                          <ActionButton icon="more" label="Delete" onClick={() => void deleteMine(template.id, template.title)} disabled={busyId === template.id} danger />
+                          <ActionButton icon="trash" label="Delete" onClick={() => requestDeleteMine(template.id, template.title)} disabled={busyId === template.id || deleting} danger />
                         </div>
                       </td>
                     </tr>
@@ -682,26 +727,22 @@ export default function TemplatesPage() {
                           return (
                             <li key={module.id}>
                               <button
-                                className={`w-full rounded-lg px-3 py-2.5 text-left transition ${active ? "bg-white shadow-sm ring-1 ring-sky-200" : "hover:bg-white/70"}`}
-                                style={active ? {
-                                  backgroundColor: 'var(--theme-panel)',
-                                } : {
-                                  backgroundColor: 'transparent',
-                                }}
+                                className={`tpl-module-nav w-full rounded-lg px-3 py-2.5 text-left transition ${active ? "tpl-module-nav-active" : ""}`}
                                 onClick={() => {
                                   setActiveModuleId(module.id);
                                   document.getElementById(`module-${module.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
                                 }}
                               >
-                                <span className="text-[10px] font-bold text-gray-400" style={{
-                                  color: 'var(--theme-faint)',
-                                }}>M{index + 1}</span>
-                                <span className={`mt-0.5 block text-xs font-bold leading-4 ${active ? "text-sky-700" : "text-gray-800"}`} style={{
-                                  color: active ? '#7dd3fc' : 'var(--theme-heading)',
-                                }}>{module.title}</span>
-                                <span className="mt-0.5 block text-[10px] font-medium text-gray-500" style={{
-                                  color: 'var(--theme-muted)',
-                                }}>{module.questions?.length ?? 0} questions</span>
+                                <span className="text-[10px] font-bold" style={{ color: "var(--theme-faint)" }}>M{index + 1}</span>
+                                <span
+                                  className="mt-0.5 block text-xs font-bold leading-4"
+                                  style={{ color: active ? "var(--theme-active-text)" : "var(--theme-heading)" }}
+                                >
+                                  {module.title}
+                                </span>
+                                <span className="mt-0.5 block text-[10px] font-medium" style={{ color: "var(--theme-muted)" }}>
+                                  {module.questions?.length ?? 0} questions
+                                </span>
                               </button>
                             </li>
                           );
@@ -716,7 +757,7 @@ export default function TemplatesPage() {
                       {preview.description && <p className="mb-6 text-sm leading-6 text-gray-600" style={{
                         color: 'var(--theme-muted)',
                       }}>{preview.description}</p>}
-                      <div className="mb-6 rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-xs font-medium leading-5 text-sky-900">
+                      <div className="tpl-callout mb-6 rounded-lg px-4 py-3 text-xs font-medium leading-5">
                         Read every question below before adding this pack. Using it creates your own editable copy.
                       </div>
 
@@ -748,14 +789,10 @@ export default function TemplatesPage() {
                                     }}>{module.description}</p>}
                                   </div>
                                   <div className="flex flex-wrap gap-1.5">
-                                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-gray-600 ring-1 ring-gray-200" style={{
-                                      backgroundColor: 'var(--theme-panel)',
-                                      borderColor: 'var(--theme-border)',
-                                      color: 'var(--theme-text)',
-                                    }}>
+                                    <span className="tpl-chip tpl-chip-neutral rounded-full px-2.5 py-1 text-[10px] font-bold uppercase">
                                       {module.type.replaceAll("_", " ")}
                                     </span>
-                                    <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700 ring-1 ring-sky-100">
+                                    <span className="tpl-chip tpl-chip-sky rounded-full px-2.5 py-1 text-[10px] font-bold">
                                       {questions.length} Q · weight {module.weight}
                                     </span>
                                   </div>
@@ -769,21 +806,18 @@ export default function TemplatesPage() {
                                     borderColor: 'var(--theme-border)',
                                   }}>
                                     {questions.map((question, questionIndex) => (
-                                      <li key={question.id} className="px-5 py-4 transition hover:bg-sky-50/30" style={{
+                                      <li key={question.id} className="tpl-question-row px-5 py-4 transition" style={{
                                         borderColor: 'var(--theme-border)',
                                       }}>
                                         <div className="flex items-start gap-3">
-                                          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-[11px] font-black text-white" style={{
-                                            backgroundColor: 'var(--theme-heading)',
-                                            color: 'var(--theme-panel)',
-                                          }}>
+                                          <span className="tpl-q-index mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-black">
                                             {questionIndex + 1}
                                           </span>
                                           <div className="min-w-0 flex-1">
-                                            <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
+                                            <span className="tpl-chip tpl-chip-indigo inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                                               {formatQuestionType(question.questionType)}
                                             </span>
-                                            <p className="mt-2 text-sm font-semibold leading-6 text-gray-900" style={{
+                                            <p className="mt-2 text-sm font-semibold leading-6" style={{
                                               color: 'var(--theme-heading)',
                                             }}>{question.questionText}</p>
                                             <QuestionExtras question={question} />
@@ -804,24 +838,24 @@ export default function TemplatesPage() {
               </div>
 
               {preview && (
-                <footer className="shrink-0 border-t border-gray-100 bg-white px-6 py-4">
+                <footer className="tpl-drawer-footer shrink-0 border-t px-6 py-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs leading-5 text-gray-500">
+                    <p className="text-xs leading-5" style={{ color: "var(--theme-muted)" }}>
                       {previewSource === "catalog" ? "Adding creates your org-owned copy. Catalog stays shared and read-only." : "This is your workspace copy. Assign it when ready."}
                     </p>
                     <div className="flex flex-wrap justify-end gap-2">
-                      <button className="h-10 rounded-lg border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50" onClick={() => setPreview(null)}>
+                      <button className="tpl-btn-secondary h-10 rounded-lg px-4 text-xs font-semibold" onClick={() => setPreview(null)} type="button">
                         Close
                       </button>
                       {previewSource === "catalog" ? (
                         <>
-                          <button className="h-10 rounded-lg border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "session")}>
+                          <button className="tpl-btn-secondary h-10 rounded-lg px-4 text-xs font-semibold" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "session")} type="button">
                             Use & assign
                           </button>
-                          <button className="h-10 rounded-lg border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "edit")}>
+                          <button className="tpl-btn-secondary h-10 rounded-lg px-4 text-xs font-semibold" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "edit")} type="button">
                             Use & edit
                           </button>
-                          <button className="h-9 sm:h-10 rounded-lg bg-sky-500 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white hover:bg-sky-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "mine")}>
+                          <button className="h-9 sm:h-10 rounded-lg bg-sky-500 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white hover:bg-sky-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "mine")} type="button">
                             {busyId === preview.id ? (
                               <>
                                 <span className="inline-block animate-spin text-xs">⚙</span>
@@ -834,10 +868,10 @@ export default function TemplatesPage() {
                         </>
                       ) : (
                         <>
-                          <Link className="h-10 rounded-lg border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center" href={`/templates/${encodeURIComponent(preview.id)}/edit`} onClick={() => setPreview(null)}>
+                          <Link className="tpl-btn-secondary flex h-10 items-center rounded-lg px-4 text-xs font-semibold" href={`/templates/${encodeURIComponent(preview.id)}/edit`} onClick={() => setPreview(null)}>
                             Edit questions
                           </Link>
-                          <Link className="h-10 rounded-lg bg-sky-500 px-4 text-xs font-semibold text-white hover:bg-sky-600 flex items-center" href={`/assessment/create?templateId=${encodeURIComponent(preview.id)}`} onClick={() => setPreview(null)}>
+                          <Link className="flex h-10 items-center rounded-lg bg-sky-500 px-4 text-xs font-semibold text-white hover:bg-sky-600" href={`/assessment/create?templateId=${encodeURIComponent(preview.id)}`} onClick={() => setPreview(null)}>
                             Assign candidate
                           </Link>
                         </>
@@ -849,6 +883,91 @@ export default function TemplatesPage() {
             </div>
           </div>
         ) : null}
+
+        {mounted && deleteTarget
+          ? createPortal(
+              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                <button
+                  aria-label="Close delete dialog"
+                  className="absolute inset-0 bg-neutral-950/35 backdrop-blur-[2px]"
+                  disabled={deleting}
+                  onClick={closeDeleteModal}
+                  type="button"
+                />
+                <div
+                  aria-describedby="delete-template-description"
+                  aria-labelledby="delete-template-title"
+                  aria-modal="true"
+                  className="card relative z-10 w-full max-w-[420px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)] sm:p-6"
+                  role="dialog"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-red-50 text-red-600 ring-1 ring-red-100">
+                      <Icon name="trash" size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-[#087aa4]">My templates</p>
+                          <h3 className="mt-1 text-[18px] font-extrabold leading-6 text-[#151922]" id="delete-template-title">
+                            Delete template?
+                          </h3>
+                        </div>
+                        <button
+                          aria-label="Close"
+                          className="flex size-8 shrink-0 items-center justify-center rounded-[6px] border border-neutral-200 bg-white text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-800 disabled:opacity-50"
+                          disabled={deleting}
+                          onClick={closeDeleteModal}
+                          type="button"
+                        >
+                          <Icon name="x" size={14} />
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[13px] leading-5 text-neutral-600" id="delete-template-description">
+                        This removes the template and its modules from your workspace. This cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="soft-card mt-4 border border-neutral-200 px-3.5 py-3">
+                    <p className="text-[10px] font-bold uppercase text-neutral-400">Template</p>
+                    <p className="mt-1 truncate text-[13px] font-bold text-neutral-900">{deleteTarget.title}</p>
+                  </div>
+
+                  <div className="mt-3 rounded-[6px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] leading-5 text-amber-900">
+                    Templates linked to interview sessions cannot be deleted until those sessions are removed.
+                  </div>
+
+                  {deleteError ? (
+                    <div className="mt-3">
+                      <InlineAlert tone="error">{deleteError}</InlineAlert>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      className="button-secondary h-10 rounded-[6px] px-4 text-[12px] font-bold disabled:opacity-50"
+                      disabled={deleting}
+                      onClick={closeDeleteModal}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-red-600 px-4 text-[12px] font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
+                      disabled={deleting}
+                      onClick={() => void confirmDeleteMine()}
+                      type="button"
+                    >
+                      {deleting ? <span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Icon name="trash" size={14} />}
+                      {deleting ? "Deleting…" : "Delete template"}
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
       </div>
     </AppShell>
   );
@@ -859,9 +978,15 @@ export default function TemplatesPage() {
 // ==========================================
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg bg-gray-50 px-2 py-2 text-center ring-1 ring-gray-100">
-      <dt className="text-[10px] font-semibold text-gray-500">{label}</dt>
-      <dd className="mt-0.5 text-sm font-bold text-gray-900">{value}</dd>
+    <div
+      className="rounded-lg px-2 py-2 text-center"
+      style={{
+        backgroundColor: "var(--theme-panel-soft)",
+        boxShadow: "inset 0 0 0 1px var(--theme-border)",
+      }}
+    >
+      <dt className="text-[10px] font-semibold" style={{ color: "var(--theme-muted)" }}>{label}</dt>
+      <dd className="mt-0.5 text-sm font-bold" style={{ color: "var(--theme-heading)" }}>{value}</dd>
     </div>
   );
 }
@@ -869,21 +994,32 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
-      className={`inline-flex items-center rounded-md px-4 py-2 text-xs font-bold transition ${
-        active ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-      }`}
+      className="inline-flex items-center rounded-md px-4 py-2 text-xs font-bold transition"
       onClick={onClick}
+      style={
+        active
+          ? {
+              backgroundColor: "var(--theme-panel)",
+              color: "var(--theme-heading)",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+            }
+          : {
+              backgroundColor: "transparent",
+              color: "var(--theme-muted)",
+            }
+      }
+      type="button"
     >
       {children}
     </button>
   );
 }
 
-function ActionButton({ icon, label, onClick, href, disabled, danger }: { 
+function ActionButton({ icon, label, onClick, href, disabled, danger }: {
   icon: IconName; label: string; onClick?: () => void; href?: string; disabled?: boolean; danger?: boolean;
 }) {
-  const baseClasses = "p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-  const colorClasses = danger ? "text-gray-400 hover:text-red-600 hover:bg-red-50" : "text-gray-400 hover:text-sky-600 hover:bg-sky-50";
+  const baseClasses = "tpl-action p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  const colorClasses = danger ? "tpl-action-danger" : "tpl-action-default";
 
   if (href) {
     return (
@@ -907,10 +1043,24 @@ function QuestionExtras({ question }: { question: Question }) {
   return (
     <div className="mt-3 space-y-3">
       {options.length > 0 && (
-        <ul className="space-y-1.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+        <ul
+          className="space-y-1.5 rounded-lg border px-3 py-2.5"
+          style={{
+            borderColor: "var(--theme-border)",
+            backgroundColor: "var(--theme-panel-soft)",
+            color: "var(--theme-text)",
+          }}
+        >
           {options.map((option, index) => (
-            <li key={`${question.id}-opt-${index}`} className="flex items-start gap-2 text-xs leading-5 text-gray-700">
-              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded bg-white text-[10px] font-black text-gray-500 ring-1 ring-gray-200">
+            <li key={`${question.id}-opt-${index}`} className="flex items-start gap-2 text-xs leading-5">
+              <span
+                className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-black"
+                style={{
+                  backgroundColor: "var(--theme-panel)",
+                  color: "var(--theme-muted)",
+                  boxShadow: "inset 0 0 0 1px var(--theme-border)",
+                }}
+              >
                 {String.fromCharCode(65 + index)}
               </span>
               <span>{option}</span>
@@ -921,7 +1071,7 @@ function QuestionExtras({ question }: { question: Question }) {
       {rubric.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {rubric.map((cue) => (
-            <span key={cue} className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800 ring-1 ring-amber-100">
+            <span key={cue} className="tpl-chip tpl-chip-amber rounded-md px-2 py-1 text-[10px] font-bold">
               {cue}
             </span>
           ))}

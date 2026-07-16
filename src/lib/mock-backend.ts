@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { passwordPolicyError as mockPasswordPolicyError } from "@/lib/password-policy";
 import type {
   ActivityItem,
   AnalyticsSummary,
@@ -29,6 +30,8 @@ const mockUser: AuthUser = {
   role: "organization",
   organizationId: "org-demo",
 };
+
+let mockWorkspaceName = "Evalora Demo Workspace";
 
 const now = Date.now();
 const iso = (offsetHours: number) => new Date(now + offsetHours * 60 * 60 * 1000).toISOString();
@@ -475,7 +478,163 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     }
     return json<AuthResponse>({ user: mockUser, message: "Signed in to mock workspace." });
   }
+  if (relativePath === "auth/forgot-password" && method === "POST") {
+    const input = asRecord(body);
+    const email = String(input.email ?? "").trim().toLowerCase();
+    if (!email) return json({ message: "Email is required." }, 400);
+    const token = `mock-reset-${Math.random().toString(36).slice(2, 12)}`;
+    return json({
+      message: "If an account exists for that email, password reset instructions have been sent.",
+      emailDelivery: {
+        status: "skipped",
+        reason: "Mock backend does not send real email. Use the reset link below.",
+      },
+      resetUrl: `http://localhost:3010/reset-password?token=${encodeURIComponent(token)}`,
+    });
+  }
+  if (relativePath === "auth/reset-password" && method === "POST") {
+    const input = asRecord(body);
+    const token = String(input.token ?? "").trim();
+    const password = String(input.password ?? "");
+    if (!token) return json({ message: "Reset token is required." }, 400);
+    const policyError = mockPasswordPolicyError(password);
+    if (policyError) return json({ message: policyError }, 400);
+    return json({ message: "Password updated. You can sign in with your new password." });
+  }
   if (relativePath === "auth/logout" && method === "POST") return json({ message: "Signed out." });
+
+  if (relativePath === "organization" && method === "GET") {
+    const owner = mockMembers.find((member) => member.role === "organization") ?? mockMembers[0];
+    return json({
+      id: mockUser.organizationId,
+      name: mockWorkspaceName,
+      memberCount: mockMembers.length,
+      ownerName: owner?.name,
+      ownerEmail: owner?.email,
+      createdAt: iso(-720),
+      updatedAt: iso(-2),
+    });
+  }
+  if (relativePath === "organization" && method === "PUT") {
+    const input = asRecord(body);
+    const name = String(input.name ?? "").trim();
+    if (!name) return json({ message: "Organization name is required." }, 400);
+    mockWorkspaceName = name.slice(0, 120);
+    const owner = mockMembers.find((member) => member.role === "organization") ?? mockMembers[0];
+    return json({
+      id: mockUser.organizationId,
+      name: mockWorkspaceName,
+      memberCount: mockMembers.length,
+      ownerName: owner?.name,
+      ownerEmail: owner?.email,
+      createdAt: iso(-720),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  if (relativePath === "organization/privacy" && method === "GET") {
+    const completed = sessions.filter((session) => session.status === "completed").length;
+    const dates = sessions.map((session) => session.createdAt).filter(Boolean).sort();
+    return json({
+      organizationId: mockUser.organizationId,
+      organizationName: mockWorkspaceName,
+      memberCount: mockMembers.length,
+      templateCount: templates.length,
+      sessionCount: sessions.length,
+      completedSessionCount: completed,
+      reportCount: reports.length,
+      inviteCount: mockInvites.length,
+      oldestSessionAt: dates[0],
+      newestSessionAt: dates[dates.length - 1],
+      retentionPolicy:
+        "Assessment sessions, responses, code submissions, evaluations, and reports are retained while this workspace is active. Owners can export or permanently wipe operational data from Settings.",
+      advisoryNotice:
+        "AI feedback is advisory and must be reviewed by a human interviewer. Behavioral results are not medical or mental-health diagnoses.",
+    });
+  }
+  if (relativePath === "organization/export" && method === "GET") {
+    const owner = mockMembers.find((member) => member.role === "organization") ?? mockMembers[0];
+    const completed = sessions.filter((session) => session.status === "completed").length;
+    const dates = sessions.map((session) => session.createdAt).filter(Boolean).sort();
+    return json({
+      exportedAt: new Date().toISOString(),
+      organization: {
+        id: mockUser.organizationId,
+        name: mockWorkspaceName,
+        memberCount: mockMembers.length,
+        ownerName: owner?.name,
+        ownerEmail: owner?.email,
+        createdAt: iso(-720),
+        updatedAt: iso(-2),
+      },
+      privacy: {
+        organizationId: mockUser.organizationId,
+        organizationName: mockWorkspaceName,
+        memberCount: mockMembers.length,
+        templateCount: templates.length,
+        sessionCount: sessions.length,
+        completedSessionCount: completed,
+        reportCount: reports.length,
+        inviteCount: mockInvites.length,
+        oldestSessionAt: dates[0],
+        newestSessionAt: dates[dates.length - 1],
+        retentionPolicy:
+          "Assessment sessions, responses, code submissions, evaluations, and reports are retained while this workspace is active.",
+        advisoryNotice: "AI feedback is advisory and must be reviewed by a human interviewer.",
+      },
+      members: mockMembers,
+      templates: templates.map((template) => ({
+        id: template.id,
+        title: template.title,
+        description: template.description,
+        roleType: template.roleType,
+        timeLimitMin: template.timeLimitMin,
+        moduleCount: template.modules?.length ?? 0,
+        questionCount: (template.modules ?? []).reduce((sum, module) => sum + (module.questions?.length ?? 0), 0),
+      })),
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        title: session.title,
+        candidateName: session.candidateName,
+        candidateEmail: session.candidateEmail,
+        templateId: session.templateId,
+        templateTitle: session.templateTitle,
+        status: session.status,
+        accessCode: session.accessCode,
+        startedAt: session.startedAt,
+        completedAt: session.completedAt,
+        createdAt: session.createdAt,
+      })),
+      reports: reports.map((report) => ({
+        sessionId: report.sessionId,
+        overallScore: report.overallScore,
+        summary: report.summary,
+        createdAt: report.completedAt ?? report.generatedAt,
+      })),
+    });
+  }
+  if (relativePath === "organization/data" && method === "DELETE") {
+    const input = asRecord(body);
+    const confirmName = String(input.confirmName ?? "").trim();
+    if (!confirmName) return json({ message: "Type the organization name to confirm deletion." }, 400);
+    if (confirmName !== mockWorkspaceName) {
+      return json({ message: "Confirmation name does not match the organization name." }, 400);
+    }
+    const deletedSessions = sessions.length;
+    const deletedTemplates = templates.length;
+    const deletedInvites = mockInvites.length;
+    sessions.splice(0, sessions.length);
+    templates.splice(0, templates.length);
+    mockInvites.splice(0, mockInvites.length);
+    reports.splice(0, reports.length);
+    return json({
+      deleted: true,
+      organizationId: mockUser.organizationId,
+      deletedTemplates,
+      deletedSessions,
+      deletedInvites,
+      message: `Deleted ${deletedSessions} session(s), ${deletedTemplates} template(s), and ${deletedInvites} invite(s). Workspace account retained.`,
+    });
+  }
 
   if (relativePath === "organization/members" && method === "GET") {
     return json(
@@ -662,8 +821,18 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   }
   if (segments[0] === "templates" && segments[1] && method === "DELETE") {
     const id = decodeURIComponent(segments[1]);
+    const inUse = sessions.filter((session) => session.templateId === id).length;
+    if (inUse > 0) {
+      return json(
+        {
+          message: `Cannot delete this template because ${inUse} interview session${inUse === 1 ? "" : "s"} still use it. Remove or complete those sessions first.`,
+        },
+        409,
+      );
+    }
     const index = templates.findIndex((template) => template.id === id);
-    if (index >= 0) templates.splice(index, 1);
+    if (index < 0) return json({ message: "Template not found." }, 404);
+    templates.splice(index, 1);
     return json({ id, deleted: true });
   }
 

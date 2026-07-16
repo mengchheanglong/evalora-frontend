@@ -20,6 +20,80 @@ export interface AuthUser {
   organizationId?: string;
 }
 
+/** Workspace organization profile from GET/PUT /organization. */
+export interface WorkspaceProfile {
+  id: string;
+  name: string;
+  memberCount: number;
+  ownerName?: string;
+  ownerEmail?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Live data counts + retention copy from GET /organization/privacy. */
+export interface WorkspacePrivacySummary {
+  organizationId: string;
+  organizationName: string;
+  memberCount: number;
+  templateCount: number;
+  sessionCount: number;
+  completedSessionCount: number;
+  reportCount: number;
+  inviteCount: number;
+  oldestSessionAt?: string;
+  newestSessionAt?: string;
+  retentionPolicy: string;
+  advisoryNotice: string;
+}
+
+/** Full workspace export payload from GET /organization/export. */
+export interface WorkspaceExportPayload {
+  exportedAt: string;
+  organization: WorkspaceProfile;
+  privacy: WorkspacePrivacySummary;
+  members: WorkspaceMember[];
+  templates: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    roleType: string;
+    timeLimitMin?: number | null;
+    moduleCount: number;
+    questionCount: number;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
+  sessions: Array<{
+    id: string;
+    title?: string | null;
+    candidateName?: string;
+    candidateEmail?: string;
+    templateId: string;
+    templateTitle?: string;
+    status: string;
+    accessCode: string;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    createdAt?: string;
+  }>;
+  reports: Array<{
+    sessionId: string;
+    overallScore: number;
+    summary: string;
+    createdAt?: string;
+  }>;
+}
+
+export interface DeleteWorkspaceDataResult {
+  deleted: true;
+  organizationId: string;
+  deletedTemplates: number;
+  deletedSessions: number;
+  deletedInvites: number;
+  message: string;
+}
+
 export interface AuthResponse {
   user: AuthUser;
   message: string;

@@ -7,6 +7,7 @@ import { AuthLayout } from "@/components/auth-layout";
 import { useAuth } from "@/components/auth-provider";
 import { InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import { PASSWORD_RULES, passwordPolicyError } from "@/lib/password-policy";
 import type { AuthResponse, InvitePreview } from "@/lib/types";
 
 export default function AcceptInvitePage() {
@@ -19,6 +20,7 @@ export default function AcceptInvitePage() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,9 +46,14 @@ export default function AcceptInvitePage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const password = String(form.get("password") ?? "");
+    const nextPassword = String(form.get("password") ?? "");
     const confirmation = String(form.get("confirmation") ?? "");
-    if (password !== confirmation) {
+    const policyError = passwordPolicyError(nextPassword);
+    if (policyError) {
+      setError(policyError);
+      return;
+    }
+    if (nextPassword !== confirmation) {
       setError("Passwords do not match.");
       return;
     }
@@ -57,7 +64,7 @@ export default function AcceptInvitePage() {
       await apiPost<AuthResponse>("/organization/invites/accept", {
         token,
         name: String(form.get("name") ?? ""),
-        password,
+        password: nextPassword,
       });
       await refresh();
       router.replace("/dashboard");
@@ -127,10 +134,12 @@ export default function AcceptInvitePage() {
                 className="control h-11 w-full rounded-[8px] px-4 pr-12 text-[13px]"
                 minLength={8}
                 name="password"
-                placeholder="At least 8 characters"
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Aa1 + 8 chars"
                 required
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
+                value={password}
               />
               <button className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-primary-700" onClick={() => setShowPassword((v) => !v)} type="button">
                 {showPassword ? "Hide" : "Show"}
@@ -150,6 +159,18 @@ export default function AcceptInvitePage() {
             />
           </label>
         </div>
+
+        <ul className="space-y-1.5 text-[11px] text-neutral-600">
+          {PASSWORD_RULES.map((rule) => {
+            const ok = password.length > 0 && rule.test(password);
+            return (
+              <li className="flex items-center gap-2" key={rule.id}>
+                <span className={`inline-flex size-4 shrink-0 items-center justify-center rounded-full ${ok ? "bg-emerald-600" : "bg-neutral-300"}`} />
+                <span className={ok ? "text-neutral-800" : undefined}>{rule.label}</span>
+              </li>
+            );
+          })}
+        </ul>
 
         <p className="text-[11px] text-neutral-500">
           Expires {new Date(preview.expiresAt).toLocaleString()}. Candidates still use assessment links only — this is a workspace login.
