@@ -36,7 +36,7 @@ const ownerNavigation: Array<{ label: string; href: string; key: string; icon: I
 ];
 
 const sharedSecondaryNavigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
-  { label: "Setting", href: "/settings", key: "settings", icon: "settings" },
+  { label: "Settings", href: "/settings", key: "settings", icon: "settings" },
 ];
 
 export function AppShell({
@@ -164,7 +164,6 @@ export function AppShell({
                   type="button"
                 >
                   {orgLogo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img alt="" className="size-full object-cover" src={orgLogo} />
                   ) : (
                     <span className="flex size-full items-center justify-center bg-neutral-950 text-[11px] font-black text-white">
@@ -182,7 +181,6 @@ export function AppShell({
                       <div className="flex items-center gap-3">
                         <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white">
                           {orgLogo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img alt="" className="size-full object-cover" src={orgLogo} />
                           ) : (
                             <span className="flex size-full items-center justify-center bg-neutral-950 text-[13px] font-black text-white">

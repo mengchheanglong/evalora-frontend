@@ -32,7 +32,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
       style={{
         backgroundColor: "var(--theme-panel)",
         borderColor: "var(--theme-border)",
-        boxShadow: "var(--theme-shadow)",
+        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)",
       }}
     >
       {themes.map((item) => {
