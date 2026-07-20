@@ -111,8 +111,8 @@ function DashboardContent({
       detail: "All time candidates", 
       progress: 100,
       icon: "users" as IconName, 
-      tone: "text-violet-500",
-      accent: "#a855f7",
+      tone: "text-[#D504FF]",
+      accent: "#D504FF",
     },
     { 
       label: "Completed", 
@@ -227,18 +227,21 @@ function StatCard({ label, value, detail, progress, icon, tone, accent }: {
   const clampedProgress = Math.max(0, Math.min(100, progress));
 
   return (
-    <div className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-[var(--theme-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--theme-border-strong)] hover:shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
       <div className="flex items-start gap-4">
-        <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] ${tone}`}>
+        <span
+          className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${tone}`}
+          style={{ backgroundColor: `${accent}18`, borderColor: `${accent}55` }}
+        >
           <Icon name={icon} size={24} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-[var(--theme-muted)]">{label}</p>
-          <p className="mt-1 text-2xl font-bold leading-none text-[var(--theme-heading)]">{value}</p>
-          <p className="mt-2 text-[11px] text-[var(--theme-muted)]">{detail}</p>
+          <p className="text-xs font-bold text-[var(--theme-text)]">{label}</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{value}</p>
+          <p className="mt-2 text-[11px] font-medium text-[var(--theme-muted)]">{detail}</p>
         </div>
       </div>
-      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
         <div className="h-full rounded-full" style={{ width: `${clampedProgress}%`, backgroundColor: accent }} />
       </div>
     </div>
@@ -445,32 +448,32 @@ function TopCandidatesTable({ recentCompleted }: { recentCompleted: AnalyticsSum
       {topCandidates.length === 0 ? (
         <p className="rounded-lg border border-dashed border-[var(--theme-border)] bg-[var(--theme-panel-tint)] py-10 text-center text-xs text-[var(--theme-muted)]">No completed assessments yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-lg border border-[var(--theme-border)]">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-[var(--theme-border)] text-[var(--theme-muted)]">
-                <th className="pb-3 font-medium">Rank</th>
-                <th className="pb-3 font-medium">Candidate</th>
-                <th className="pb-3 font-medium">Position</th>
-                <th className="pb-3 font-medium">Overall Score</th>
-                <th className="pb-3 font-medium">Completed on</th>
-                <th className="pb-3 font-medium">Assessment Type</th>
+              <tr className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-tint)] text-[var(--theme-muted)]">
+                <th className="rounded-tl-lg px-3 py-3 font-medium">Rank</th>
+                <th className="px-3 py-3 font-medium">Candidate</th>
+                <th className="px-3 py-3 font-medium">Position</th>
+                <th className="px-3 py-3 font-medium">Overall Score</th>
+                <th className="px-3 py-3 font-medium">Completed on</th>
+                <th className="rounded-tr-lg px-3 py-3 font-medium">Assessment Type</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--theme-border)]">
               {topCandidates.map((c, index) => (
                 <tr key={c.sessionId} className="transition-colors hover:bg-[var(--theme-panel-soft)]">
-                  <td className="py-3 font-bold text-[var(--theme-heading)]">{index + 1}</td>
-                  <td className="py-3 font-semibold text-[var(--theme-heading)]">{c.candidateName}</td>
-                  <td className="py-3 text-[var(--theme-text)]">{c.targetRole}</td>
-                  <td className="py-3 font-bold text-[var(--theme-heading)]">
+                  <td className="px-3 py-3 font-bold text-[var(--theme-heading)]">{index + 1}</td>
+                  <td className="px-3 py-3 font-semibold text-[var(--theme-heading)]">{c.candidateName}</td>
+                  <td className="px-3 py-3 text-[var(--theme-text)]">{c.targetRole}</td>
+                  <td className="px-3 py-3 font-bold text-[var(--theme-heading)]">
                     {c.overallScore ? `${Math.round((c.overallScore / 5) * 100)}%` : "-"}
                   </td>
-                  <td className="py-3 text-[var(--theme-muted)]">
+                  <td className="px-3 py-3 text-[var(--theme-muted)]">
                     {c.completedAt ? new Date(c.completedAt).toLocaleDateString() : "-"}
                   </td>
-                  <td className="py-3">
-                    <span className={`px-2 py-1 rounded-md text-[10px] font-medium ${getTypeColor(c.assessmentName)}`}>
+                  <td className="px-3 py-3">
+                    <span className={`inline-block max-w-[160px] rounded-lg px-3 py-1.5 text-[11px] font-semibold leading-snug ${getTypeColor(c.assessmentName)}`}>
                       {c.assessmentName}
                     </span>
                   </td>

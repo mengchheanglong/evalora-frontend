@@ -570,7 +570,7 @@ export default function SettingsPage() {
           </section>
 
           {/* Danger zone */}
-          <section className="scroll-mt-[96px] overflow-hidden rounded-[8px] border border-red-200 bg-white shadow-sm" id="danger">
+          <section className="scroll-mt-[96px] overflow-hidden rounded-[8px] border border-[#FF0000]/30 bg-white shadow-sm" id="danger">
             <div className="p-5 sm:p-6">
               <SectionHeader
                 danger
@@ -578,7 +578,7 @@ export default function SettingsPage() {
                 icon="trash"
                 title="Danger zone"
               />
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-red-100 bg-red-50/60 px-4 py-3.5">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[#FF0000]/18 bg-[#FF0000]/10 px-4 py-3.5">
                 <div className="min-w-0">
                   <p className="text-[12px] font-bold text-neutral-900">Delete organization data</p>
                   <p className="mt-0.5 text-[11px] leading-4 text-neutral-600">
@@ -586,7 +586,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <button
-                  className="h-9 shrink-0 rounded-[6px] border border-red-300 bg-white px-3.5 text-[12px] font-bold text-red-600 transition hover:bg-red-600 hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-9 shrink-0 rounded-[6px] border border-[#FF0000]/35 bg-white px-3.5 text-[12px] font-bold text-[#FF0000] transition hover:bg-[#FF0000] hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={!isOwner}
                   onClick={() => {
                     setPrivacyError("");
@@ -651,7 +651,7 @@ export default function SettingsPage() {
             type="button"
           />
           <div className="card relative z-10 w-full max-w-[440px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="dialog">
-            <p className="text-[10px] font-bold uppercase text-red-600">Danger zone</p>
+            <p className="text-[10px] font-bold uppercase text-[#FF0000]">Danger zone</p>
             <h3 className="mt-1 text-[17px] font-extrabold text-[#151922]">Delete organization data?</h3>
             <p className="mt-3 text-[13px] leading-5 text-neutral-600">
               This permanently removes <strong>templates</strong>, <strong>interview sessions</strong> (including responses, code, and reports), and{" "}
@@ -659,7 +659,7 @@ export default function SettingsPage() {
             </p>
             <label className="mt-4 block">
               <span className="mb-2 block text-[12px] font-bold text-neutral-800">
-                Type <span className="text-red-600">{workspace.name}</span> to confirm
+                Type <span className="text-[#FF0000]">{workspace.name}</span> to confirm
               </span>
               <input
                 className="control h-11 rounded-[6px] px-3 text-[13px]"
@@ -684,7 +684,7 @@ export default function SettingsPage() {
                 Cancel
               </button>
               <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-red-600 px-4 text-[12px] font-bold text-white hover:bg-red-700 disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-[#FF0000] px-4 text-[12px] font-bold text-white hover:bg-[#D90000] disabled:opacity-60"
                 disabled={deletingData || deleteConfirmName.trim() !== workspace.name}
                 onClick={() => void confirmDeleteWorkspaceData()}
                 type="button"
@@ -717,13 +717,13 @@ function SectionHeader({
       <div className="flex items-start gap-3.5">
         <span
           className={`mt-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] ${
-            danger ? "bg-red-50 text-red-600" : "bg-primary-50 text-primary-700"
+            danger ? "bg-[#FF0000]/10 text-[#FF0000]" : "bg-primary-50 text-primary-700"
           }`}
         >
           <Icon name={icon} size={18} />
         </span>
         <div>
-          <h2 className={`text-[15px] font-extrabold ${danger ? "text-red-700" : "text-[#151922]"}`}>{title}</h2>
+          <h2 className={`text-[15px] font-extrabold ${danger ? "text-[#FF0000]" : "text-[#151922]"}`}>{title}</h2>
           <p className="mt-1 text-[12px] leading-5 text-neutral-500">{description}</p>
         </div>
       </div>
@@ -848,10 +848,10 @@ function PrivacyRow({
       type="button"
     >
       <span>
-        <span className={`block text-[12px] font-bold ${danger ? "text-red-600" : "text-neutral-800"}`}>{title}</span>
+        <span className={`block text-[12px] font-bold ${danger ? "text-[#FF0000]" : "text-neutral-800"}`}>{title}</span>
         <span className="mt-1 block text-[11px] text-neutral-500">{body}</span>
       </span>
-      <Icon className={`-rotate-90 ${danger ? "text-red-500" : "text-neutral-400"}`} name="chevron" size={14} />
+      <Icon className={`-rotate-90 ${danger ? "text-[#FF0000]" : "text-neutral-400"}`} name="chevron" size={14} />
     </button>
   );
 }

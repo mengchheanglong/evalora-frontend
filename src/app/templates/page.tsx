@@ -405,25 +405,18 @@ export default function TemplatesPage() {
           </div>
           
           <div className="flex items-center gap-3">
-            <label
-              className="group flex h-10 w-full items-center gap-2.5 rounded-lg border px-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition focus-within:ring-4 focus-within:ring-primary-500/15 sm:w-64"
-              style={{
-                backgroundColor: "var(--theme-panel)",
-                borderColor: "var(--theme-border)",
-                color: "var(--theme-text)",
-              }}
-            >
+            <label className="group flex h-12 w-full items-center gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-4 text-[var(--theme-text)] shadow-sm transition focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-500/25 sm:w-72">
               <span className="sr-only">Search templates</span>
-              <Icon className="pointer-events-none relative -top-px shrink-0 text-primary-700/65 transition group-focus-within:text-primary-700" name="search" size={17} />
+              <Icon className="pointer-events-none h-5 w-5 shrink-0 text-[var(--theme-muted)] transition group-focus-within:text-sky-500" name="search" size={20} />
               <input
-                className="min-w-0 flex-1 border-0 bg-transparent text-sm font-medium leading-none outline-none placeholder:text-gray-500"
+                className="h-full min-w-0 flex-1 border-0 !bg-transparent text-[15px] font-medium leading-none text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search templates..."
                 type="search"
                 value={searchQuery}
               />
             </label>
-            <Link href="/templates/create" className="flex items-center gap-2 h-10 px-4 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm transition-colors">
+            <Link href="/templates/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-5 text-sm font-bold text-[var(--theme-heading)] shadow-sm transition hover:border-sky-400 hover:bg-[var(--theme-panel-soft)] focus:outline-none focus:ring-2 focus:ring-sky-500/25">
               <Icon name="plus" size={16} /> New Template
             </Link>
           </div>
@@ -437,12 +430,12 @@ export default function TemplatesPage() {
               onClick={() => setRoleFilter(filter.id)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                 roleFilter === filter.id
-                  ? "bg-gray-900 text-white shadow-sm"
+                  ? "bg-sky-500 text-white shadow-sm"
                   : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
               style={roleFilter === filter.id ? {
-                backgroundColor: 'var(--theme-heading)',
-                color: 'var(--theme-panel)',
+                backgroundColor: 'var(--color-primary)',
+                color: '#ffffff',
               } : {
                 backgroundColor: 'var(--theme-panel)',
                 borderColor: 'var(--theme-border)',

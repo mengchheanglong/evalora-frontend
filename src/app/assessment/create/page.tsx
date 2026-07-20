@@ -9,9 +9,14 @@ import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import type { AssessmentTemplate, InterviewSession } from "@/lib/types";
 
+const fieldClass =
+  "w-full h-11 rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15";
+const fieldWithLeftIconClass =
+  "w-full h-11 rounded-lg border border-slate-300 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15";
+const fieldHintClass = "mt-1.5 text-xs text-slate-500";
+
 export default function CreateSessionPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -219,8 +224,8 @@ export default function CreateSessionPage() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Template <span className="text-red-500">*</span></label>
-                    <select 
-                      className="w-full h-[42px] border border-gray-300 rounded-lg px-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                    <select
+                      className={fieldClass}
                       value={selectedTemplateId}
                       onChange={(e) => setSelectedTemplateId(e.target.value)}
                       required
@@ -229,13 +234,13 @@ export default function CreateSessionPage() {
                         <option key={t.id} value={t.id}>{t.title}</option>
                       ))}
                     </select>
-                    <p className="text-xs text-gray-400 mt-1">Choose an assessment template.</p>
+                    <p className={fieldHintClass}>Choose an assessment template.</p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Interview Type <span className="text-red-500">*</span></label>
-                    <select 
-                      className="w-full h-[42px] border border-gray-300 rounded-lg px-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                    <select
+                      className={fieldClass}
                       value={interviewType}
                       onChange={(e) => setInterviewType(e.target.value)}
                     >
@@ -243,13 +248,13 @@ export default function CreateSessionPage() {
                       <option>Behavioral Interview</option>
                       <option>Leadership Interview</option>
                     </select>
-                    <p className="text-xs text-gray-400 mt-1">Select the type of interview.</p>
+                    <p className={fieldHintClass}>Select the type of interview.</p>
                   </div>
 
                   {/* Interviewers (Now Functional) */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Interviewers <span className="text-red-500">*</span></label>
-                    <div className="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-lg min-h-[42px] items-center bg-white">
+                    <div className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 p-2 transition hover:border-slate-400 focus-within:border-sky-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-sky-500/15">
                       {interviewers.map(interviewer => (
                         <span key={interviewer} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-200">
                           {interviewer}
@@ -263,33 +268,33 @@ export default function CreateSessionPage() {
                         onChange={(e) => setNewInterviewer(e.target.value)}
                         onKeyDown={handleInterviewerKeyDown}
                         onBlur={addInterviewer}
-                        className="flex-1 min-w-[150px] outline-none text-sm bg-transparent" 
+                        className="min-w-[150px] flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">Select one or more interviewers.</p>
+                    <p className={fieldHintClass}>Select one or more interviewers.</p>
                   </div>
 
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
-                    <textarea 
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500 min-h-[80px] bg-white"
+                    <textarea
+                      className="min-h-[92px] w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                     />
-                    <p className="text-xs text-gray-400 mt-1">Add any additional notes for interviewers.</p>
+                    <p className={fieldHintClass}>Add any additional notes for interviewers.</p>
                   </div>
 
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Session Language</label>
-                    <select 
-                      className="w-full h-[42px] border border-gray-300 rounded-lg px-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                    <select
+                      className={fieldClass}
                       value={sessionLanguage}
                       onChange={(e) => setSessionLanguage(e.target.value)}
                     >
                       <option>English</option>
                       <option>Khmer</option>
                     </select>
-                    <p className="text-xs text-gray-400 mt-1">Language for the interview session.</p>
+                    <p className={fieldHintClass}>Language for the interview session.</p>
                   </div>
                 </div>
               </div>
@@ -315,7 +320,7 @@ export default function CreateSessionPage() {
                       <Icon name="calendar" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         type="date" 
-                        className="w-full h-[42px] border border-gray-300 rounded-lg pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                        className={fieldWithLeftIconClass}
                         value={sessionDate}
                         onChange={(e) => setSessionDate(e.target.value)}
                         required
@@ -328,7 +333,7 @@ export default function CreateSessionPage() {
                       <Icon name="clock" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         type="time" 
-                        className="w-full h-[42px] border border-gray-300 rounded-lg pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                        className={fieldWithLeftIconClass}
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
                         required
@@ -341,7 +346,7 @@ export default function CreateSessionPage() {
                       <Icon name="clock" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         type="number" 
-                        className="w-full h-[42px] border border-gray-300 rounded-lg pl-9 pr-10 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                        className="w-full h-11 rounded-lg border border-slate-300 bg-slate-50 pl-9 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15"
                         value={duration}
                         onChange={(e) => setDuration(e.target.value)}
                         required
@@ -355,7 +360,7 @@ export default function CreateSessionPage() {
                       <Icon name="globe" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         type="text" 
-                        className="w-full h-[42px] border border-gray-300 rounded-lg pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                        className={fieldWithLeftIconClass}
                         value={timeZone}
                         onChange={(e) => setTimeZone(e.target.value)}
                         required
@@ -363,7 +368,7 @@ export default function CreateSessionPage() {
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-2">The candidate will receive an email invitation with the session details.</p>
+                <p className="mt-2 text-xs text-slate-500">The candidate will receive an email invitation with the session details.</p>
               </div>
             </div>
 
@@ -458,9 +463,9 @@ function InputField({ label, value, onChange, type = "text", required = false }:
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
-      <input 
-        type={type} 
-        className="w-full h-[42px] border border-gray-300 rounded-lg px-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+      <input
+        type={type}
+        className={fieldClass}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}

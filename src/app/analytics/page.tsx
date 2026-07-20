@@ -74,41 +74,53 @@ function AnalyticsContent({
   scoreDistribution: ScoreBucket[];
   modulePerformance: ModulePerformance[];
 }) {
-  const kpis: Array<{ label: string; value: string; detail: string; icon: IconName; tone: string }> = [
+  const totalCandidates = summary.totalCandidates || 1;
+  const averageScoreProgress = summary.averageScore ? (summary.averageScore / 5) * 100 : 0;
+  const kpis: Array<{ label: string; value: string; detail: string; progress: number; icon: IconName; tone: string; accent: string }> = [
     {
       label: "Total Candidates",
       value: summary.totalCandidates.toLocaleString(),
       detail: `${summary.totalSessions} sessions`,
+      progress: 100,
       icon: "users",
-      tone: "bg-violet-100 text-violet-700",
+      tone: "text-[#D504FF]",
+      accent: "#D504FF",
     },
     {
       label: "Completed",
       value: summary.completedAssessments.toLocaleString(),
       detail: `${Math.round(summary.completionRate * 100)}% completion rate`,
+      progress: summary.completionRate * 100,
       icon: "check",
-      tone: "bg-emerald-100 text-emerald-700",
+      tone: "text-emerald-600",
+      accent: "#10b981",
     },
     {
       label: "In progress",
       value: summary.inProgressAssessments.toLocaleString(),
       detail: `${summary.pendingAssessments} not started`,
+      progress: (summary.inProgressAssessments / totalCandidates) * 100,
       icon: "clock",
-      tone: "bg-sky-100 text-sky-700",
+      tone: "text-sky-600",
+      accent: "#0ea5e9",
     },
     {
       label: "Average score",
       value: summary.averageScore ? `${summary.averageScore.toFixed(1)}/5` : "—",
       detail: "Across generated reports",
+      progress: averageScoreProgress,
       icon: "report",
-      tone: "bg-amber-100 text-amber-700",
+      tone: "text-amber-600",
+      accent: "#f59e0b",
     },
     {
       label: "Templates",
       value: summary.totalTemplates.toLocaleString(),
       detail: `${summary.expiredAssessments} expired sessions`,
+      progress: 100,
       icon: "clipboard",
-      tone: "bg-rose-100 text-rose-700",
+      tone: "text-rose-600",
+      accent: "#e11d48",
     },
   ];
 
@@ -144,16 +156,25 @@ function AnalyticsContent({
     <div className="space-y-5">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {kpis.map((kpi) => (
-          <article className="rounded-[10px] border border-gray-200 bg-white px-4 py-4 shadow-sm" key={kpi.label}>
-            <div className="flex items-start gap-3">
-              <span className={`flex size-10 shrink-0 items-center justify-center rounded-[9px] ${kpi.tone}`}>
-                <Icon name={kpi.icon} size={19} />
+          <article className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-[var(--theme-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--theme-border-strong)] hover:shadow-[0_16px_42px_rgba(15,23,42,0.16)]" key={kpi.label}>
+            <div className="flex items-start gap-4">
+              <span
+                className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${kpi.tone}`}
+                style={{ backgroundColor: `${kpi.accent}18`, borderColor: `${kpi.accent}55` }}
+              >
+                <Icon name={kpi.icon} size={24} />
               </span>
-              <div>
-                <p className="text-[11px] font-bold text-gray-700">{kpi.label}</p>
-                <p className="mt-1 text-[24px] font-black leading-none text-black">{kpi.value}</p>
-                <p className="mt-2 text-[10px] font-semibold text-gray-500">{kpi.detail}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-[var(--theme-text)]">{kpi.label}</p>
+                <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{kpi.value}</p>
+                <p className="mt-2 text-[11px] font-medium text-[var(--theme-muted)]">{kpi.detail}</p>
               </div>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${Math.max(0, Math.min(100, kpi.progress))}%`, backgroundColor: kpi.accent }}
+              />
             </div>
           </article>
         ))}
