@@ -434,7 +434,6 @@ export default function TemplatesPage() {
                   : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
               style={roleFilter === filter.id ? {
-                backgroundColor: 'var(--color-primary)',
                 color: '#ffffff',
               } : {
                 backgroundColor: 'var(--theme-panel)',
