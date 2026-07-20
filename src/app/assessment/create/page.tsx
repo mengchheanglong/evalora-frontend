@@ -252,28 +252,27 @@ export default function CreateSessionPage() {
                   </div>
 
                   {/* Interviewers (Now Functional) */}
-{/* Interviewers (Now Functional) */}
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">Interviewers <span className="text-red-500">*</span></label>
-  <div className="flex w-full  rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition hover:border-gray-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15">
-    {interviewers.map(interviewer => (
-      <span key={interviewer} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs flex items-center gap-1 border]">
-        {interviewer}
-        <button type="button" onClick={() => removeInterviewer(interviewer)} className="text-gray-400 hover:text-gray-600 ml-1">×</button>
-      </span>
-    ))}
-    <input 
-      type="text" 
-      placeholder="Add interviewer and press Enter..." 
-      value={newInterviewer}
-      onChange={(e) => setNewInterviewer(e.target.value)}
-      onKeyDown={handleInterviewerKeyDown}
-      onBlur={addInterviewer}
-      className="min-w-[150px] flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-    />
-  </div>
-  <p className={fieldHintClass}>Select one or more interviewers.</p>
-</div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Interviewers <span className="text-red-500">*</span></label>
+                    <div className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 p-2 transition hover:border-slate-400 focus-within:border-sky-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-sky-500/15">
+                      {interviewers.map(interviewer => (
+                        <span key={interviewer} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-200">
+                          {interviewer}
+                          <button type="button" onClick={() => removeInterviewer(interviewer)} className="text-gray-400 hover:text-gray-600 ml-1">×</button>
+                        </span>
+                      ))}
+                      <input 
+                        type="text" 
+                        placeholder="Add interviewer and press Enter..." 
+                        value={newInterviewer}
+                        onChange={(e) => setNewInterviewer(e.target.value)}
+                        onKeyDown={handleInterviewerKeyDown}
+                        onBlur={addInterviewer}
+                        className="min-w-[150px] flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                      />
+                    </div>
+                    <p className={fieldHintClass}>Select one or more interviewers.</p>
+                  </div>
 
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>

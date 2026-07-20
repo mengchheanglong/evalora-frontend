@@ -166,6 +166,50 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary-500) 14%, transparent);
 }
 
+.interviewer-token-input {
+  min-height: 2rem;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  line-height: 1.25rem;
+}
+
+.interviewer-token-input:focus {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.interviewer-token-input:focus-visible {
+  outline: none !important;
+}
+
+[data-theme="dark"] .interviewer-token-field,
+[data-theme="ocean"] .interviewer-token-field {
+  background-color: var(--theme-panel-soft) !important;
+  border-color: var(--theme-border) !important;
+}
+
+[data-theme="ocean"] .interviewer-token-field {
+  background-color: var(--theme-field) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+[data-theme="dark"] .interviewer-token-field:focus-within,
+[data-theme="ocean"] .interviewer-token-field:focus-within {
+  background-color: var(--theme-field-focus, var(--theme-panel)) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 4px var(--theme-ring) !important;
+}
+
+[data-theme="dark"] .interviewer-token,
+[data-theme="ocean"] .interviewer-token {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--theme-panel)) !important;
+  color: var(--theme-heading) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--theme-border)) !important;
+}
+
 ::selection {
   background: #bfeeff;
   color: #07111f;
@@ -809,6 +853,18 @@ textarea.control {
   box-shadow: 0 0 0 3px var(--theme-ring) !important;
 }
 
+[data-theme="dark"] .interviewer-token-input,
+[data-theme="dark"] .interviewer-token-input:focus,
+[data-theme="dark"] .interviewer-token-input:focus-visible,
+[data-theme="ocean"] .interviewer-token-input,
+[data-theme="ocean"] .interviewer-token-input:focus,
+[data-theme="ocean"] .interviewer-token-input:focus-visible {
+  background: transparent !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 [data-theme="dark"] [class*="focus:border-primary"],
 [data-theme="ocean"] [class*="focus:border-primary"],
 [data-theme="dark"] [class*="focus:ring-primary"],
@@ -823,18 +879,44 @@ textarea.control {
   box-shadow: 0 0 0 4px var(--theme-ring) !important;
 }
 
-[data-theme="dark"] [class*="bg-sky-500"],
+/* Ocean is a light theme — the brand teal reads fine on it. */
 [data-theme="ocean"] [class*="bg-sky-500"],
-[data-theme="dark"] [class*="bg-primary-500"],
 [data-theme="ocean"] [class*="bg-primary-500"] {
   background-color: var(--color-primary-500) !important;
 }
-
-[data-theme="dark"] [class*="hover:bg-sky-600"]:hover,
 [data-theme="ocean"] [class*="hover:bg-sky-600"]:hover,
-[data-theme="dark"] [class*="hover:bg-primary-600"]:hover,
 [data-theme="ocean"] [class*="hover:bg-primary-600"]:hover {
   background-color: var(--color-primary-600) !important;
+}
+
+/* Dark: the bright brand cyan (#4fc9e8) glares against the navy canvas, so CTA
+   buttons use a deeper, calmer cyan that still keeps white labels readable. */
+[data-theme="dark"] [class~="bg-primary"],
+[data-theme="dark"] [class*="bg-primary-500"],
+[data-theme="dark"] [class*="bg-sky-400"],
+[data-theme="dark"] [class*="bg-sky-500"],
+[data-theme="dark"] [class*="bg-sky-600"],
+[data-theme="dark"] [class*="bg-cyan-400"],
+[data-theme="dark"] [class*="bg-cyan-500"] {
+  background-color: #279fbb !important;
+}
+[data-theme="dark"] [class*="hover:bg-sky-600"]:hover,
+[data-theme="dark"] [class*="hover:bg-sky-700"]:hover,
+[data-theme="dark"] [class*="hover:bg-cyan-600"]:hover,
+[data-theme="dark"] [class*="hover:bg-primary-600"]:hover {
+  background-color: #31acc8 !important;
+}
+
+/* Alert outlines (border-emerald/sky/red-200) are light tints that glow against
+   the dark canvas — soften them to a translucent version of their tone. */
+[data-theme="dark"] [class~="border-emerald-200"] {
+  border-color: rgba(16, 185, 129, 0.34) !important;
+}
+[data-theme="dark"] [class~="border-sky-200"] {
+  border-color: rgba(56, 189, 248, 0.30) !important;
+}
+[data-theme="dark"] [class~="border-red-200"] {
+  border-color: rgba(248, 113, 113, 0.32) !important;
 }
 
 [data-theme="dark"] [class*="text-primary"],
@@ -1047,15 +1129,29 @@ textarea.control {
   color: #a78bfa !important;
 }
 
-/* Better hover states */
-[data-theme="dark"] [class*="hover:bg-gray-50"]:hover,
-[data-theme="dark"] [class*="hover:bg-neutral-50"]:hover {
-  background-color: #1e293b !important;
+[data-theme="dark"] [class~="bg-sky-500"],
+[data-theme="ocean"] [class~="bg-sky-500"] {
+  background-color: var(--color-primary) !important;
 }
 
-[data-theme="dark"] [class*="hover:bg-gray-100"]:hover,
-[data-theme="dark"] [class*="hover:bg-neutral-100"]:hover {
-  background-color: #334155 !important;
+[data-theme="dark"] [class~="bg-sky-600"],
+[data-theme="ocean"] [class~="bg-sky-600"] {
+  background-color: var(--color-primary-600) !important;
+}
+
+[data-theme="dark"] [class*="hover:bg-sky-600"]:hover,
+[data-theme="ocean"] [class*="hover:bg-sky-600"]:hover {
+  background-color: var(--color-primary-600) !important;
+}
+
+/* Dark CTAs: deep, calm cyan (not the bright brand cyan) so buttons/pills don't
+   glare against the navy canvas. Keep in sync with the bg-primary rule above. */
+[data-theme="dark"] [class~="bg-sky-500"],
+[data-theme="dark"] [class~="bg-sky-600"] {
+  background-color: #279fbb !important;
+}
+[data-theme="dark"] [class*="hover:bg-sky-600"]:hover {
+  background-color: #31acc8 !important;
 }
 
 /* Improved shadows */
