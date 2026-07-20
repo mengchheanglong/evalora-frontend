@@ -17,7 +17,6 @@ const fieldHintClass = "mt-1.5 text-xs text-slate-500";
 
 export default function CreateSessionPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [loading, setLoading] = useState(true);

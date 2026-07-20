@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
-import { Icon } from "@/components/icons";
+import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, apiPut, getErrorMessage } from "@/lib/api";
 import { clearOrgLogo, orgInitials, readOrgLogo, writeOrgLogo } from "@/lib/org-logo";
@@ -19,45 +19,39 @@ const THEME_KEY = "evalora-theme";
 const MAX_ORG_LOGO_BYTES = 2 * 1024 * 1024;
 
 type ThemeName = "light" | "dark" | "ocean";
-type NotificationKey =
-  | "sessionAssigned"
-  | "assessmentCompleted"
-  | "candidateUpdated"
-  | "userInvited"
-  | "weeklySummary"
-  | "productUpdates";
 
 type UserPreferences = {
   timezone: string;
   dateFormat: "medium" | "iso" | "us";
   timeFormat: "12h" | "24h";
   language: "en-US";
-  notifications: Record<NotificationKey, boolean>;
 };
-
-const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string; hint: string }> = [
-  { key: "sessionAssigned", label: "New interview session assigned", hint: "When a teammate creates a session in your workspace" },
-  { key: "assessmentCompleted", label: "Assessment completed", hint: "When a candidate finishes an invite" },
-  { key: "candidateUpdated", label: "Candidate status updated", hint: "Progress changes on assigned sessions" },
-  { key: "userInvited", label: "New teammate invited", hint: "Workspace owner invite activity" },
-  { key: "weeklySummary", label: "Weekly performance summary", hint: "Digest of assessment progress and report readiness" },
-  { key: "productUpdates", label: "Product updates", hint: "Occasional Evalora product notes" },
-];
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   dateFormat: "medium",
   timeFormat: "12h",
   language: "en-US",
-  notifications: {
-    sessionAssigned: true,
-    assessmentCompleted: true,
-    candidateUpdated: true,
-    userInvited: true,
-    weeklySummary: false,
-    productUpdates: false,
-  },
 };
+
+const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: IconName; danger?: boolean }> = [
+  { id: "workspace", label: "Workspace", icon: "folder" },
+  { id: "preferences", label: "Preferences", icon: "settings" },
+  { id: "data", label: "Data & privacy", icon: "shield" },
+  { id: "danger", label: "Danger zone", icon: "trash", danger: true },
+];
+
+const THEME_OPTIONS: Array<{
+  value: ThemeName;
+  label: string;
+  hint: string;
+  icon: IconName;
+  swatch: { bg: string; panel: string; accent: string };
+}> = [
+  { value: "light", label: "Light", hint: "Default", icon: "sun", swatch: { bg: "#f7f8fa", panel: "#ffffff", accent: "#2fb2e4" } },
+  { value: "dark", label: "Dark", hint: "Low glare", icon: "moon", swatch: { bg: "#07101a", panel: "#0f1b2a", accent: "#4fc9e8" } },
+  { value: "ocean", label: "Ocean", hint: "Sea glass", icon: "waves", swatch: { bg: "#e7f4f7", panel: "#ffffff", accent: "#0e9bb8" } },
+];
 
 function preferencesKey(userId: string) {
   return `evalora-settings:${userId}`;
@@ -67,15 +61,17 @@ function readPreferences(userId: string): UserPreferences {
   if (typeof window === "undefined") return DEFAULT_PREFERENCES;
   try {
     const raw = window.localStorage.getItem(preferencesKey(userId));
-    if (!raw) return { ...DEFAULT_PREFERENCES, notifications: { ...DEFAULT_PREFERENCES.notifications } };
+    if (!raw) return { ...DEFAULT_PREFERENCES };
     const parsed = JSON.parse(raw) as Partial<UserPreferences>;
+    // Pick known keys only so stale fields (e.g. removed notification prefs) drop on next save.
     return {
-      ...DEFAULT_PREFERENCES,
-      ...parsed,
-      notifications: { ...DEFAULT_PREFERENCES.notifications, ...(parsed.notifications ?? {}) },
+      timezone: parsed.timezone ?? DEFAULT_PREFERENCES.timezone,
+      dateFormat: parsed.dateFormat ?? DEFAULT_PREFERENCES.dateFormat,
+      timeFormat: parsed.timeFormat ?? DEFAULT_PREFERENCES.timeFormat,
+      language: "en-US",
     };
   } catch {
-    return { ...DEFAULT_PREFERENCES, notifications: { ...DEFAULT_PREFERENCES.notifications } };
+    return { ...DEFAULT_PREFERENCES };
   }
 }
 
@@ -160,7 +156,6 @@ export default function SettingsPage() {
   const [savingOrg, setSavingOrg] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [prefNotice, setPrefNotice] = useState("");
-  const [notifNotice, setNotifNotice] = useState("");
   const [theme, setTheme] = useState<ThemeName>("light");
   const [timezoneOptions, setTimezoneOptions] = useState<string[]>([DEFAULT_PREFERENCES.timezone]);
   const [privacy, setPrivacy] = useState<WorkspacePrivacySummary | null>(null);
@@ -170,6 +165,7 @@ export default function SettingsPage() {
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [privacyError, setPrivacyError] = useState("");
   const [orgLogo, setOrgLogo] = useState("");
+  const [activeSection, setActiveSection] = useState("workspace");
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -202,6 +198,25 @@ export default function SettingsPage() {
     if (savedTheme === "dark" || savedTheme === "ocean" || savedTheme === "light") setTheme(savedTheme);
     setTimezoneOptions(listAllTimeZones());
   }, []);
+
+  // Scroll-spy for the section navigation.
+  useEffect(() => {
+    if (loading || !workspace) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveSection(visible[0].target.id);
+      },
+      { rootMargin: "-110px 0px -55% 0px", threshold: 0 },
+    );
+    for (const section of SETTINGS_SECTIONS) {
+      const el = document.getElementById(section.id);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [loading, workspace]);
 
   const previewStamp = useMemo(() => formatNow(preferences), [preferences]);
 
@@ -260,22 +275,8 @@ export default function SettingsPage() {
   function savePreferences() {
     if (!user) return;
     writePreferences(user.id, preferences);
-    setPrefNotice("Preferences saved on this device.");
+    setPrefNotice("Saved on this device.");
     window.setTimeout(() => setPrefNotice(""), 2500);
-  }
-
-  function saveNotifications() {
-    if (!user) return;
-    writePreferences(user.id, preferences);
-    setNotifNotice("Notification preferences saved on this device.");
-    window.setTimeout(() => setNotifNotice(""), 2500);
-  }
-
-  function updateNotification(key: NotificationKey, checked: boolean) {
-    setPreferences((current) => ({
-      ...current,
-      notifications: { ...current.notifications, [key]: checked },
-    }));
   }
 
   function handleThemeChange(next: ThemeName) {
@@ -367,88 +368,120 @@ export default function SettingsPage() {
   return (
     <AppShell
       active="settings"
-      description="Workspace details, preferences, and data controls."
+      description="Manage your workspace profile, personal preferences, and data controls."
       title="Settings"
     >
-      <div className="mx-auto max-w-[1100px] space-y-4">
-        {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
-        {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
-
-        {/* Workspace */}
-        <section className="card p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase text-[#087aa4]">Workspace</p>
-              <h2 className="mt-1 text-[15px] font-extrabold text-[#151922]">Organization</h2>
-              <p className="mt-1 text-[12px] leading-5 text-neutral-500">
-                {isOwner
-                  ? "Owners can rename the workspace and set the logo shown in the header."
-                  : "Interviewers can view workspace details. Only the owner can edit name and logo."}
-              </p>
-            </div>
-            <Link className="button-secondary h-9 rounded-[6px] px-3 text-[11px]" href="/users">
-              Open team
-            </Link>
+      <div className="mx-auto max-w-[1100px] lg:grid lg:grid-cols-[192px_minmax(0,1fr)] lg:items-start lg:gap-7">
+        {/* Section navigation */}
+        <nav aria-label="Settings sections" className="hidden lg:sticky lg:top-[100px] lg:block">
+          <div className="space-y-1">
+            {SETTINGS_SECTIONS.map((section) => {
+              const active = activeSection === section.id;
+              return (
+                <a
+                  className={`flex h-9 items-center gap-2.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${
+                    active
+                      ? "bg-[#bfeeff] text-primary-700"
+                      : section.danger
+                        ? "text-red-600 hover:bg-red-50"
+                        : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950"
+                  }`}
+                  href={`#${section.id}`}
+                  key={section.id}
+                >
+                  <Icon name={section.icon} size={15} />
+                  {section.label}
+                </a>
+              );
+            })}
           </div>
+        </nav>
 
-          <form className="mt-6 grid gap-6 lg:grid-cols-[160px_1fr]" onSubmit={(event) => void saveOrganization(event)}>
-            <div>
-              <p className="mb-2 text-[12px] font-bold text-neutral-800">Organization logo</p>
-              <div className="grid aspect-square w-[132px] place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-50 shadow-sm">
-                {orgLogo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img alt={`${orgName || "Organization"} logo`} className="size-full object-cover" src={orgLogo} />
-                ) : (
-                  <span className="text-[28px] font-black text-neutral-700">{orgInitials(orgName || workspace?.name || "E")}</span>
-                )}
-              </div>
-              {isOwner ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <label className="button-secondary h-8 cursor-pointer rounded-[6px] px-3 text-[11px]">
-                    Upload
+        <div className="space-y-5">
+          {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+          {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
+
+          {/* Workspace */}
+          <section className="card scroll-mt-[96px] overflow-hidden" id="workspace">
+            <form onSubmit={(event) => void saveOrganization(event)}>
+              <div className="p-5 sm:p-6">
+                <SectionHeader
+                  action={
+                    <Link className="button-secondary h-9 rounded-[6px] px-3 text-[11px]" href="/users">
+                      Open team
+                    </Link>
+                  }
+                  description={
+                    isOwner
+                      ? "Your organization's identity across the workspace and candidate invites."
+                      : "Workspace details. Only the owner can edit the name and logo."
+                  }
+                  icon="folder"
+                  title="Workspace profile"
+                />
+
+                <div className="mt-6 flex flex-wrap items-center gap-4">
+                  <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-50 shadow-sm">
+                    {orgLogo ? (
+                      <img alt={`${orgName || "Organization"} logo`} className="size-full object-cover" src={orgLogo} />
+                    ) : (
+                      <span className="text-[18px] font-black text-neutral-700">{orgInitials(orgName || workspace?.name || "E")}</span>
+                    )}
+                  </div>
+                  <div>
+                    {isOwner ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="button-secondary h-8 cursor-pointer rounded-[6px] px-3 text-[11px]">
+                          Upload logo
+                          <input
+                            accept="image/png,image/jpeg,image/webp,image/gif"
+                            className="sr-only"
+                            onChange={(event) => handleOrgLogoUpload(event.target.files?.[0])}
+                            type="file"
+                          />
+                        </label>
+                        {orgLogo ? (
+                          <button
+                            className="h-8 rounded-[6px] border border-red-200 px-3 text-[11px] font-bold text-red-600 hover:bg-red-50"
+                            onClick={handleOrgLogoRemove}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <p className="mt-1.5 text-[11px] leading-4 text-neutral-500">
+                      {isOwner
+                        ? "JPG, PNG, or WebP · max 2MB · shown in the header for this workspace on this device."
+                        : "Shown in the workspace header. Ask the owner to change it."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 border-t border-neutral-100 pt-6 sm:grid-cols-2">
+                  <label className="block sm:col-span-2">
+                    <span className="mb-2 block text-[12px] font-bold text-neutral-800">Organization name</span>
                     <input
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="sr-only"
-                      onChange={(event) => handleOrgLogoUpload(event.target.files?.[0])}
-                      type="file"
+                      className="control h-11 rounded-[6px] px-3 text-[13px]"
+                      disabled={!isOwner || savingOrg}
+                      onChange={(event) => setOrgName(event.target.value)}
+                      required
+                      value={orgName}
                     />
                   </label>
-                  {orgLogo ? (
-                    <button
-                      className="h-8 rounded-[6px] border border-red-200 px-3 text-[11px] font-bold text-red-600 hover:bg-red-50"
-                      onClick={handleOrgLogoRemove}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  ) : null}
+                  <ReadOnlyField label="Organization ID" value={workspace?.id ?? user.organizationId ?? "—"} mono />
+                  <ReadOnlyField label="Members" value={workspace ? String(workspace.memberCount) : "—"} />
+                  <ReadOnlyField label="Owner" value={workspace?.ownerName ?? "—"} />
+                  <ReadOnlyField label="Owner email" value={workspace?.ownerEmail ?? "—"} />
+                  <ReadOnlyField label="Created" value={formatDate(workspace?.createdAt, preferences)} />
+                  <ReadOnlyField label="Last updated" value={formatDate(workspace?.updatedAt, preferences)} />
                 </div>
-              ) : null}
-              <p className="mt-2 max-w-[140px] text-[10px] leading-4 text-neutral-500">
-                JPG, PNG, or WebP. Max 2MB. Shown in the header for this workspace on this device.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block sm:col-span-2">
-                <span className="mb-2 block text-[12px] font-bold text-neutral-800">Organization name</span>
-                <input
-                  className="control h-11 rounded-[6px] px-3 text-[13px]"
-                  disabled={!isOwner || savingOrg}
-                  onChange={(event) => setOrgName(event.target.value)}
-                  required
-                  value={orgName}
-                />
-              </label>
-              <ReadOnlyField label="Organization ID" value={workspace?.id ?? user.organizationId ?? "—"} mono />
-              <ReadOnlyField label="Members" value={workspace ? String(workspace.memberCount) : "—"} />
-              <ReadOnlyField label="Owner" value={workspace?.ownerName ?? "—"} />
-              <ReadOnlyField label="Owner email" value={workspace?.ownerEmail ?? "—"} />
-              <ReadOnlyField label="Created" value={formatDate(workspace?.createdAt, preferences)} />
-              <ReadOnlyField label="Last updated" value={formatDate(workspace?.updatedAt, preferences)} />
+              </div>
 
               {isOwner ? (
-                <div className="sm:col-span-2 flex justify-end">
+                <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-5 py-3.5 sm:px-6">
+                  <p className="text-[11px] text-neutral-500">Name changes apply to everyone in this workspace.</p>
                   <button
                     className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-[12px] hover:!bg-primary-600"
                     disabled={savingOrg || !orgName.trim()}
@@ -456,105 +489,94 @@ export default function SettingsPage() {
                   >
                     {savingOrg ? "Saving…" : "Save workspace"}
                   </button>
-                </div>
+                </footer>
               ) : null}
-            </div>
-          </form>
-        </section>
+            </form>
+          </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
           {/* Preferences */}
-          <article className="card flex flex-col p-5">
-            <h2 className="text-[15px] font-extrabold text-[#151922]">Preferences</h2>
-            <p className="mt-1 text-[12px] leading-5 text-neutral-500">Saved on this device for your account.</p>
+          <section className="card scroll-mt-[96px] overflow-hidden" id="preferences">
+            <div className="p-5 sm:p-6">
+              <SectionHeader
+                description="Personal display settings, saved on this device for your account."
+                icon="settings"
+                title="Preferences"
+              />
 
-            <div className="mt-5 space-y-4">
-              <SelectField
-                label="Theme"
-                onChange={(value) => handleThemeChange(value as ThemeName)}
-                options={[
-                  { value: "light", label: "Light" },
-                  { value: "dark", label: "Dark" },
-                  { value: "ocean", label: "Ocean" },
-                ]}
-                value={theme}
-              />
-              <SelectField
-                label="Timezone"
-                onChange={(value) => setPreferences((current) => ({ ...current, timezone: value }))}
-                options={ensureTimezoneInList(timezoneOptions, preferences.timezone).map((zone) => ({
-                  value: zone,
-                  label: zone.replaceAll("_", " "),
-                }))}
-                value={preferences.timezone}
-              />
-              <SelectField
-                label="Date format"
-                onChange={(value) => setPreferences((current) => ({ ...current, dateFormat: value as UserPreferences["dateFormat"] }))}
-                options={[
-                  { value: "medium", label: "May 31, 2026" },
-                  { value: "us", label: "05/31/2026" },
-                  { value: "iso", label: "2026-05-31" },
-                ]}
-                value={preferences.dateFormat}
-              />
-              <SelectField
-                label="Time format"
-                onChange={(value) => setPreferences((current) => ({ ...current, timeFormat: value as UserPreferences["timeFormat"] }))}
-                options={[
-                  { value: "12h", label: "12-hour (AM/PM)" },
-                  { value: "24h", label: "24-hour" },
-                ]}
-                value={preferences.timeFormat}
-              />
-              <div className="rounded-[6px] border border-neutral-200 bg-neutral-50 px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase text-neutral-400">Preview</p>
-                <p className="mt-1 text-[12px] font-semibold text-neutral-800">{previewStamp}</p>
+              <p className="mt-6 mb-2 text-[12px] font-bold text-neutral-800">Theme</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {THEME_OPTIONS.map((option) => (
+                  <ThemeCard
+                    active={theme === option.value}
+                    key={option.value}
+                    onSelect={() => handleThemeChange(option.value)}
+                    option={option}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <SelectField
+                    label="Timezone"
+                    onChange={(value) => setPreferences((current) => ({ ...current, timezone: value }))}
+                    options={ensureTimezoneInList(timezoneOptions, preferences.timezone).map((zone) => ({
+                      value: zone,
+                      label: zone.replaceAll("_", " "),
+                    }))}
+                    value={preferences.timezone}
+                  />
+                </div>
+                <SelectField
+                  label="Date format"
+                  onChange={(value) => setPreferences((current) => ({ ...current, dateFormat: value as UserPreferences["dateFormat"] }))}
+                  options={[
+                    { value: "medium", label: "May 31, 2026" },
+                    { value: "us", label: "05/31/2026" },
+                    { value: "iso", label: "2026-05-31" },
+                  ]}
+                  value={preferences.dateFormat}
+                />
+                <SelectField
+                  label="Time format"
+                  onChange={(value) => setPreferences((current) => ({ ...current, timeFormat: value as UserPreferences["timeFormat"] }))}
+                  options={[
+                    { value: "12h", label: "12-hour (AM/PM)" },
+                    { value: "24h", label: "24-hour" },
+                  ]}
+                  value={preferences.timeFormat}
+                />
               </div>
             </div>
 
-            {prefNotice ? <p className="mt-3 text-[11px] font-semibold text-emerald-700">{prefNotice}</p> : null}
-            <div className="mt-auto flex justify-end pt-5">
-              <button className="button-secondary h-9 rounded-[6px] px-4 text-[11px] !text-primary-700" onClick={savePreferences} type="button">
+            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-5 py-3.5 sm:px-6">
+              {prefNotice ? (
+                <p className="text-[11px] font-semibold text-emerald-700">{prefNotice}</p>
+              ) : (
+                <p className="text-[11px] text-neutral-500">
+                  Preview: <span className="font-semibold text-neutral-700">{previewStamp}</span>
+                </p>
+              )}
+              <button
+                className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-[12px] hover:!bg-primary-600"
+                onClick={savePreferences}
+                type="button"
+              >
                 Save preferences
               </button>
-            </div>
-          </article>
-
-          {/* Notifications */}
-          <article className="card flex flex-col p-5">
-            <h2 className="text-[15px] font-extrabold text-[#151922]">Email notifications</h2>
-            <p className="mt-1 text-[12px] leading-5 text-neutral-500">
-              Preferences are stored on this device. Delivery still depends on workspace email configuration.
-            </p>
-            <div className="mt-5 space-y-3">
-              {NOTIFICATION_ROWS.map((row) => (
-                <div className="flex items-start justify-between gap-3" key={row.key}>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-neutral-800">{row.label}</p>
-                    <p className="mt-0.5 text-[11px] leading-4 text-neutral-500">{row.hint}</p>
-                  </div>
-                  <Toggle checked={preferences.notifications[row.key]} onChange={(checked) => updateNotification(row.key, checked)} />
-                </div>
-              ))}
-            </div>
-            {notifNotice ? <p className="mt-3 text-[11px] font-semibold text-emerald-700">{notifNotice}</p> : null}
-            <div className="mt-auto flex justify-end pt-5">
-              <button className="button-secondary h-9 rounded-[6px] px-4 text-[11px] !text-primary-700" onClick={saveNotifications} type="button">
-                Save notifications
-              </button>
-            </div>
-          </article>
+            </footer>
+          </section>
 
           {/* Data & Privacy */}
-          <article className="card flex flex-col overflow-hidden">
-            <div className="p-5">
-              <h2 className="text-[15px] font-extrabold text-[#151922]">Data &amp; Privacy</h2>
-              <p className="mt-1 text-[12px] leading-5 text-neutral-500">
-                Live workspace counts and owner-only export/delete controls.
-              </p>
+          <section className="card scroll-mt-[96px] overflow-hidden" id="data">
+            <div className="p-5 sm:p-6">
+              <SectionHeader
+                description="Live workspace counts, data export, and retention details."
+                icon="shield"
+                title="Data & privacy"
+              />
               {privacy ? (
-                <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <PrivacyStat label="Templates" value={privacy.templateCount} />
                   <PrivacyStat label="Sessions" value={privacy.sessionCount} />
                   <PrivacyStat label="Reports" value={privacy.reportCount} />
@@ -562,6 +584,7 @@ export default function SettingsPage() {
                 </div>
               ) : null}
             </div>
+
             <div className="divide-y divide-neutral-100 border-t border-neutral-100">
               <PrivacyRow
                 title={exporting ? "Exporting…" : "Export organization data"}
@@ -581,19 +604,9 @@ export default function SettingsPage() {
                   setPrivacyPanel("retention");
                 }}
               />
-              <PrivacyRow
-                danger
-                title="Delete organization data"
-                body="Wipe sessions, templates, and invites (keeps your account)"
-                disabled={!isOwner}
-                onClick={() => {
-                  setPrivacyError("");
-                  setDeleteConfirmName("");
-                  setPrivacyPanel("delete");
-                }}
-              />
             </div>
-            <div className="mt-auto space-y-3 border-t border-neutral-100 p-5">
+
+            <footer className="space-y-3 border-t border-neutral-200 bg-neutral-50 px-5 py-4 sm:px-6">
               <p className="text-[11px] font-semibold leading-5 text-neutral-600">
                 {privacy?.advisoryNotice ??
                   "AI feedback in Evalora is advisory and must be reviewed by a human interviewer. Behavioral results are not medical or mental-health diagnoses."}
@@ -601,103 +614,216 @@ export default function SettingsPage() {
               {!isOwner ? (
                 <p className="text-[11px] leading-5 text-neutral-500">Export and delete require workspace owner access.</p>
               ) : null}
-              <FooterLink href="/privacy" label="Privacy Policy" />
-              <FooterLink href="/terms" label="Terms of Service" />
-            </div>
-          </article>
-        </section>
+              <div className="flex flex-wrap gap-5">
+                <FooterLink href="/privacy" label="Privacy Policy" />
+                <FooterLink href="/terms" label="Terms of Service" />
+              </div>
+            </footer>
+          </section>
 
-        {privacyPanel === "retention" && privacy ? (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <button aria-label="Close" className="absolute inset-0 bg-neutral-950/35 backdrop-blur-[2px]" onClick={() => setPrivacyPanel("none")} type="button" />
-            <div className="card relative z-10 w-full max-w-[440px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="dialog">
-              <p className="text-[10px] font-bold uppercase text-[#087aa4]">Data retention</p>
-              <h3 className="mt-1 text-[17px] font-extrabold text-[#151922]">{privacy.organizationName}</h3>
-              <p className="mt-3 text-[13px] leading-5 text-neutral-600">{privacy.retentionPolicy}</p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <PrivacyStat label="Templates" value={privacy.templateCount} />
-                <PrivacyStat label="Sessions" value={privacy.sessionCount} />
-                <PrivacyStat label="Completed" value={privacy.completedSessionCount} />
-                <PrivacyStat label="Reports" value={privacy.reportCount} />
-              </div>
-              <div className="mt-4 space-y-2 rounded-[6px] border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-[12px] text-neutral-700">
-                <p>
-                  <span className="font-bold text-neutral-900">Oldest session:</span>{" "}
-                  {formatDate(privacy.oldestSessionAt, preferences)}
-                </p>
-                <p>
-                  <span className="font-bold text-neutral-900">Newest session:</span>{" "}
-                  {formatDate(privacy.newestSessionAt, preferences)}
-                </p>
-                <p>
-                  <span className="font-bold text-neutral-900">Pending/other invites:</span> {privacy.inviteCount}
-                </p>
-              </div>
-              <div className="mt-5 flex justify-end">
-                <button className="button-secondary h-10 rounded-[6px] px-4 text-[12px]" onClick={() => setPrivacyPanel("none")} type="button">
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {privacyPanel === "delete" && workspace ? (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <button
-              aria-label="Close"
-              className="absolute inset-0 bg-neutral-950/35 backdrop-blur-[2px]"
-              disabled={deletingData}
-              onClick={() => !deletingData && setPrivacyPanel("none")}
-              type="button"
-            />
-            <div className="card relative z-10 w-full max-w-[440px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="dialog">
-              <p className="text-[10px] font-bold uppercase text-red-600">Danger zone</p>
-              <h3 className="mt-1 text-[17px] font-extrabold text-[#151922]">Delete organization data?</h3>
-              <p className="mt-3 text-[13px] leading-5 text-neutral-600">
-                This permanently removes <strong>templates</strong>, <strong>interview sessions</strong> (including responses, code, and reports), and{" "}
-                <strong>invites</strong>. Your owner account and workspace name stay so you can continue using Evalora.
-              </p>
-              <label className="mt-4 block">
-                <span className="mb-2 block text-[12px] font-bold text-neutral-800">
-                  Type <span className="text-red-600">{workspace.name}</span> to confirm
-                </span>
-                <input
-                  className="control h-11 rounded-[6px] px-3 text-[13px]"
-                  disabled={deletingData}
-                  onChange={(event) => setDeleteConfirmName(event.target.value)}
-                  placeholder={workspace.name}
-                  value={deleteConfirmName}
-                />
-              </label>
-              {privacyError ? (
-                <div className="mt-3">
-                  <InlineAlert tone="error">{privacyError}</InlineAlert>
+          {/* Danger zone */}
+          <section className="scroll-mt-[96px] overflow-hidden rounded-[8px] border border-red-200 bg-white shadow-sm" id="danger">
+            <div className="p-5 sm:p-6">
+              <SectionHeader
+                danger
+                description="Destructive actions for this workspace. These cannot be undone."
+                icon="trash"
+                title="Danger zone"
+              />
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-red-100 bg-red-50/60 px-4 py-3.5">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-neutral-900">Delete organization data</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-neutral-600">
+                    Permanently removes templates, sessions, and invites. Your account and workspace name stay.
+                  </p>
                 </div>
-              ) : null}
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
-                  className="button-secondary h-10 rounded-[6px] px-4 text-[12px]"
-                  disabled={deletingData}
-                  onClick={() => setPrivacyPanel("none")}
+                  className="h-9 shrink-0 rounded-[6px] border border-red-300 bg-white px-3.5 text-[12px] font-bold text-red-600 transition hover:bg-red-600 hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!isOwner}
+                  onClick={() => {
+                    setPrivacyError("");
+                    setDeleteConfirmName("");
+                    setPrivacyPanel("delete");
+                  }}
                   type="button"
                 >
-                  Cancel
-                </button>
-                <button
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-red-600 px-4 text-[12px] font-bold text-white hover:bg-red-700 disabled:opacity-60"
-                  disabled={deletingData || deleteConfirmName.trim() !== workspace.name}
-                  onClick={() => void confirmDeleteWorkspaceData()}
-                  type="button"
-                >
-                  {deletingData ? "Deleting…" : "Delete data"}
+                  Delete data…
                 </button>
               </div>
+              {!isOwner ? (
+                <p className="mt-3 text-[11px] text-neutral-500">Only the workspace owner can delete organization data.</p>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {privacyPanel === "retention" && privacy ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <button aria-label="Close" className="absolute inset-0 bg-neutral-950/35 backdrop-blur-[2px]" onClick={() => setPrivacyPanel("none")} type="button" />
+          <div className="card relative z-10 w-full max-w-[440px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="dialog">
+            <p className="text-[10px] font-bold uppercase text-[#087aa4]">Data retention</p>
+            <h3 className="mt-1 text-[17px] font-extrabold text-[#151922]">{privacy.organizationName}</h3>
+            <p className="mt-3 text-[13px] leading-5 text-neutral-600">{privacy.retentionPolicy}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <PrivacyStat label="Templates" value={privacy.templateCount} />
+              <PrivacyStat label="Sessions" value={privacy.sessionCount} />
+              <PrivacyStat label="Completed" value={privacy.completedSessionCount} />
+              <PrivacyStat label="Reports" value={privacy.reportCount} />
+            </div>
+            <div className="mt-4 space-y-2 rounded-[6px] border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-[12px] text-neutral-700">
+              <p>
+                <span className="font-bold text-neutral-900">Oldest session:</span>{" "}
+                {formatDate(privacy.oldestSessionAt, preferences)}
+              </p>
+              <p>
+                <span className="font-bold text-neutral-900">Newest session:</span>{" "}
+                {formatDate(privacy.newestSessionAt, preferences)}
+              </p>
+              <p>
+                <span className="font-bold text-neutral-900">Pending/other invites:</span> {privacy.inviteCount}
+              </p>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button className="button-secondary h-10 rounded-[6px] px-4 text-[12px]" onClick={() => setPrivacyPanel("none")} type="button">
+                Close
+              </button>
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
+
+      {privacyPanel === "delete" && workspace ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <button
+            aria-label="Close"
+            className="absolute inset-0 bg-neutral-950/35 backdrop-blur-[2px]"
+            disabled={deletingData}
+            onClick={() => !deletingData && setPrivacyPanel("none")}
+            type="button"
+          />
+          <div className="card relative z-10 w-full max-w-[440px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="dialog">
+            <p className="text-[10px] font-bold uppercase text-red-600">Danger zone</p>
+            <h3 className="mt-1 text-[17px] font-extrabold text-[#151922]">Delete organization data?</h3>
+            <p className="mt-3 text-[13px] leading-5 text-neutral-600">
+              This permanently removes <strong>templates</strong>, <strong>interview sessions</strong> (including responses, code, and reports), and{" "}
+              <strong>invites</strong>. Your owner account and workspace name stay so you can continue using Evalora.
+            </p>
+            <label className="mt-4 block">
+              <span className="mb-2 block text-[12px] font-bold text-neutral-800">
+                Type <span className="text-red-600">{workspace.name}</span> to confirm
+              </span>
+              <input
+                className="control h-11 rounded-[6px] px-3 text-[13px]"
+                disabled={deletingData}
+                onChange={(event) => setDeleteConfirmName(event.target.value)}
+                placeholder={workspace.name}
+                value={deleteConfirmName}
+              />
+            </label>
+            {privacyError ? (
+              <div className="mt-3">
+                <InlineAlert tone="error">{privacyError}</InlineAlert>
+              </div>
+            ) : null}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="button-secondary h-10 rounded-[6px] px-4 text-[12px]"
+                disabled={deletingData}
+                onClick={() => setPrivacyPanel("none")}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-red-600 px-4 text-[12px] font-bold text-white hover:bg-red-700 disabled:opacity-60"
+                disabled={deletingData || deleteConfirmName.trim() !== workspace.name}
+                onClick={() => void confirmDeleteWorkspaceData()}
+                type="button"
+              >
+                {deletingData ? "Deleting…" : "Delete data"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AppShell>
+  );
+}
+
+function SectionHeader({
+  icon,
+  title,
+  description,
+  action,
+  danger = false,
+}: {
+  icon: IconName;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start gap-3.5">
+        <span
+          className={`mt-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] ${
+            danger ? "bg-red-50 text-red-600" : "bg-primary-50 text-primary-700"
+          }`}
+        >
+          <Icon name={icon} size={18} />
+        </span>
+        <div>
+          <h2 className={`text-[15px] font-extrabold ${danger ? "text-red-700" : "text-[#151922]"}`}>{title}</h2>
+          <p className="mt-1 text-[12px] leading-5 text-neutral-500">{description}</p>
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function ThemeCard({
+  option,
+  active,
+  onSelect,
+}: {
+  option: (typeof THEME_OPTIONS)[number];
+  active: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      className={`rounded-[10px] border p-3 text-left transition ${
+        active ? "border-primary-400 ring-2 ring-primary-100" : "border-neutral-200 hover:border-neutral-300"
+      }`}
+      onClick={onSelect}
+      type="button"
+    >
+      <span
+        aria-hidden="true"
+        className="relative block h-11 w-full overflow-hidden rounded-[6px] border border-black/5"
+        style={{ backgroundColor: option.swatch.bg }}
+      >
+        <span className="absolute inset-y-1.5 left-1.5 w-[46%] rounded-[4px] shadow-sm" style={{ backgroundColor: option.swatch.panel }} />
+        <span className="absolute right-2 top-1/2 size-2.5 -translate-y-1/2 rounded-full" style={{ backgroundColor: option.swatch.accent }} />
+      </span>
+      <span className="mt-2.5 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-[12px] font-bold text-neutral-800">
+          <Icon className="text-neutral-500" name={option.icon} size={13} />
+          {option.label}
+        </span>
+        {active ? (
+          <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary-500 text-white">
+            <Icon name="check" size={10} />
+          </span>
+        ) : (
+          <span className="text-[10px] font-semibold text-neutral-400">{option.hint}</span>
+        )}
+      </span>
+    </button>
   );
 }
 
@@ -744,19 +870,6 @@ function SelectField({
   );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <button
-      aria-pressed={checked}
-      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition ${checked ? "bg-primary-500" : "bg-neutral-300"}`}
-      onClick={() => onChange(!checked)}
-      type="button"
-    >
-      <span className={`mt-0.5 size-4 rounded-full bg-white shadow transition ${checked ? "translate-x-[18px]" : "translate-x-0.5"}`} />
-    </button>
-  );
-}
-
 function PrivacyStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-[6px] border border-neutral-200 bg-neutral-50 px-2.5 py-2">
@@ -781,7 +894,7 @@ function PrivacyRow({
 }) {
   return (
     <button
-      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -797,7 +910,7 @@ function PrivacyRow({
 
 function FooterLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link className="flex items-center justify-between text-[12px] font-bold text-neutral-700 hover:text-neutral-950" href={href}>
+    <Link className="inline-flex items-center gap-1 text-[12px] font-bold text-neutral-700 hover:text-neutral-950" href={href}>
       {label}
       <Icon className="-rotate-90 text-neutral-400" name="chevron" size={13} />
     </Link>

@@ -93,34 +93,42 @@
   color-scheme: light;
 }
 
-* {
-  box-sizing: border-box;
-  letter-spacing: 0 !important;
-}
+/*
+ * Element resets live in `@layer base` so Tailwind utilities (which sit in the
+ * later `utilities` layer) can override them. Unlayered rules would win over
+ * every utility regardless of specificity — e.g. `a { color: inherit }` used
+ * to defeat `text-white`, and `* { letter-spacing: 0 }` defeated `tracking-*`.
+ */
+@layer base {
+  * {
+    box-sizing: border-box;
+    letter-spacing: 0;
+  }
 
-html {
-  scroll-behavior: smooth;
-}
+  html {
+    scroll-behavior: smooth;
+  }
 
-body {
-  margin: 0;
-  background: #f7f8fa;
-  color: #121722;
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
+  body {
+    margin: 0;
+    background: #f7f8fa;
+    color: #121722;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 }
 
 .card {
@@ -402,10 +410,12 @@ textarea.control {
   --theme-panel-tint: #f3fafc;
   --theme-border: #b7d7e0;
   --theme-border-strong: #8fbfcc;
-  --theme-text: #1a3a44;
+  /* Text scale tuned for WCAG AA on white panels AND the sea-glass canvas:
+     text 13.5:1, muted 6.6:1, faint 4.9:1 on #fff (was 3.2:1 — unreadable). */
+  --theme-text: #16323c;
   --theme-heading: #062630;
-  --theme-muted: #4d7480;
-  --theme-faint: #6f96a1;
+  --theme-muted: #3b626e;
+  --theme-faint: #4f7787;
   --theme-active: #c5edf5;
   --theme-active-text: #065a6e;
   --theme-shadow: 0 18px 48px rgba(6, 70, 86, 0.08);
@@ -756,7 +766,7 @@ textarea.control {
 [data-theme="dark"] [class*="divide-neutral"] > :not([hidden]) ~ :not([hidden]),
 [data-theme="ocean"] [class*="divide-neutral"] > :not([hidden]) ~ :not([hidden]),
 [data-theme="dark"] [class*="divide-gray"] > :not([hidden]) ~ :not([hidden]),
-[data-theme="ocean"] [class*="divide-gray"] > :not([hidden]) ~ :not([hidden)] {
+[data-theme="ocean"] [class*="divide-gray"] > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--theme-border) !important;
 }
 

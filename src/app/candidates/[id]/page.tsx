@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
+import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
@@ -19,8 +20,10 @@ export default function CandidateDetailPage() {
   const [notes, setNotes] = useState<ReviewerNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "report">("overview");
 
   const loadCandidate = useCallback(async () => {
     setLoading(true);
@@ -61,6 +64,23 @@ export default function CandidateDetailPage() {
     }
   }
 
+  async function addNote(note: string): Promise<boolean> {
+    const trimmed = note.trim();
+    if (!trimmed) return false;
+    setSavingNote(true);
+    setError("");
+    try {
+      const saved = await apiPost<ReviewerNote>(`/reports/${encodeURIComponent(id)}/notes`, { note: trimmed });
+      setNotes((current) => [saved, ...current]);
+      return true;
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to save this note."));
+      return false;
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
   async function copyInvite() {
     if (!session) return;
     await navigator.clipboard.writeText(`${window.location.origin}/assessment/${encodeURIComponent(session.accessCode)}`);
@@ -73,23 +93,32 @@ export default function CandidateDetailPage() {
       {loading ? <PageLoader label="Loading candidate evidence" /> : null}
       {!loading && error && !session ? <ErrorState message={error} onRetry={() => void loadCandidate()} /> : null}
       {!loading && session && template ? (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
-          <div className="space-y-5">
-            {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
-            {copied ? <InlineAlert tone="success">Private invitation link copied.</InlineAlert> : null}
-            <ProfileHero session={session} template={template} />
-            <Tabs reportReady={Boolean(report)} sessionId={session.id} />
-            <section className="grid gap-4 lg:grid-cols-3">
-              <AboutCard session={session} />
-              <SkillsCard report={report} template={template} />
-              <LatestSessionCard session={session} template={template} />
-            </section>
-            <RecentActivityCard notes={notes} responses={responses} session={session} />
-          </div>
-          <aside className="space-y-5">
-            <OverallSummary report={report} session={session} />
-            <QuickActions copied={copied} copyInvite={copyInvite} generateReport={generateReport} generating={generating} report={report} session={session} />
-          </aside>
+        <div className="space-y-5">
+          {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+          {copied ? <InlineAlert tone="success">Private invitation link copied.</InlineAlert> : null}
+          <ProfileHero session={session} template={template} />
+          <Tabs active={activeTab} onChange={setActiveTab} reportReady={Boolean(report)} />
+
+          {activeTab === "overview" ? (
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
+              <div className="space-y-5">
+                <section className="grid gap-4 lg:grid-cols-3">
+                  <AboutCard session={session} />
+                  <SkillsCard report={report} template={template} />
+                  <LatestSessionCard session={session} template={template} />
+                </section>
+                <RecentActivityCard notes={notes} responses={responses} session={session} />
+              </div>
+              <aside className="space-y-5">
+                <OverallSummary report={report} session={session} />
+                <QuickActions copied={copied} copyInvite={copyInvite} generateReport={generateReport} generating={generating} onOpenReport={() => setActiveTab("report")} report={report} session={session} />
+              </aside>
+            </div>
+          ) : report ? (
+            <ReportView notes={notes} onAddNote={addNote} report={report} role={session.targetRole ?? template.roleType} savingNote={savingNote} showIdentity={false} />
+          ) : (
+            <ReportGeneratePrompt completed={session.status === "completed"} generating={generating} onGenerate={() => void generateReport()} />
+          )}
         </div>
       ) : null}
     </AppShell>
@@ -100,7 +129,7 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
   return (
     <section className="card grid gap-6 rounded-[10px] p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
       <div className="flex flex-wrap items-center gap-6">
-        <span className={`grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br text-[30px] font-black ring-8 ring-neutral-50 ${candidateAvatarTone(session.candidateName)}`}>
+        <span className={`grid size-28 shrink-0 place-items-center overflow-hidden rounded-full bg-linear-to-br text-[30px] font-black ring-8 ring-neutral-50 ${candidateAvatarTone(session.candidateName)}`}>
           {candidateInitials(session.candidateName)}
         </span>
         <div>
@@ -127,15 +156,30 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
   );
 }
 
-function Tabs({ reportReady, sessionId }: { reportReady: boolean; sessionId: string }) {
+function Tabs({ active, onChange, reportReady }: { active: "overview" | "report"; onChange: (tab: "overview" | "report") => void; reportReady: boolean }) {
+  const tabs = [
+    { id: "overview" as const, label: "Overview", icon: "clipboard" as const },
+    { id: "report" as const, label: "Report", icon: "file" as const },
+  ];
   return (
-    <div className="flex gap-5 border-b border-neutral-200">
-      <button className="border-b-2 border-primary-700 px-3 pb-3 text-[13px] font-bold text-primary-700" type="button">
-        <Icon className="mr-2 inline" name="clipboard" size={15} />Overview
-      </button>
-      <Link className="px-3 pb-3 text-[13px] font-bold text-neutral-500 hover:text-neutral-900" href={reportReady ? `/reports/${sessionId}` : "#"}>
-        <Icon className="mr-2 inline" name="file" size={15} />Report
-      </Link>
+    <div className="flex gap-1 border-b border-neutral-200">
+      {tabs.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            aria-current={isActive ? "page" : undefined}
+            className={`relative flex items-center gap-2 px-4 pb-3.5 pt-1 text-[15px] font-bold transition-colors ${isActive ? "text-primary-700" : "text-neutral-500 hover:text-neutral-900"}`}
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            type="button"
+          >
+            <Icon name={tab.icon} size={17} />
+            {tab.label}
+            {tab.id === "report" && reportReady ? <span className="size-1.5 rounded-full bg-emerald-500" title="Report ready" /> : null}
+            {isActive ? <span className="absolute inset-x-0 -bottom-px h-[2.5px] rounded-full bg-primary-600" /> : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -143,11 +187,11 @@ function Tabs({ reportReady, sessionId }: { reportReady: boolean; sessionId: str
 function AboutCard({ session }: { session: InterviewSession }) {
   return (
     <article className="card rounded-[10px] p-5">
-      <h2 className="text-[14px] font-black text-neutral-900">About session</h2>
-      <p className="mt-3 text-[12px] leading-5 text-neutral-600">
+      <h2 className="text-[15px] font-black text-neutral-900">About session</h2>
+      <p className="mt-3 text-[13px] leading-6 text-neutral-600">
         Assessment invite for {session.targetRole ?? "the assigned role"}. Candidate data below comes only from this session record.
       </p>
-      <dl className="mt-5 space-y-3 text-[11px]">
+      <dl className="mt-5 space-y-3 text-[13px]">
         <Meta label="Email" value={session.candidateEmail ?? "—"} />
         <Meta label="Department" value={session.department ?? "—"} />
         <Meta label="Scheduled" value={formatDateTime(session.scheduledAt)} />
@@ -163,16 +207,16 @@ function SkillsCard({ report, template }: { report: CandidateReport | null; temp
     : template.modules.slice(0, 5).map((module) => ({ label: module.title, value: null as number | null }));
   return (
     <article className="card rounded-[10px] p-5">
-      <h2 className="text-[14px] font-black text-neutral-900">Module scores</h2>
-      <div className="mt-4 space-y-3">
+      <h2 className="text-[15px] font-black text-neutral-900">Module scores</h2>
+      <div className="mt-4 space-y-2.5">
         {skills.map((skill) => (
-          <div className="grid grid-cols-[1fr_auto] items-center gap-2 text-[10px]" key={skill.label}>
-            <span className="truncate font-bold text-neutral-700">{skill.label}</span>
-            <span className="font-bold text-neutral-700">{skill.value == null ? "Pending" : `${skill.value}%`}</span>
+          <div className="grid grid-cols-[1fr_auto] items-center gap-2 text-[13px]" key={skill.label}>
+            <span className="truncate font-semibold text-neutral-700">{skill.label}</span>
+            <span className="font-bold text-neutral-900">{skill.value == null ? "Pending" : `${skill.value}%`}</span>
           </div>
         ))}
       </div>
-      {!report ? <p className="mt-4 text-[11px] text-neutral-500">Scores appear after report generation.</p> : null}
+      {!report ? <p className="mt-4 text-[12px] text-neutral-500">Scores appear after report generation.</p> : null}
     </article>
   );
 }
@@ -215,13 +259,13 @@ function RecentActivityCard({ session, responses, notes }: { session: InterviewS
   ];
   return (
     <article className="card rounded-[10px] p-5">
-      <h2 className="text-[14px] font-black text-neutral-900">Recent Activity</h2>
+      <h2 className="text-[15px] font-black text-neutral-900">Recent Activity</h2>
       <div className="mt-4 space-y-4">
         {activities.map((activity) => (
-          <div className="grid grid-cols-[36px_1fr_auto] gap-3 text-[11px]" key={activity.title}>
-            <span className={`flex size-9 items-center justify-center rounded-[7px] ${activity.tone}`}><Icon name={activity.icon} size={16} /></span>
-            <div><p className="font-bold text-neutral-900">{activity.title}</p><p className="mt-1 text-neutral-500">{activity.detail}</p></div>
-            <span className="hidden whitespace-nowrap text-neutral-400 sm:block">{formatDateTime(activity.date)}</span>
+          <div className="grid grid-cols-[38px_1fr_auto] gap-3 text-[13px]" key={activity.title}>
+            <span className={`flex size-9 items-center justify-center rounded-[8px] ${activity.tone}`}><Icon name={activity.icon} size={17} /></span>
+            <div><p className="font-bold text-neutral-900">{activity.title}</p><p className="mt-1 leading-5 text-neutral-500">{activity.detail}</p></div>
+            <span className="hidden whitespace-nowrap text-[12px] text-neutral-400 sm:block">{formatDateTime(activity.date)}</span>
           </div>
         ))}
       </div>
@@ -251,35 +295,35 @@ function OverallSummary({ report, session }: { report: CandidateReport | null; s
   );
 }
 
-function QuickActions({ session, report, copied, generating, copyInvite, generateReport }: { session: InterviewSession; report: CandidateReport | null; copied: boolean; generating: boolean; copyInvite: () => Promise<void>; generateReport: () => Promise<void> }) {
+function QuickActions({ session, report, copied, generating, copyInvite, generateReport, onOpenReport }: { session: InterviewSession; report: CandidateReport | null; copied: boolean; generating: boolean; copyInvite: () => Promise<void>; generateReport: () => Promise<void>; onOpenReport: () => void }) {
   return (
     <article className="card rounded-[10px] p-5">
-      <h2 className="text-[15px] font-black text-neutral-900">Quick Actions</h2>
-      <div className="mt-4 divide-y divide-neutral-100">
-        <button className="flex w-full items-center gap-3 py-3 text-left text-[13px] font-bold text-neutral-700 hover:text-primary-700" onClick={() => void copyInvite()} type="button">
-          <Icon name="mail" size={17} />
+      <h2 className="text-[16px] font-black text-neutral-900">Quick Actions</h2>
+      <div className="mt-3 divide-y divide-neutral-100">
+        <button className="flex w-full items-center gap-3 py-3.5 text-left text-[14px] font-bold text-neutral-700 transition-colors hover:text-primary-700" onClick={() => void copyInvite()} type="button">
+          <Icon name="mail" size={18} />
           <span>{copied ? "Invitation copied" : "Copy assessment invitation"}</span>
-          <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
+          <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
         </button>
         {report ? (
-          <Link className="flex items-center gap-3 py-3 text-[13px] font-bold text-neutral-700 hover:text-primary-700" href={`/reports/${session.id}`}>
-            <Icon name="report" size={17} />
+          <button className="flex w-full items-center gap-3 py-3.5 text-left text-[14px] font-bold text-neutral-700 transition-colors hover:text-primary-700" onClick={onOpenReport} type="button">
+            <Icon name="report" size={18} />
             <span>Open report</span>
-            <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
-          </Link>
+            <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
+          </button>
         ) : session.status === "completed" ? (
-          <button className="flex w-full items-center gap-3 py-3 text-left text-[13px] font-bold text-neutral-700 hover:text-primary-700" disabled={generating} onClick={() => void generateReport()} type="button">
-            <Icon name="report" size={17} />
+          <button className="flex w-full items-center gap-3 py-3.5 text-left text-[14px] font-bold text-neutral-700 transition-colors hover:text-primary-700" disabled={generating} onClick={() => void generateReport()} type="button">
+            <Icon name="report" size={18} />
             <span>{generating ? "Generating report" : "Generate report"}</span>
-            <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
+            <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
           </button>
         ) : null}
         {report ? (
-          <Link className="flex items-center gap-3 py-3 text-[13px] font-bold text-neutral-700 hover:text-primary-700" href={`/reports/${session.id}`}>
-            <Icon name="file" size={17} />
+          <button className="flex w-full items-center gap-3 py-3.5 text-left text-[14px] font-bold text-neutral-700 transition-colors hover:text-primary-700" onClick={onOpenReport} type="button">
+            <Icon name="file" size={18} />
             <span>Add reviewer note</span>
-            <Icon className="ml-auto -rotate-90" name="chevron" size={12} />
-          </Link>
+            <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
+          </button>
         ) : null}
       </div>
     </article>

@@ -836,39 +836,35 @@ export default function TemplatesPage() {
               {preview && (
                 <footer className="tpl-drawer-footer shrink-0 border-t px-6 py-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs leading-5" style={{ color: "var(--theme-muted)" }}>
-                      {previewSource === "catalog" ? "Adding creates your org-owned copy. Catalog stays shared and read-only." : "This is your workspace copy. Assign it when ready."}
+                    <p className="max-w-md text-xs leading-5" style={{ color: "var(--theme-muted)" }}>
+                      {previewSource === "catalog"
+                        ? "Every option adds an editable copy to your workspace — the shared catalog stays read-only. “Add & edit” opens the editor; “Add & assign” sends it to a candidate."
+                        : "This is your workspace copy. Edit its questions or assign it to a candidate when ready."}
                     </p>
                     <div className="flex flex-wrap justify-end gap-2">
-                      <button className="tpl-btn-secondary h-10 rounded-lg px-4 text-xs font-semibold" onClick={() => setPreview(null)} type="button">
-                        Close
-                      </button>
                       {previewSource === "catalog" ? (
                         <>
-                          <button className="tpl-btn-secondary h-10 rounded-lg px-4 text-xs font-semibold" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "session")} type="button">
-                            Use & assign
+                          <button className="tpl-btn-secondary inline-flex h-10 items-center gap-1.5 rounded-lg px-4 text-xs font-semibold" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "session")} type="button" title="Add a copy, then assign it to a candidate">
+                            <Icon name="plusUser" size={14} /> Add &amp; assign
                           </button>
-                          <button className="tpl-btn-secondary h-10 rounded-lg px-4 text-xs font-semibold" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "edit")} type="button">
-                            Use & edit
+                          <button className="tpl-btn-secondary inline-flex h-10 items-center gap-1.5 rounded-lg px-4 text-xs font-semibold" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "edit")} type="button" title="Add a copy, then open it in the editor">
+                            <Icon name="file" size={14} /> Add &amp; edit
                           </button>
-                          <button className="h-9 sm:h-10 rounded-lg bg-sky-500 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white hover:bg-sky-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "mine")} type="button">
+                          <button className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-70" disabled={busyId === preview.id} onClick={() => void useCatalogTemplate(preview.id, "mine")} type="button" title="Add an editable copy to your workspace">
                             {busyId === preview.id ? (
-                              <>
-                                <span className="inline-block animate-spin text-xs">⚙</span>
-                                {" "}Adding…
-                              </>
+                              <><span className="inline-block animate-spin">⚙</span> Adding…</>
                             ) : (
-                              "Use as-is"
+                              <><Icon name="plus" size={15} /> Add to my templates</>
                             )}
                           </button>
                         </>
                       ) : (
                         <>
-                          <Link className="tpl-btn-secondary flex h-10 items-center rounded-lg px-4 text-xs font-semibold" href={`/templates/${encodeURIComponent(preview.id)}/edit`} onClick={() => setPreview(null)}>
-                            Edit questions
+                          <Link className="tpl-btn-secondary inline-flex h-10 items-center gap-1.5 rounded-lg px-4 text-xs font-semibold" href={`/templates/${encodeURIComponent(preview.id)}/edit`} onClick={() => setPreview(null)}>
+                            <Icon name="file" size={14} /> Edit questions
                           </Link>
-                          <Link className="flex h-10 items-center rounded-lg bg-sky-500 px-4 text-xs font-semibold text-white hover:bg-sky-600" href={`/assessment/create?templateId=${encodeURIComponent(preview.id)}`} onClick={() => setPreview(null)}>
-                            Assign candidate
+                          <Link className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-sky-500 px-4 text-xs font-semibold text-white hover:bg-sky-600" href={`/assessment/create?templateId=${encodeURIComponent(preview.id)}`} onClick={() => setPreview(null)}>
+                            <Icon name="plusUser" size={14} /> Assign candidate
                           </Link>
                         </>
                       )}

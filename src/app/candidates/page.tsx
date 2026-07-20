@@ -124,7 +124,7 @@ export default function CandidatesPage() {
                           <tr className="transition hover:bg-neutral-50/70" key={session.id}>
                             <td className="px-3 py-4 pl-4 sm:pl-5">
                               <div className="flex items-center gap-3">
-                                <span className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br text-[10px] font-black ${candidateAvatarTone(session.candidateName)}`}>
+                                <span className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-[10px] font-black ${candidateAvatarTone(session.candidateName)}`}>
                                   {candidateInitials(session.candidateName)}
                                 </span>
                                 <Link className="group" href={`/candidates/${session.id}`}>

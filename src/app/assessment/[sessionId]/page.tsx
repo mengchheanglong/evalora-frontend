@@ -24,6 +24,9 @@ export default function CandidateAssessmentPage() {
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [codingComplete, setCodingComplete] = useState(false);
+  const [aiQuestions, setAiQuestions] = useState<Question[] | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const aiRequested = useRef(false);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [pageError, setPageError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -102,9 +105,37 @@ export default function CandidateAssessmentPage() {
 
   useEffect(() => () => { for (const timer of saveTimers.current.values()) clearTimeout(timer); }, []);
 
-  const modules = useMemo(() => candidateModules(session?.template.modules ?? []), [session?.template.modules]);
+  const modules = useMemo(() => {
+    const base = candidateModules(session?.template.modules ?? []);
+    // Once the AI has produced tailored questions, they replace the AI module's static ones.
+    return aiQuestions ? base.map((module) => (module.type === "ai_interview" ? { ...module, questions: aiQuestions } : module)) : base;
+  }, [session?.template.modules, aiQuestions]);
   const activeModule = modules[activeModuleIndex];
   const activeQuestion = activeModule?.questions?.[activeQuestionIndex];
+
+  // When the candidate reaches the final AI module, generate questions tailored to
+  // everything they have answered so far. Falls back to the template's AI questions.
+  useEffect(() => {
+    if (view !== "assessment" || activeModule?.type !== "ai_interview") return;
+    if (aiQuestions || aiRequested.current) return;
+    aiRequested.current = true;
+    setAiGenerating(true);
+    void (async () => {
+      const templateQuestions = activeModule.questions ?? [];
+      try {
+        await flushPendingSaves();
+        const result = await apiPost<{ questions: string[] }>(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-questions`, { count: 3 });
+        const generated = (result.questions ?? [])
+          .map((text, index) => ({ id: `ai-adaptive-${index}`, questionText: text.trim(), questionType: "short_answer" as const }))
+          .filter((question) => question.questionText);
+        setAiQuestions(generated.length ? generated : templateQuestions);
+      } catch {
+        setAiQuestions(templateQuestions);
+      } finally {
+        setAiGenerating(false);
+      }
+    })();
+  }, [view, activeModule?.type, aiQuestions, accessCode]);
 
   async function startAssessment() {
     setStarting(true);
@@ -138,12 +169,18 @@ export default function CandidateAssessmentPage() {
     saveTimers.current.delete(questionId);
     setSaveState("saving");
     try {
-      const followUp = followUps[questionId];
-      await apiPost<CandidateResponse>(`/responses/access/${encodeURIComponent(accessCode)}`, {
-        questionId,
-        responseText: formatResponseForSave(answer.text, followUp),
-        responseJson: answer.json,
-      });
+      if (questionId.startsWith("ai-adaptive-")) {
+        // AI-generated questions aren't in the template, so they save through the AI transcript.
+        const question = aiQuestions?.find((item) => item.id === questionId)?.questionText ?? "";
+        await apiPost(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-answer`, { question, answer: answer.text });
+      } else {
+        const followUp = followUps[questionId];
+        await apiPost<CandidateResponse>(`/responses/access/${encodeURIComponent(accessCode)}`, {
+          questionId,
+          responseText: formatResponseForSave(answer.text, followUp),
+          responseJson: answer.json,
+        });
+      }
       dirtyQuestions.current.delete(questionId);
       setSaveState("saved");
     } catch {
@@ -165,7 +202,7 @@ export default function CandidateAssessmentPage() {
     }
     setActionError("");
 
-    if (activeModule.type === "ai_interview" && activeQuestionIndex === 0 && !followUps[activeQuestion.id]) {
+    if (activeModule.type === "ai_interview" && activeQuestionIndex === 0 && !activeQuestion.id.startsWith("ai-adaptive-") && !followUps[activeQuestion.id]) {
       await persistQuestion(activeQuestion.id, answer);
       try {
         const generated = await apiPost<{ question: string }>(`/ai/access/${encodeURIComponent(accessCode)}/follow-up`, {
@@ -263,6 +300,8 @@ export default function CandidateAssessmentPage() {
             <ReviewPanel answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} submitting={submitting} />
           ) : activeModule?.type === "coding" ? (
             <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={previousQuestion} onContinue={() => { setCodingComplete(true); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
+          ) : activeModule?.type === "ai_interview" && aiGenerating ? (
+            <AiPreparing />
           ) : activeModule && activeQuestion ? (
             <QuestionPanel answer={answers[activeQuestion.id]} disabled={timeUp} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { if (timeLeft === 0) return; setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={activeQuestionIndex} />
           ) : <CandidateError message="This assessment module has no candidate questions." />}
@@ -271,6 +310,23 @@ export default function CandidateAssessmentPage() {
 
       {timeUp ? <TimeUpModal /> : null}
     </main>
+  );
+}
+
+function AiPreparing() {
+  return (
+    <div className="mx-auto max-w-[860px]">
+      <div className="rounded-[10px] border border-sky-100 bg-sky-50 px-4 py-3">
+        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-sky-700"><Icon name="sparkle" size={14} /> AI Interview</p>
+      </div>
+      <div className="mt-4 flex flex-col items-center justify-center gap-4 rounded-[10px] border border-neutral-200 bg-white px-6 py-16 text-center shadow-[0_16px_45px_rgba(15,23,42,0.06)]">
+        <span className="size-10 animate-spin rounded-full border-[3px] border-neutral-200 border-t-sky-500" />
+        <div>
+          <p className="text-[16px] font-black text-neutral-900">Preparing your tailored questions…</p>
+          <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-6 text-neutral-500">Our AI is reviewing your earlier answers to ask a few follow-up questions matched to your experience.</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -376,8 +432,15 @@ function CandidateComplete({ candidateName, reportStatus }: { candidateName: str
 function CandidateLoading() { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9]"><div className="text-center"><span className="mx-auto block size-9 animate-spin rounded-full border-[3px] border-neutral-200 border-t-[#29b7e5]" /><p className="mt-4 text-sm font-semibold text-neutral-600">Validating private invitation</p></div></main>; }
 function CandidateError({ message }: { message: string }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[560px] border border-neutral-200 bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.08)]"><EvaloraLogo className="justify-center" href="/" /><span className="mx-auto mt-8 flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600"><Icon name="lock" size={20} /></span><h1 className="mt-4 text-xl font-black text-neutral-950">Assessment unavailable</h1><p className="mt-3 text-sm leading-6 text-neutral-600">{message}</p><Link className="button-secondary mt-6" href="/">Return to Evalora</Link></div></main>; }
 
-function candidateModules(modules: AssessmentModule[]): AssessmentModule[] { return [...modules].sort((a, b) => a.orderIndex - b.orderIndex).map((module) => module.type === "coding" ? { ...module, questions: [] } : { ...module, questions: (module.questions ?? []).slice(0, 2) }).filter((module) => module.type === "coding" || (module.questions?.length ?? 0) > 0); }
-function moduleComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { if (module.type === "coding") return codingComplete; const questions = module.questions ?? []; return questions.length > 0 && questions.every((question, index) => Boolean(answers[question.id]?.text.trim()) && (module.type !== "ai_interview" || index !== 0 || Boolean(followUps[question.id]?.answer.trim()))); }
+function candidateModules(modules: AssessmentModule[]): AssessmentModule[] {
+  const prepared = [...modules]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((module) => (module.type === "coding" ? { ...module, questions: [] } : { ...module, questions: module.questions ?? [] }))
+    .filter((module) => module.type === "coding" || (module.questions?.length ?? 0) > 0);
+  // AI interview always comes last: it adapts to everything answered before it.
+  return [...prepared.filter((module) => module.type !== "ai_interview"), ...prepared.filter((module) => module.type === "ai_interview")];
+}
+function moduleComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { if (module.type === "coding") return codingComplete; const questions = module.questions ?? []; return questions.length > 0 && questions.every((question, index) => Boolean(answers[question.id]?.text.trim()) && (module.type !== "ai_interview" || index !== 0 || question.id.startsWith("ai-adaptive-") || Boolean(followUps[question.id]?.answer.trim()))); }
 function allModulesComplete(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { return modules.length > 0 && modules.every((module) => moduleComplete(module, answers, followUps, codingComplete)); }
 function completionPercent(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { return modules.length ? Math.round((modules.filter((module) => moduleComplete(module, answers, followUps, codingComplete)).length / modules.length) * 100) : 0; }
 function moduleIcon(type: AssessmentModule["type"]): IconName { return type === "coding" || type === "debugging" ? "code" : type === "leadership" ? "crown" : type === "communication" ? "paperPlane" : type === "behavioral" || type === "work_style" ? "users" : type === "problem_solving" ? "sparkle" : "message"; }

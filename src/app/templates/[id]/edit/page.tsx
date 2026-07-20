@@ -292,8 +292,8 @@ export default function EditTemplatePage() {
             <Link className="button-secondary h-10 rounded-xl px-4 text-[12px]" href={`/assessment/create?templateId=${encodeURIComponent(templateId)}`}>
               Assign candidate
             </Link>
-            <button className="button-primary h-10 rounded-xl px-4 text-[12px]" disabled={saving || !dirty} onClick={() => void handleSave()} type="button">
-              {saving ? "Saving…" : dirty ? "Save changes" : "Saved"}
+            <button className="button-primary inline-flex h-10 items-center gap-1.5 rounded-xl px-4 text-[12px]" disabled={saving || !dirty} onClick={() => void handleSave()} type="button">
+              {saving ? "Saving…" : dirty ? "Save changes" : <><Icon name="check" size={14} /> Saved</>}
             </button>
           </div>
         </div>
@@ -410,14 +410,15 @@ export default function EditTemplatePage() {
                         >
                           {MODULE_TYPES.map((type) => (
                             <option key={type} value={type}>
-                              {type.replaceAll("_", " ")}
+                              {type.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase())}
                             </option>
                           ))}
                         </select>
-                        <input
-                          className="control h-10 rounded-xl text-[13px] sm:col-span-2"
+                        <textarea
+                          className="control min-h-[44px] rounded-xl text-[13px] leading-5 sm:col-span-2"
                           onChange={(event) => updateModule(module.key, { description: event.target.value })}
                           placeholder="Module description (optional)"
+                          rows={2}
                           value={module.description}
                         />
                         <label className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
