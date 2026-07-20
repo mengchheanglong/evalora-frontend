@@ -388,9 +388,6 @@ function CandidateWelcome({ session, onStart, starting, error }: { session: Cand
               {!starting ? <Icon className="-rotate-90" name="chevron" size={14} /> : null}
             </button>
 
-            <div className="mt-14 flex justify-center text-neutral-400">
-              <Icon name="lock" size={14} />
-            </div>
           </div>
         </form>
 

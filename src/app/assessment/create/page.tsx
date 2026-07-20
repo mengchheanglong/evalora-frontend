@@ -254,9 +254,9 @@ export default function CreateSessionPage() {
                   {/* Interviewers (Now Functional) */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Interviewers <span className="text-red-500">*</span></label>
-                    <div className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 p-2 transition hover:border-slate-400 focus-within:border-sky-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-sky-500/15">
+                    <div className="interviewer-token-field flex min-h-11 w-full flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-[5px] transition hover:border-slate-400 focus-within:border-sky-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-sky-500/15">
                       {interviewers.map(interviewer => (
-                        <span key={interviewer} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-200">
+                        <span key={interviewer} className="interviewer-token bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-200">
                           {interviewer}
                           <button type="button" onClick={() => removeInterviewer(interviewer)} className="text-gray-400 hover:text-gray-600 ml-1">×</button>
                         </span>
@@ -268,7 +268,7 @@ export default function CreateSessionPage() {
                         onChange={(e) => setNewInterviewer(e.target.value)}
                         onKeyDown={handleInterviewerKeyDown}
                         onBlur={addInterviewer}
-                        className="min-w-[150px] flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                        className="interviewer-token-input min-w-[220px] flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                       />
                     </div>
                     <p className={fieldHintClass}>Select one or more interviewers.</p>
