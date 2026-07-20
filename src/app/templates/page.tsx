@@ -416,7 +416,7 @@ export default function TemplatesPage() {
                 value={searchQuery}
               />
             </label>
-            <Link href="/templates/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-5 text-sm font-bold text-[var(--theme-heading)] shadow-sm transition hover:border-sky-400 hover:bg-[var(--theme-panel-soft)] focus:outline-none focus:ring-2 focus:ring-sky-500/25">
+            <Link href="/templates/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-sky-500 bg-sky-500 px-5 text-sm font-bold text-white shadow-sm transition hover:border-sky-600 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500/25">
               <Icon name="plus" size={16} /> New Template
             </Link>
           </div>

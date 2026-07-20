@@ -55,7 +55,7 @@ export default function DashboardPage() {
       // Blue button matching other pages
       actions={
         <Link 
-          className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 shadow-sm hidden h-10 sm:inline-flex" 
+           className="flex h-10 items-center justify-center gap-1 rounded-lg border border-sky-500 bg-sky-500 px-5 text-sm font-bold text-white shadow-sm transition hover:border-sky-600 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
           href="/assessment/create"
         >
           <Icon name="plus" size={15} /> New session

@@ -181,8 +181,7 @@ export default function SessionsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            
-            <Link href="/assessment/create" className="session-blue-button px-4 py-2 text-sm">
+            <Link href="/assessment/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-sky-500 bg-sky-500 px-5 text-sm font-bold text-white shadow-sm transition hover:border-sky-600 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500/25">
               <Icon name="plus" size={16} /> New Session
             </Link>
           </div>
