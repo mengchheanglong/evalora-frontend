@@ -508,14 +508,14 @@ function HeroPreview() {
     { label: "Users & Roles", icon: "users" },
   ];
   const statCards = [
-    { label: "Total Candidates", value: "1,256", change: "+12%", tint: "bg-violet-100 text-violet-700", icon: "user" as const },
+    { label: "Total Candidates", value: "1,256", change: "+12%", tint: "bg-[#D504FF]/10 text-[#D504FF]", icon: "user" as const },
     { label: "Completed", value: "832", change: "+8%", tint: "bg-emerald-100 text-emerald-600", icon: "check" as const },
     { label: "Average Score", value: "78%", change: "+5%", tint: "bg-blue-100 text-blue-600", icon: "star" as const },
     { label: "In Progress", value: "334", change: "-4%", tint: "bg-orange-100 text-orange-500", icon: "clock" as const },
   ];
   const activity = [
     { title: "David Lee completed", detail: "Frontend Developer Interview", time: "2h", tint: "bg-emerald-100 text-emerald-600", icon: "check" as const },
-    { title: "Emma Johnson started", detail: "Backend Developer Interview", time: "6h", tint: "bg-violet-100 text-violet-700", icon: "user" as const },
+    { title: "Emma Johnson started", detail: "Backend Developer Interview", time: "6h", tint: "bg-[#D504FF]/10 text-[#D504FF]", icon: "user" as const },
     { title: "New assessment template", detail: "created by you", time: "1d", tint: "bg-orange-100 text-orange-500", icon: "file" as const },
     { title: "Report generated for", detail: "Sophia Wilson", time: "2d", tint: "bg-rose-100 text-rose-500", icon: "report" as const },
   ];

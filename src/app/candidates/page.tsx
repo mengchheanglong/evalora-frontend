@@ -171,31 +171,36 @@ function CandidateStats({ sessions }: { sessions: InterviewSession[] }) {
   const withdrawn = sessions.filter((session) => session.status === "expired").length;
   return (
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-      <Stat detail="All time" icon="users" label="Total Candidates" tone="violet" value={uniqueCandidates} />
-      <Stat detail={`${percent(active, uniqueCandidates)}% of total`} icon="check" label="Active Candidates" tone="emerald" value={active} />
-      <Stat detail={`${percent(inAssessment, uniqueCandidates)}% of total`} icon="clock" label="In Assessment" tone="sky" value={inAssessment} />
-      <Stat detail={`${percent(completed, uniqueCandidates)}% of total`} icon="check" label="Completed" tone="amber" value={completed} />
-      <Stat detail={`${percent(withdrawn, uniqueCandidates)}% of total`} icon="shield" label="Withdrawn / Rejected" tone="rose" value={withdrawn} />
+      <Stat detail="All time" icon="users" label="Total Candidates" progress={100} tone="text-[#D504FF]" accent="#D504FF" value={uniqueCandidates} />
+      <Stat detail={`${percent(active, uniqueCandidates)}% of total`} icon="check" label="Active Candidates" progress={percent(active, uniqueCandidates)} tone="text-emerald-600" accent="#10b981" value={active} />
+      <Stat detail={`${percent(inAssessment, uniqueCandidates)}% of total`} icon="clock" label="In Assessment" progress={percent(inAssessment, uniqueCandidates)} tone="text-sky-600" accent="#0ea5e9" value={inAssessment} />
+      <Stat detail={`${percent(completed, uniqueCandidates)}% of total`} icon="check" label="Completed" progress={percent(completed, uniqueCandidates)} tone="text-amber-600" accent="#f59e0b" value={completed} />
+      <Stat detail={`${percent(withdrawn, uniqueCandidates)}% of total`} icon="shield" label="Withdrawn / Rejected" progress={percent(withdrawn, uniqueCandidates)} tone="text-rose-600" accent="#e11d48" value={withdrawn} />
     </section>
   );
 }
-function Stat({ label, value, detail, icon, tone }: { label: string; value: number; detail: string; icon: IconName; tone: "violet" | "emerald" | "sky" | "amber" | "rose" }) {
-  const tones = {
-    violet: "bg-violet-100 text-violet-700",
-    emerald: "bg-emerald-100 text-emerald-700",
-    sky: "bg-sky-100 text-sky-700",
-    amber: "bg-amber-100 text-amber-700",
-    rose: "bg-rose-100 text-rose-700",
-  };
+function Stat({ label, value, detail, progress, icon, tone, accent }: {
+  label: string; value: number; detail: string; progress: number; icon: IconName; tone: string; accent: string;
+}) {
+  const clampedProgress = Math.max(0, Math.min(100, progress));
+
   return (
-    <article className="card rounded-[10px] px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
-      <div className="flex items-start gap-3">
-        <span className={`flex size-10 shrink-0 items-center justify-center rounded-[9px] ${tones[tone]}`}><Icon name={icon} size={19} /></span>
-        <div>
-          <p className="text-[11px] font-bold text-neutral-700">{label}</p>
-          <p className="mt-1 text-[24px] font-black leading-none text-neutral-950">{value.toLocaleString()}</p>
-          <p className="mt-2 text-[10px] font-semibold text-neutral-500">{detail}</p>
+    <article className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-[var(--theme-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--theme-border-strong)] hover:shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
+      <div className="flex items-start gap-4">
+        <span
+          className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${tone}`}
+          style={{ backgroundColor: `${accent}18`, borderColor: `${accent}55` }}
+        >
+          <Icon name={icon} size={24} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-[var(--theme-text)]">{label}</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{value.toLocaleString()}</p>
+          <p className="mt-2 text-[11px] font-medium text-[var(--theme-muted)]">{detail}</p>
         </div>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
+        <div className="h-full rounded-full" style={{ width: `${clampedProgress}%`, backgroundColor: accent }} />
       </div>
     </article>
   );

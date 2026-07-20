@@ -178,7 +178,7 @@ export default function UsersAndRolesPage() {
                 type="email"
                 value={inviteEmail}
               />
-              <button className="button-primary h-11 shrink-0 rounded-[8px] px-5 text-[12px]" disabled={inviting} type="submit">
+              <button className="session-blue-button h-11 shrink-0 px-5 text-[12px]" disabled={inviting} type="submit">
                 {inviting ? "Creating…" : "Create invite"}
               </button>
             </form>
@@ -326,7 +326,7 @@ export default function UsersAndRolesPage() {
             </article>
             <article className="rounded-[10px] border border-neutral-200 p-4">
               <div className="flex items-center gap-2">
-                <Icon name="user" size={18} />
+                <Icon className="text-[#D504FF]" name="user" size={18} />
                 <h3 className="text-[13px] font-black text-neutral-900">Interviewer</h3>
               </div>
               <p className="mt-2 text-[12px] leading-5 text-neutral-600">
