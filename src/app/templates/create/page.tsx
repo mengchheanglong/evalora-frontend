@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon, type IconName } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
 import { apiPost, getErrorMessage } from "@/lib/api";
@@ -63,6 +64,7 @@ export default function CreateTemplatePage() {
   // Modules
   const [modules, setModules] = useState<EditorModule[]>([]);
   const [activeModuleKey, setActiveModuleKey] = useState("");
+  const [pendingModuleRemoval, setPendingModuleRemoval] = useState<string | null>(null);
 
   const questionCount = useMemo(() => modules.reduce((total, module) => total + module.questions.length, 0), [modules]);
 
@@ -95,7 +97,6 @@ export default function CreateTemplatePage() {
   }
 
   function removeModule(key: string) {
-    if (!window.confirm("Remove this module and its questions?")) return;
     setModules((current) => {
       const next = current.filter((module) => module.key !== key);
       if (activeModuleKey === key) setActiveModuleKey(next[0]?.key ?? "");
@@ -403,7 +404,7 @@ export default function CreateTemplatePage() {
                           module={module}
                           onAdd={() => addQuestion(module.key)}
                           onMove={(qk, d) => moveQuestion(module.key, qk, d)}
-                          onRemove={() => removeModule(module.key)}
+                          onRemove={() => setPendingModuleRemoval(module.key)}
                           onRemoveQuestion={(qk) => removeQuestion(module.key, qk)}
                           onUpdate={(patch) => updateModule(module.key, patch)}
                           onUpdateQuestion={(qk, patch) => updateQuestion(module.key, qk, patch)}
@@ -516,6 +517,18 @@ export default function CreateTemplatePage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        confirmLabel="Remove module"
+        message={`"${modules.find((module) => module.key === pendingModuleRemoval)?.title || "This module"}" and all of its questions will be removed from the template.`}
+        onCancel={() => setPendingModuleRemoval(null)}
+        onConfirm={() => {
+          if (pendingModuleRemoval) removeModule(pendingModuleRemoval);
+          setPendingModuleRemoval(null);
+        }}
+        open={pendingModuleRemoval !== null}
+        title="Remove this module?"
+      />
     </AppShell>
   );
 }
@@ -573,10 +586,16 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
               <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">{module.type.replaceAll("_", " ")}</span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <input className="input-field font-semibold" onChange={(e) => onUpdate({ title: e.target.value })} placeholder="Module title" value={module.title} />
-              <select className="input-field bg-white" onChange={(e) => onUpdate({ type: e.target.value as ModuleType })} value={module.type}>
-                {MODULE_TYPES.map((t) => <option key={t} value={t}>{t.replaceAll("_", " ")}</option>)}
-              </select>
+              <label className="block text-xs font-semibold text-gray-600">
+                Module title
+                <input className="input-field mt-1 font-semibold" onChange={(e) => onUpdate({ title: e.target.value })} placeholder="e.g. Coding challenge" value={module.title} />
+              </label>
+              <label className="block text-xs font-semibold text-gray-600">
+                Category <span className="font-normal text-gray-400">— sets how this module is scored</span>
+                <select className="input-field mt-1 bg-white" onChange={(e) => onUpdate({ type: e.target.value as ModuleType })} value={module.type}>
+                  {MODULE_TYPES.map((t) => <option key={t} value={t}>{t.replaceAll("_", " ")}</option>)}
+                </select>
+              </label>
               <input className="input-field sm:col-span-2" onChange={(e) => onUpdate({ description: e.target.value })} placeholder="Module description (optional)" value={module.description} />
               <label className="flex items-center gap-2 text-sm font-medium text-gray-600 sm:col-span-2">
                 Weight

@@ -131,7 +131,7 @@ export default function HomePage() {
           <div className="absolute -top-48 left-1/2 h-[440px] w-[880px] -translate-x-1/2 rounded-full bg-primary-300/25 blur-3xl" />
         </div>
 
-        <div className="relative mx-auto grid max-w-[1200px] items-center gap-16 px-5 pb-24 pt-16 sm:px-8 lg:grid-cols-[540px_1fr] lg:pt-20">
+        <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-5 pb-16 pt-10 sm:px-8 lg:grid-cols-[540px_1fr] lg:gap-14 lg:pt-14">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white py-1 pl-1.5 pr-3.5 text-[12px] font-semibold text-neutral-600 shadow-sm">
               <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-700">New</span>
@@ -143,9 +143,9 @@ export default function HomePage() {
                 Better decisions.
               </span>
             </h1>
-            <p className="mt-6 max-w-[500px] text-[17px] leading-[27px] text-neutral-600">
-              Evalora runs structured AI interviews, coding assessments, and behavioral evaluations — then hands your
-              team evidence-backed reports. AI feedback is advisory: your reviewers make the final call.
+            <p className="mt-5 max-w-[480px] text-[17px] leading-[27px] text-neutral-600">
+              Structured AI interviews, coding tasks, and behavioral evaluations — turned into evidence-backed reports.
+              AI is advisory; your reviewers make the final call.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <ButtonLink className="h-12 !rounded-lg px-7 text-[14px]" href="/register">
@@ -197,7 +197,7 @@ export default function HomePage() {
       </section>
 
       {/* FEATURES */}
-      <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-24 sm:px-8" id="features">
+      <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-16 sm:py-20 sm:px-8" id="features">
         <div className="mx-auto max-w-[680px] text-center">
           <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Platform</p>
           <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
@@ -207,12 +207,12 @@ export default function HomePage() {
             Comprehensive assessment modules powered by AI, built to support — not replace — your hiring team.
           </p>
         </div>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
           {landingFeatures.map((feature, index) => {
             const large = index < 2;
             return (
               <article
-                className={`group flex flex-col rounded-2xl border border-neutral-200 bg-white p-7 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_44px_-20px_rgba(15,23,42,0.18)] ${
+                className={`group flex flex-col rounded-2xl border border-neutral-200 bg-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_44px_-20px_rgba(15,23,42,0.18)] ${
                   large ? "lg:col-span-3" : "lg:col-span-2"
                 } ${index === 4 ? "sm:col-span-2 lg:col-span-2" : ""}`}
                 key={feature.title}
@@ -232,7 +232,7 @@ export default function HomePage() {
 
       {/* WORKFLOW */}
       <section className="scroll-mt-24 border-y border-neutral-100 bg-[#fafbfc]" id="workflow">
-        <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8">
+        <div className="mx-auto max-w-[1200px] px-5 py-16 sm:py-20 sm:px-8">
           <div className="mx-auto max-w-[640px] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Workflow</p>
             <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
@@ -242,7 +242,7 @@ export default function HomePage() {
               From template to hiring decision in four structured steps.
             </p>
           </div>
-          <ol className="mt-14 grid gap-10 sm:grid-cols-2 md:grid-cols-4">
+          <ol className="mt-10 grid gap-8 sm:grid-cols-2 md:grid-cols-4">
             {howItWorks.map((step, index) => (
               <li key={step.title}>
                 <div className="flex items-center gap-3">
@@ -261,7 +261,7 @@ export default function HomePage() {
 
       {/* SECURITY */}
       <section className="scroll-mt-24" id="security">
-        <div className="mx-auto grid max-w-[1200px] items-start gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+        <div className="mx-auto grid max-w-[1200px] items-start gap-12 px-5 py-16 sm:py-20 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
           <div>
             <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Trust &amp; security</p>
             <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
@@ -295,7 +295,7 @@ export default function HomePage() {
 
       {/* TESTIMONIALS */}
       <section className="scroll-mt-24 border-y border-neutral-100 bg-[#fafbfc]" id="customers">
-        <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8">
+        <div className="mx-auto max-w-[1200px] px-5 py-16 sm:py-20 sm:px-8">
           <div className="mx-auto max-w-[640px] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Customers</p>
             <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
@@ -305,9 +305,9 @@ export default function HomePage() {
               See what teams using Evalora have to say.
             </p>
           </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
             {testimonials.map((testimonial) => (
-              <figure className="flex flex-col rounded-2xl border border-neutral-200 bg-white p-7 shadow-sm" key={testimonial.name}>
+              <figure className="flex flex-col rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm" key={testimonial.name}>
                 <div aria-label="Five star rating" className="flex gap-1 text-amber-400">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Icon fill="currentColor" key={star} name="star" size={13} />
@@ -332,7 +332,7 @@ export default function HomePage() {
       </section>
 
       {/* PRICING */}
-      <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-24 sm:px-8" id="pricing">
+      <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-16 sm:py-20 sm:px-8" id="pricing">
         <div className="mx-auto max-w-[640px] text-center">
           <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Pricing</p>
           <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
@@ -378,8 +378,8 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-[1200px] px-5 pb-24 sm:px-8">
-        <div className="relative overflow-hidden rounded-3xl bg-navy px-6 py-16 text-center sm:px-16">
+      <section className="mx-auto max-w-[1200px] px-5 pb-16 sm:px-8 sm:pb-20">
+        <div className="relative overflow-hidden rounded-3xl bg-navy px-6 py-12 text-center sm:px-16 sm:py-14">
           <div aria-hidden="true" className="pointer-events-none absolute -top-28 left-1/2 h-64 w-[560px] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 right-0 h-64 w-[420px] rounded-full bg-indigo-500/20 blur-3xl" />
           <h2 className="relative text-[30px] font-extrabold leading-[1.15] tracking-[-0.02em] text-white sm:text-[36px]">
@@ -404,8 +404,8 @@ export default function HomePage() {
 
       {/* FOOTER */}
       <footer className="border-t border-neutral-200 bg-white">
-        <div className="mx-auto max-w-[1200px] px-5 py-16 sm:px-8">
-          <div className="flex flex-col justify-between gap-10 border-b border-neutral-100 pb-12 md:flex-row md:items-start">
+        <div className="mx-auto max-w-[1200px] px-5 py-12 sm:px-8 sm:py-14">
+          <div className="flex flex-col justify-between gap-10 border-b border-neutral-100 pb-10 md:flex-row md:items-start">
             <div className="max-w-[280px] space-y-4">
               <EvaloraLogo href="/" size="auth" />
               <p className="text-[13px] leading-[20px] text-neutral-500">
@@ -421,10 +421,12 @@ export default function HomePage() {
                 <input
                   className="h-10 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 text-[13px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-300 focus:bg-white"
                   placeholder="Enter your email"
+                  suppressHydrationWarning
                   type="email"
                 />
                 <button
                   className="h-10 shrink-0 cursor-pointer rounded-lg bg-primary px-4 text-[13px] font-bold text-white transition-colors hover:bg-primary-600"
+                  suppressHydrationWarning
                   type="submit"
                 >
                   Subscribe
@@ -433,7 +435,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 pt-12 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-8 pt-10 sm:grid-cols-4">
             {Object.entries(footerLinks).map(([category, links]) => (
               <div key={category}>
                 <h4 className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-900">{category}</h4>
@@ -450,7 +452,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-neutral-100 pt-6 sm:flex-row">
+          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-neutral-100 pt-6 sm:flex-row">
             <span className="text-[12px] text-neutral-400">&copy; 2026 Evalora. All rights reserved.</span>
             <div className="flex items-center gap-5 text-[12px] text-neutral-400">
               <a className="transition-colors hover:text-neutral-700" href="#">Privacy</a>

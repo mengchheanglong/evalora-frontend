@@ -13,17 +13,32 @@ const themes: Array<{ icon: IconName; label: string; value: ThemeName }> = [
 
 export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
   const [theme, setTheme] = useState<ThemeName>("light");
+  const [mounted, setMounted] = useState(false);
 
+  // Sync from storage / the pre-hydration <html data-theme> (set by the inline
+  // script in layout.tsx) once, after mount. Kept out of the initial render so
+  // SSR and first client render stay identical (no hydration mismatch).
   useEffect(() => {
-    const savedTheme = window.localStorage.getItem("evalora-theme");
-    if (savedTheme === "dark" || savedTheme === "ocean") setTheme(savedTheme);
+    const saved = window.localStorage.getItem("evalora-theme");
+    const applied = document.documentElement.dataset.theme as ThemeName | undefined;
+    const resolved: ThemeName =
+      saved === "dark" || saved === "ocean" || saved === "light"
+        ? saved
+        : applied === "dark" || applied === "ocean"
+          ? applied
+          : "light";
+    setTheme(resolved);
+    setMounted(true);
   }, []);
 
+  // Apply + persist only after the sync above, so the "light" default never
+  // overwrites the correct theme the inline script already applied on first paint.
   useEffect(() => {
+    if (!mounted) return;
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light";
     window.localStorage.setItem("evalora-theme", theme);
-  }, [theme]);
+  }, [theme, mounted]);
 
   return (
     <div
@@ -44,6 +59,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
             className="flex h-full w-8 items-center justify-center rounded-[6px] transition"
             key={item.value}
             onClick={() => setTheme(item.value)}
+            suppressHydrationWarning
             style={
               active
                 ? {

@@ -8,6 +8,7 @@ export type IconName =
   | "clipboard"
   | "clock"
   | "code"
+  | "copy"
   | "crown"
   | "eye"
   | "file"
@@ -21,6 +22,7 @@ export type IconName =
   | "moon"
   | "more"
   | "paperPlane"
+  | "pencil"
   | "plus"
   | "plusUser"
   | "question"
@@ -113,6 +115,12 @@ const icons: Record<IconName, ReactNode> = {
       <path d="m14 5-4 14" />
     </>
   ),
+  copy: (
+    <>
+      <rect height="14" rx="2" ry="2" width="14" x="8" y="8" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </>
+  ),
   crown: (
     <>
       <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
@@ -194,6 +202,12 @@ const icons: Record<IconName, ReactNode> = {
     <>
       <line x1="22" x2="11" y1="2" y2="13" />
       <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </>
+  ),
+  pencil: (
+    <>
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
     </>
   ),
   plus: (

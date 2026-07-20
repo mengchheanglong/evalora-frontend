@@ -88,27 +88,27 @@ function mapTemplateToRow(template: AssessmentTemplate): TemplateRow {
   };
 }
 
-function roleTheme(roleType: string): { icon: IconName; iconBg: string; badge: string; bar: string } {
+function roleTheme(roleType: string): { icon: IconName; iconBg: string; badge: string } {
   const role = roleType.toLowerCase();
   if (role.includes("software") || role.includes("frontend") || role.includes("developer") || role.includes("engineer")) {
-    return { icon: "code", iconBg: "tpl-icon tpl-icon-indigo", badge: "tpl-chip tpl-chip-indigo", bar: "bg-indigo-500" };
+    return { icon: "code", iconBg: "tpl-icon tpl-icon-indigo", badge: "tpl-chip tpl-chip-indigo" };
   }
   if (role.includes("product")) {
-    return { icon: "clipboard", iconBg: "tpl-icon tpl-icon-violet", badge: "tpl-chip tpl-chip-violet", bar: "bg-violet-500" };
+    return { icon: "clipboard", iconBg: "tpl-icon tpl-icon-violet", badge: "tpl-chip tpl-chip-violet" };
   }
   if (role.includes("data") || role.includes("analyst")) {
-    return { icon: "analytics", iconBg: "tpl-icon tpl-icon-teal", badge: "tpl-chip tpl-chip-teal", bar: "bg-teal-500" };
+    return { icon: "analytics", iconBg: "tpl-icon tpl-icon-teal", badge: "tpl-chip tpl-chip-teal" };
   }
   if (role.includes("leader") || role.includes("manager")) {
-    return { icon: "crown", iconBg: "tpl-icon tpl-icon-blue", badge: "tpl-chip tpl-chip-blue", bar: "bg-blue-500" };
+    return { icon: "crown", iconBg: "tpl-icon tpl-icon-blue", badge: "tpl-chip tpl-chip-blue" };
   }
   if (role.includes("hr") || role.includes("people")) {
-    return { icon: "users", iconBg: "tpl-icon tpl-icon-orange", badge: "tpl-chip tpl-chip-orange", bar: "bg-orange-500" };
+    return { icon: "users", iconBg: "tpl-icon tpl-icon-orange", badge: "tpl-chip tpl-chip-orange" };
   }
   if (role.includes("customer") || role.includes("success")) {
-    return { icon: "message", iconBg: "tpl-icon tpl-icon-sky", badge: "tpl-chip tpl-chip-sky", bar: "bg-sky-500" };
+    return { icon: "message", iconBg: "tpl-icon tpl-icon-sky", badge: "tpl-chip tpl-chip-sky" };
   }
-  return { icon: "clipboard", iconBg: "tpl-icon tpl-icon-neutral", badge: "tpl-chip tpl-chip-neutral", bar: "bg-gray-500" };
+  return { icon: "clipboard", iconBg: "tpl-icon tpl-icon-neutral", badge: "tpl-chip tpl-chip-neutral" };
 }
 
 function matchesRoleFilter(roleType: string, filter: RoleFilterId): boolean {
@@ -467,9 +467,8 @@ export default function TemplatesPage() {
                     backgroundColor: 'var(--theme-panel)',
                     borderColor: 'var(--theme-border)',
                   }}>
-                    <div className={`h-1.5 w-full ${theme.bar}`} />
-                    <button 
-                      className="flex flex-1 flex-col p-5 text-left" 
+                    <button
+                      className="flex flex-1 flex-col p-5 text-left"
                       disabled={previewLoading} 
                       onClick={() => void openCatalogPreview(item.id)}
                     >
@@ -575,19 +574,19 @@ export default function TemplatesPage() {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}>
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
+                        <button className="group flex w-full items-center gap-3 text-left" onClick={() => void openMinePreview(template.id)} title="Open preview" type="button">
                           <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${template.iconColor}`}>
                             <Icon name={template.icon} size={20} />
                           </span>
-                          <div>
-                            <p className="font-bold text-gray-900" style={{
+                          <div className="min-w-0">
+                            <p className="font-bold text-gray-900 group-hover:underline" style={{
                               color: 'var(--theme-heading)',
                             }}>{template.title}</p>
                             <p className="text-xs text-gray-500 mt-0.5 max-w-[250px] truncate" style={{
                               color: 'var(--theme-muted)',
                             }}>{template.description}</p>
                           </div>
-                        </div>
+                        </button>
                       </td>
                       <td className="px-4 py-4">
                         <span className="tpl-chip tpl-chip-indigo inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium">
@@ -634,9 +633,8 @@ export default function TemplatesPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <ActionButton icon="eye" label="Review" onClick={() => void openMinePreview(template.id)} />
-                          <ActionButton icon="code" label="Edit" href={`/templates/${template.id}/edit`} />
-                          <ActionButton icon="file" label="Duplicate" onClick={() => void duplicateMine(template.id)} disabled={busyId === template.id} />
+                          <ActionButton icon="pencil" label="Edit" href={`/templates/${template.id}/edit`} />
+                          <ActionButton icon="copy" label="Duplicate" onClick={() => void duplicateMine(template.id)} disabled={busyId === template.id} />
                           <ActionButton icon="trash" label="Delete" onClick={() => requestDeleteMine(template.id, template.title)} disabled={busyId === template.id || deleting} danger />
                         </div>
                       </td>
@@ -1022,13 +1020,13 @@ function ActionButton({ icon, label, onClick, href, disabled, danger }: {
 
   if (href) {
     return (
-      <Link href={href} className={`${baseClasses} ${colorClasses}`} title={label}>
+      <Link aria-label={label} href={href} className={`${baseClasses} ${colorClasses}`} title={label}>
         <Icon name={icon} size={16} />
       </Link>
     );
   }
   return (
-    <button onClick={onClick} disabled={disabled} className={`${baseClasses} ${colorClasses}`} title={label} type="button">
+    <button aria-label={label} onClick={onClick} disabled={disabled} className={`${baseClasses} ${colorClasses}`} title={label} type="button">
       <Icon name={icon} size={16} />
     </button>
   );

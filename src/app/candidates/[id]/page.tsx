@@ -222,7 +222,8 @@ function SkillsCard({ report, template }: { report: CandidateReport | null; temp
 }
 
 function LatestSessionCard({ session, template }: { session: InterviewSession; template: AssessmentTemplate }) {
-  const progress = session.status === "completed" ? 100 : session.status === "in_progress" ? 65 : 0;
+  const done = session.status === "completed";
+  const active = session.status === "in_progress";
   return (
     <article className="card rounded-[10px] p-5">
       <div className="flex items-start justify-between gap-3">
@@ -239,8 +240,19 @@ function LatestSessionCard({ session, template }: { session: InterviewSession; t
         <Meta label="Interviewers" value={session.interviewerName ?? (session.interviewers?.join(", ") || "—")} />
       </dl>
       <div className="mt-4">
-        <div className="mb-1 flex justify-between text-[10px] font-bold text-neutral-500"><span>Progress</span><span>{progress}%</span></div>
-        <div className="h-2 rounded-full bg-neutral-100"><div className="h-full rounded-full bg-primary-500" style={{ width: `${progress}%` }} /></div>
+        <div className="mb-1 flex justify-between text-[10px] font-bold text-neutral-500">
+          <span>Progress</span>
+          <span>{done ? "Completed" : statusLabel(session.status)}</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+          {done ? (
+            <div className="h-full w-full rounded-full bg-emerald-500" />
+          ) : active ? (
+            <div className="h-full w-2/5 animate-pulse rounded-full bg-primary-400" />
+          ) : (
+            <div className="h-full w-0 rounded-full" />
+          )}
+        </div>
       </div>
       {session.status !== "completed" && session.status !== "expired" ? (
         <Link className="button-secondary mt-4 h-9 w-full rounded-[7px] text-[11px]" href={`/assessment/${encodeURIComponent(session.accessCode)}`}>
@@ -276,23 +288,75 @@ function RecentActivityCard({ session, responses, notes }: { session: InterviewS
 function OverallSummary({ report, session }: { report: CandidateReport | null; session: InterviewSession }) {
   const hasScore = report?.overallScore != null || session.overallScore != null;
   const score = hasScore ? Math.round(((report?.overallScore ?? session.overallScore ?? 0) / 5) * 100) : null;
+  const meta = scoreMeta(score);
   return (
-    <article className="card rounded-[10px] p-6">
-      <h2 className="text-[15px] font-black text-neutral-900">Overall Summary</h2>
-      <div className="mx-auto mt-5 grid size-40 place-items-center rounded-full text-[34px] font-black text-[#6b63f6]" style={{ background: `conic-gradient(#6765f2 ${(score ?? 0) * 3.6}deg, #d8f4ff 0deg)` }}>
-        <span className="grid size-32 place-items-center rounded-full bg-white">{score == null ? "—" : `${score}%`}</span>
+    <article className="card overflow-hidden rounded-[12px]">
+      <div className={`h-1 w-full ${meta.barBg}`} />
+      <div className="p-6">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-[15px] font-black text-neutral-900">Overall summary</h2>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${meta.badge}`}>
+            <span className={`size-1.5 rounded-full ${meta.dot}`} /> {meta.label}
+          </span>
+        </div>
+        <div className="mt-5 grid place-items-center">
+          <ScoreDonut meta={meta} score={score} />
+        </div>
+        <p className="mt-5 text-center text-[12.5px] leading-6 text-neutral-600">
+          {report?.summary ?? `${session.candidateName} is progressing through the assessment — a full advisory summary appears once the report is generated.`}
+        </p>
+        {report ? (
+          <>
+            <SummaryList items={report.strengths} title="Strengths" />
+            <SummaryList items={report.improvementAreas} title="Areas to improve" />
+          </>
+        ) : null}
+        {report?.advisoryNotice ? (
+          <p className="mt-5 border-t border-neutral-100 pt-4 text-center text-[10.5px] leading-5 text-neutral-400">{report.advisoryNotice}</p>
+        ) : null}
       </div>
-      <h3 className="mt-4 text-center text-[14px] font-black text-neutral-900">{report ? "Advisory review ready" : "Awaiting report"}</h3>
-      <p className="mt-2 text-center text-[12px] leading-5 text-neutral-600">{report?.summary ?? `${session.candidateName} is progressing through the assessment. Summary appears after report generation.`}</p>
-      {report ? (
-        <>
-          <SummaryList items={report.strengths} title="Strengths" />
-          <SummaryList items={report.improvementAreas} title="Areas to improve" />
-        </>
-      ) : null}
-      {report?.advisoryNotice ? <p className="mt-4 text-center text-[10px] text-neutral-500">{report.advisoryNotice}</p> : null}
     </article>
   );
+}
+
+function ScoreDonut({ score, meta }: { score: number | null; meta: ScoreMeta }) {
+  const clamped = Math.max(0, Math.min(100, score ?? 0));
+  const circumference = 2 * Math.PI * 15.5;
+  return (
+    <div className="relative grid size-36 place-items-center">
+      <svg className="size-36 -rotate-90" viewBox="0 0 36 36">
+        <circle className="text-neutral-100" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" strokeWidth="3" />
+        {score != null ? (
+          <circle
+            className={`${meta.ring} transition-all duration-700`}
+            cx="18"
+            cy="18"
+            fill="none"
+            r="15.5"
+            stroke="currentColor"
+            strokeDasharray={`${(clamped / 100) * circumference} ${circumference}`}
+            strokeLinecap="round"
+            strokeWidth="3"
+          />
+        ) : null}
+      </svg>
+      <div className="absolute text-center">
+        <span className="block text-[30px] font-black leading-none text-neutral-900">{score == null ? "—" : `${score}%`}</span>
+        <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-400">Overall</span>
+      </div>
+    </div>
+  );
+}
+
+type ScoreMeta = { label: string; ring: string; bar: string; barBg: string; badge: string; dot: string };
+function scoreMeta(score: number | null): ScoreMeta {
+  if (score == null)
+    return { label: "Pending", ring: "text-neutral-300", bar: "bg-neutral-300", barBg: "bg-neutral-200", badge: "bg-neutral-100 text-neutral-500 ring-neutral-200", dot: "bg-neutral-400" };
+  if (score >= 80)
+    return { label: "Strong", ring: "text-emerald-500", bar: "bg-emerald-500", barBg: "bg-emerald-400", badge: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" };
+  if (score >= 60)
+    return { label: "Promising", ring: "text-amber-500", bar: "bg-amber-500", barBg: "bg-amber-400", badge: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
+  return { label: "Needs review", ring: "text-rose-500", bar: "bg-rose-500", barBg: "bg-rose-400", badge: "bg-rose-50 text-rose-700 ring-rose-200", dot: "bg-rose-500" };
 }
 
 function QuickActions({ session, report, copied, generating, copyInvite, generateReport, onOpenReport }: { session: InterviewSession; report: CandidateReport | null; copied: boolean; generating: boolean; copyInvite: () => Promise<void>; generateReport: () => Promise<void>; onOpenReport: () => void }) {

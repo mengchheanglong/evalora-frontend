@@ -25,7 +25,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
     <div className="space-y-6">
       {/* Hero */}
       <section className="card overflow-hidden rounded-[16px]">
-        <div className="h-1.5 w-full bg-linear-to-r from-primary-500 via-indigo-500 to-fuchsia-500" />
+        <div className={`h-1.5 w-full ${meta.bar}`} />
         <div className="grid gap-8 p-7 sm:p-9 lg:grid-cols-[1fr_auto] lg:items-center">
           {showIdentity ? (
             <div className="flex flex-wrap items-center gap-6">

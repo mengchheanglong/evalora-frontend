@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icons";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPut, getErrorMessage } from "@/lib/api";
@@ -64,6 +65,7 @@ export default function EditTemplatePage() {
   const [timeLimitMin, setTimeLimitMin] = useState("60");
   const [modules, setModules] = useState<EditorModule[]>([]);
   const [activeModuleKey, setActiveModuleKey] = useState("");
+  const [pendingModuleRemoval, setPendingModuleRemoval] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!templateId) return;
@@ -139,7 +141,6 @@ export default function EditTemplatePage() {
   }
 
   function removeModule(key: string) {
-    if (!window.confirm("Remove this module and all of its questions?")) return;
     markDirty();
     setModules((current) => {
       const next = current.filter((module) => module.key !== key).map((module, index) => ({ ...module, orderIndex: index + 1 }));
@@ -397,23 +398,29 @@ export default function EditTemplatePage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">Module {moduleIndex + 1}</p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <input
-                          className="control h-10 rounded-xl text-[13px] font-bold"
-                          onChange={(event) => updateModule(module.key, { title: event.target.value })}
-                          placeholder="Module title"
-                          value={module.title}
-                        />
-                        <select
-                          className="control h-10 rounded-xl text-[13px]"
-                          onChange={(event) => updateModule(module.key, { type: event.target.value as ModuleType })}
-                          value={module.type}
-                        >
-                          {MODULE_TYPES.map((type) => (
-                            <option key={type} value={type}>
-                              {type.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase())}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block text-[11px] font-semibold text-neutral-500">
+                          Module title
+                          <input
+                            className="control mt-1 h-10 rounded-xl text-[13px] font-bold"
+                            onChange={(event) => updateModule(module.key, { title: event.target.value })}
+                            placeholder="e.g. Coding challenge"
+                            value={module.title}
+                          />
+                        </label>
+                        <label className="block text-[11px] font-semibold text-neutral-500">
+                          Category <span className="font-normal text-neutral-400">— sets scoring</span>
+                          <select
+                            className="control mt-1 h-10 rounded-xl text-[13px]"
+                            onChange={(event) => updateModule(module.key, { type: event.target.value as ModuleType })}
+                            value={module.type}
+                          >
+                            {MODULE_TYPES.map((type) => (
+                              <option key={type} value={type}>
+                                {type.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase())}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         <textarea
                           className="control min-h-[44px] rounded-xl text-[13px] leading-5 sm:col-span-2"
                           onChange={(event) => updateModule(module.key, { description: event.target.value })}
@@ -442,7 +449,7 @@ export default function EditTemplatePage() {
                       >
                         {module.collapsed ? "Expand" : "Collapse"}
                       </button>
-                      <button className="h-9 rounded-lg border border-rose-200 px-3 text-[11px] font-bold text-rose-600 hover:bg-rose-50" onClick={() => removeModule(module.key)} type="button">
+                      <button className="h-9 rounded-lg border border-rose-200 px-3 text-[11px] font-bold text-rose-600 hover:bg-rose-50" onClick={() => setPendingModuleRemoval(module.key)} type="button">
                         Remove module
                       </button>
                     </div>
@@ -562,6 +569,18 @@ export default function EditTemplatePage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        confirmLabel="Remove module"
+        message={`"${modules.find((module) => module.key === pendingModuleRemoval)?.title || "This module"}" and all of its questions will be removed.`}
+        onCancel={() => setPendingModuleRemoval(null)}
+        onConfirm={() => {
+          if (pendingModuleRemoval) removeModule(pendingModuleRemoval);
+          setPendingModuleRemoval(null);
+        }}
+        open={pendingModuleRemoval !== null}
+        title="Remove this module?"
+      />
     </AppShell>
   );
 }

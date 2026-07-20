@@ -34,13 +34,6 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   language: "en-US",
 };
 
-const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: IconName; danger?: boolean }> = [
-  { id: "workspace", label: "Workspace", icon: "folder" },
-  { id: "preferences", label: "Preferences", icon: "settings" },
-  { id: "data", label: "Data & privacy", icon: "shield" },
-  { id: "danger", label: "Danger zone", icon: "trash", danger: true },
-];
-
 const THEME_OPTIONS: Array<{
   value: ThemeName;
   label: string;
@@ -165,7 +158,6 @@ export default function SettingsPage() {
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [privacyError, setPrivacyError] = useState("");
   const [orgLogo, setOrgLogo] = useState("");
-  const [activeSection, setActiveSection] = useState("workspace");
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -198,25 +190,6 @@ export default function SettingsPage() {
     if (savedTheme === "dark" || savedTheme === "ocean" || savedTheme === "light") setTheme(savedTheme);
     setTimezoneOptions(listAllTimeZones());
   }, []);
-
-  // Scroll-spy for the section navigation.
-  useEffect(() => {
-    if (loading || !workspace) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActiveSection(visible[0].target.id);
-      },
-      { rootMargin: "-110px 0px -55% 0px", threshold: 0 },
-    );
-    for (const section of SETTINGS_SECTIONS) {
-      const el = document.getElementById(section.id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
-  }, [loading, workspace]);
 
   const previewStamp = useMemo(() => formatNow(preferences), [preferences]);
 
@@ -371,32 +344,7 @@ export default function SettingsPage() {
       description="Manage your workspace profile, personal preferences, and data controls."
       title="Settings"
     >
-      <div className="mx-auto max-w-[1100px] lg:grid lg:grid-cols-[192px_minmax(0,1fr)] lg:items-start lg:gap-7">
-        {/* Section navigation */}
-        <nav aria-label="Settings sections" className="hidden lg:sticky lg:top-[100px] lg:block">
-          <div className="space-y-1">
-            {SETTINGS_SECTIONS.map((section) => {
-              const active = activeSection === section.id;
-              return (
-                <a
-                  className={`flex h-9 items-center gap-2.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${
-                    active
-                      ? "bg-[#bfeeff] text-primary-700"
-                      : section.danger
-                        ? "text-red-600 hover:bg-red-50"
-                        : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950"
-                  }`}
-                  href={`#${section.id}`}
-                  key={section.id}
-                >
-                  <Icon name={section.icon} size={15} />
-                  {section.label}
-                </a>
-              );
-            })}
-          </div>
-        </nav>
-
+      <div className="mx-auto max-w-[860px]">
         <div className="space-y-5">
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
           {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
