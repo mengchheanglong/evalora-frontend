@@ -150,6 +150,10 @@ export default function SessionsPage() {
       inProgress,
       scheduled,
       cancelled,
+      completedProgress: total > 0 ? (completed / total) * 100 : 0,
+      inProgressProgress: total > 0 ? (inProgress / total) * 100 : 0,
+      scheduledProgress: total > 0 ? (scheduled / total) * 100 : 0,
+      cancelledProgress: total > 0 ? (cancelled / total) * 100 : 0,
       completedPercent: getPercent(completed),
       inProgressPercent: getPercent(inProgress),
       scheduledPercent: getPercent(scheduled),
@@ -186,11 +190,11 @@ export default function SessionsPage() {
 
         {/* Stats Cards (Now Real) */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" icon="clipboard" tone="bg-violet-100 text-violet-600" />
-          <StatCard label="Completed" value={String(stats.completed)} detail={stats.completedPercent} icon="check" tone="bg-emerald-100 text-emerald-600" />
-          <StatCard label="In Progress" value={String(stats.inProgress)} detail={stats.inProgressPercent} icon="clock" tone="bg-sky-100 text-sky-600" />
-          <StatCard label="Scheduled" value={String(stats.scheduled)} detail={stats.scheduledPercent} icon="calendar" tone="bg-blue-100 text-blue-600" />
-          <StatCard label="Cancelled" value={String(stats.cancelled)} detail={stats.cancelledPercent} icon="more" tone="bg-rose-100 text-rose-600" />
+          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" progress={100} icon="clipboard" tone="text-[#D504FF]" accent="#D504FF" />
+          <StatCard label="Completed" value={String(stats.completed)} detail={stats.completedPercent} progress={stats.completedProgress} icon="check" tone="text-emerald-600" accent="#10b981" />
+          <StatCard label="In Progress" value={String(stats.inProgress)} detail={stats.inProgressPercent} progress={stats.inProgressProgress} icon="clock" tone="text-sky-600" accent="#0ea5e9" />
+          <StatCard label="Scheduled" value={String(stats.scheduled)} detail={stats.scheduledPercent} progress={stats.scheduledProgress} icon="calendar" tone="text-blue-600" accent="#3b82f6" />
+          <StatCard label="Cancelled" value={String(stats.cancelled)} detail={stats.cancelledPercent} progress={stats.cancelledProgress} icon="more" tone="text-rose-600" accent="#e11d48" />
         </section>
 
         {/* Main Content Card */}
@@ -333,16 +337,28 @@ export default function SessionsPage() {
 
 // --- Sub-Components ---
 
-function StatCard({ label, value, detail, icon, tone }: { label: string; value: string; detail: string; icon: IconName; tone: string }) {
+function StatCard({ label, value, detail, progress, icon, tone, accent }: {
+  label: string; value: string; detail: string; progress: number; icon: IconName; tone: string; accent: string;
+}) {
+  const clampedProgress = Math.max(0, Math.min(100, progress));
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex items-start gap-4">
-      <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${tone}`}>
-        <Icon name={icon} size={24} />
-      </span>
-      <div>
-        <p className="text-xs font-medium text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        <p className="text-[10px] text-gray-400 mt-1">{detail}</p>
+    <div className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-[var(--theme-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--theme-border-strong)] hover:shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
+      <div className="flex items-start gap-4">
+        <span
+          className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${tone}`}
+          style={{ backgroundColor: `${accent}18`, borderColor: `${accent}55` }}
+        >
+          <Icon name={icon} size={24} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-[var(--theme-text)]">{label}</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{value}</p>
+          <p className="mt-2 text-[11px] font-medium text-[var(--theme-muted)]">{detail}</p>
+        </div>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
+        <div className="h-full rounded-full" style={{ width: `${clampedProgress}%`, backgroundColor: accent }} />
       </div>
     </div>
   );

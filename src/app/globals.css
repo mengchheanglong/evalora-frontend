@@ -410,6 +410,8 @@ textarea.control {
   --theme-panel-tint: #f3fafc;
   --theme-border: #b7d7e0;
   --theme-border-strong: #8fbfcc;
+  --theme-field: #eef9fc;
+  --theme-field-focus: #fbfeff;
   /* Text scale tuned for WCAG AA on white panels AND the sea-glass canvas:
      text 13.5:1, muted 6.6:1, faint 4.9:1 on #fff (was 3.2:1 — unreadable). */
   --theme-text: #16323c;
@@ -478,15 +480,10 @@ textarea.control {
 [data-theme="dark"] .soft-card,
 [data-theme="ocean"] .soft-card,
 [data-theme="dark"] .control,
-[data-theme="ocean"] .control,
 [data-theme="dark"] .form-field,
-[data-theme="ocean"] .form-field,
 [data-theme="dark"] input,
-[data-theme="ocean"] input,
 [data-theme="dark"] select,
-[data-theme="ocean"] select,
 [data-theme="dark"] textarea,
-[data-theme="ocean"] textarea,
 [data-theme="dark"] [class~="bg-neutral-100"],
 [data-theme="ocean"] [class~="bg-neutral-100"],
 [data-theme="dark"] [class~="bg-neutral-200"],
@@ -496,6 +493,17 @@ textarea.control {
   background-color: var(--theme-panel-soft) !important;
   color: var(--theme-text) !important;
   border-color: var(--theme-border) !important;
+}
+
+[data-theme="ocean"] .control,
+[data-theme="ocean"] .form-field,
+[data-theme="ocean"] input,
+[data-theme="ocean"] select,
+[data-theme="ocean"] textarea {
+  background-color: var(--theme-field) !important;
+  color: var(--theme-heading) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
 }
 
 [data-theme="dark"] aside,
@@ -790,7 +798,15 @@ textarea.control {
 [data-theme="ocean"] .form-field:focus {
   border-color: var(--color-primary) !important;
   box-shadow: 0 0 0 3px var(--theme-ring) !important;
-  background-color: var(--theme-panel) !important;
+  background-color: var(--theme-field-focus, var(--theme-panel)) !important;
+}
+
+[data-theme="ocean"] input:focus,
+[data-theme="ocean"] select:focus,
+[data-theme="ocean"] textarea:focus {
+  background-color: var(--theme-field-focus) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px var(--theme-ring) !important;
 }
 
 [data-theme="dark"] [class*="focus:border-primary"],
