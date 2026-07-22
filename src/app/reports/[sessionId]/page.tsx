@@ -85,15 +85,15 @@ export default function ReportPage() {
         <div className="mx-auto max-w-[1180px] space-y-6">
           <header className="flex flex-wrap items-center justify-between gap-3 print:hidden">
             <div>
-              <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-primary-600">Candidate Report</p>
-              <h1 className="mt-1 text-[28px] font-black leading-tight text-neutral-950">Assessment Summary</h1>
+              <p className="text-[var(--text-caption)] font-bold uppercase tracking-[0.1em] text-[var(--color-primary-600)]">Candidate Report</p>
+              <h1 className="mt-1 text-[var(--text-h1)] font-black leading-[var(--text-h1--line-height)] text-[var(--theme-heading)]">Assessment Summary</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Link className="button-secondary h-11 rounded-[9px] px-4 text-[13px]" href={`/candidates/${session.id}`}>
+              <Link className="button-secondary h-11 rounded-[9px] px-4 text-[var(--text-caption)]" href={`/candidates/${session.id}`}>
                 <Icon className="rotate-90" name="chevron" size={14} /> Back
               </Link>
               {report ? (
-                <button className="button-primary h-11 rounded-[9px] px-4 text-[13px] !bg-primary-600 hover:!bg-primary-700" onClick={() => window.print()} type="button">
+                <button className="button-primary h-11 rounded-[9px] px-4 text-[var(--text-caption)] !bg-[var(--color-primary-600)] hover:!bg-[var(--color-primary-700)]" onClick={() => window.print()} type="button">
                   <Icon name="file" size={15} /> Print / Export
                 </button>
               ) : null}

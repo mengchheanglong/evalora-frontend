@@ -3,7 +3,8 @@ import { handleMockBackendRequest } from "@/lib/mock-backend";
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/$/, "");
 const SESSION_COOKIE = "evalora_session";
-const AUTH_RESPONSE_PATHS = new Set(["auth/login", "auth/register", "auth/google", "organization/invites/accept"]);
+const REMEMBERED_SESSION_SECONDS = 60 * 60 * 24 * 30;
+const AUTH_RESPONSE_PATHS = new Set(["auth/login", "auth/google", "auth/verify-email", "organization/invites/accept"]);
 
 /**
  * Backend mode for local/dev UX:
@@ -61,6 +62,7 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
   if (!isBodyless) {
     bodyBuffer = await request.arrayBuffer();
   }
+  const rememberedSession = requestsRememberedSession(relativePath, bodyBuffer);
 
   if (BACKEND_MODE === "true" || (BACKEND_MODE === "auto" && Date.now() < liveUnavailableUntil)) {
     return withMockHeader(await handleMockBackendRequest(rebuildRequest(request, bodyBuffer), relativePath));
@@ -111,7 +113,7 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
           sameSite: "lax",
           secure: process.env.NODE_ENV === "production",
           path: "/",
-          maxAge: 60 * 60 * 24,
+          ...(rememberedSession ? { maxAge: REMEMBERED_SESSION_SECONDS } : {}),
         });
       }
       return response;
@@ -162,6 +164,16 @@ function rebuildRequest(request: NextRequest, bodyBuffer?: ArrayBuffer): NextReq
     headers: request.headers,
     body: bodyBuffer.byteLength ? bodyBuffer : undefined,
   });
+}
+
+function requestsRememberedSession(relativePath: string, bodyBuffer?: ArrayBuffer): boolean {
+  if ((relativePath !== "auth/login" && relativePath !== "auth/google") || !bodyBuffer?.byteLength) return false;
+  try {
+    const body = JSON.parse(new TextDecoder().decode(bodyBuffer)) as { remember?: unknown };
+    return body.remember === true;
+  } catch {
+    return false;
+  }
 }
 
 function isTrustedMutation(request: NextRequest): boolean {

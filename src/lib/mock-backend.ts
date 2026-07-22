@@ -6,6 +6,7 @@ import type {
   AssessmentTemplate,
   AuthResponse,
   AuthUser,
+  RegistrationResponse,
   CandidateAccessSession,
   CandidateCodeSubmission,
   CandidateCodeSubmitResult,
@@ -27,6 +28,7 @@ const mockUser: AuthUser = {
   id: "user-demo-owner",
   name: "Maya Chen",
   email: "maya@evalora.demo",
+  emailVerified: true,
   role: "organization",
   organizationId: "org-demo",
 };
@@ -462,7 +464,7 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   const body = method === "GET" || method === "HEAD" ? undefined : await readJson(request);
 
   if (relativePath === "auth/me" && method === "GET") return json(mockUser);
-  if ((relativePath === "auth/login" || relativePath === "auth/register" || relativePath === "auth/google") && method === "POST") {
+  if ((relativePath === "auth/login" || relativePath === "auth/google") && method === "POST") {
     const input = asRecord(body);
     if (relativePath === "auth/google") {
       const credential = String(input.credential ?? input.idToken ?? "").trim();
@@ -477,6 +479,32 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
       });
     }
     return json<AuthResponse>({ user: mockUser, message: "Signed in to mock workspace." });
+  }
+  if (relativePath === "auth/register" && method === "POST") {
+    const input = asRecord(body);
+    const email = String(input.email ?? "").trim().toLowerCase();
+    if (!email) return json({ message: "Email is required." }, 400);
+    return json<RegistrationResponse>({
+      email,
+      requiresEmailVerification: true,
+      message: "Registration successful. Check your email to activate your workspace.",
+      emailDelivery: { status: "skipped", reason: "Mock email delivery is unavailable." },
+      verificationUrl: "http://localhost:3010/verify-email?token=mock-email-verification",
+    });
+  }
+  if (relativePath === "auth/verify-email" && method === "POST") {
+    const input = asRecord(body);
+    if (String(input.token ?? "") !== "mock-email-verification") {
+      return json({ message: "This verification link is invalid or has expired." }, 400);
+    }
+    return json<AuthResponse>({ user: mockUser, message: "Email verified successfully." });
+  }
+  if (relativePath === "auth/resend-email-verification" && method === "POST") {
+    return json({
+      message: "If this email still needs verification, a new link has been sent.",
+      emailDelivery: { status: "skipped", reason: "Mock email delivery is unavailable." },
+      verificationUrl: "http://localhost:3010/verify-email?token=mock-email-verification",
+    });
   }
   if (relativePath === "auth/forgot-password" && method === "POST") {
     const input = asRecord(body);
@@ -709,7 +737,14 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     };
     mockMembers.push(joined);
     return json<AuthResponse>({
-      user: { id: joined.id, name: joined.name, email: joined.email, role: "interviewer", organizationId: joined.organizationId },
+      user: {
+        id: joined.id,
+        name: joined.name,
+        email: joined.email,
+        emailVerified: true,
+        role: "interviewer",
+        organizationId: joined.organizationId,
+      },
       message: "Invitation accepted. Welcome to the workspace.",
     });
   }

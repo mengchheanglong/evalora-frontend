@@ -34,7 +34,7 @@ Browser requests go through the same-origin route handler at `/api/backend/*`. L
 ## Integrated product routes
 
 - `/` - product overview.
-- `/login`, `/register` - workspace authentication.
+- `/login`, `/register`, `/verify-email` - workspace authentication and email verification.
 - `/dashboard` - live pipeline, report readiness, and module performance.
 - `/templates`, `/templates/create` - template list and builder.
 - `/assessment`, `/assessment/create` - interviewer session list and invitation creation.

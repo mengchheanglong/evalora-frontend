@@ -83,8 +83,8 @@ function AnalyticsContent({
       detail: `${summary.totalSessions} sessions`,
       progress: 100,
       icon: "users",
-      tone: "text-[#D504FF]",
-      accent: "#D504FF",
+      tone: "text-[var(--color-chart-1)]",
+      accent: "var(--color-chart-1)",
     },
     {
       label: "Completed",
@@ -101,8 +101,8 @@ function AnalyticsContent({
       detail: `${summary.pendingAssessments} not started`,
       progress: (summary.inProgressAssessments / totalCandidates) * 100,
       icon: "clock",
-      tone: "text-sky-600",
-      accent: "#0ea5e9",
+      tone: "text-[var(--color-chart-2)]",
+      accent: "var(--color-chart-2)",
     },
     {
       label: "Average score",
@@ -119,15 +119,15 @@ function AnalyticsContent({
       detail: `${summary.expiredAssessments} expired sessions`,
       progress: 100,
       icon: "clipboard",
-      tone: "text-rose-600",
-      accent: "#e11d48",
+      tone: "text-[var(--color-chart-3)]",
+      accent: "var(--color-chart-3)",
     },
   ];
 
   const statusRows = useMemo(() => {
     const colors: Record<string, string> = {
-      completed: "#2fc49a",
-      in_progress: "#3b82f6",
+      completed: "var(--color-chart-1)",
+      in_progress: "var(--color-chart-2)",
       not_started: "#fb923c",
       expired: "#ec5b91",
     };
@@ -160,7 +160,7 @@ function AnalyticsContent({
             <div className="flex items-start gap-4">
               <span
                 className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${kpi.tone}`}
-                style={{ backgroundColor: `${kpi.accent}18`, borderColor: `${kpi.accent}55` }}
+                style={{ backgroundColor: `color-mix(in srgb, ${kpi.accent} 12%, transparent)`, borderColor: `color-mix(in srgb, ${kpi.accent} 35%, transparent)` }}
               >
                 <Icon name={kpi.icon} size={24} />
               </span>
@@ -322,8 +322,11 @@ function ScoreBars({ buckets }: { buckets: ScoreBucket[] }) {
         <div className="flex h-full flex-1 flex-col justify-end" key={item.label}>
           <div className="flex flex-1 items-end justify-center">
             <div
-              className="relative w-full max-w-[48px] rounded-t bg-violet-200"
-              style={{ height: `${Math.max(8, (item.count / max) * 100)}%` }}
+              className="relative w-full max-w-[48px] rounded-t"
+              style={{
+                height: `${Math.max(8, (item.count / max) * 100)}%`,
+                backgroundColor: 'color-mix(in srgb, var(--color-chart-1) 20%, transparent)',
+              }}
             >
               <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[11px] font-black text-gray-700">{item.count}</span>
             </div>

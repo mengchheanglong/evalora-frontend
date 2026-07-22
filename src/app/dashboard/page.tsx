@@ -111,8 +111,8 @@ function DashboardContent({
       detail: "All time candidates", 
       progress: 100,
       icon: "users" as IconName, 
-      tone: "text-[#D504FF]",
-      accent: "#D504FF",
+      tone: "text-[var(--color-chart-1)]",
+      accent: "var(--color-chart-1)",
     },
     { 
       label: "Completed", 
@@ -129,8 +129,8 @@ function DashboardContent({
       detail: `${((summary.inProgressAssessments / total) * 100).toFixed(1)}% of total`, 
       progress: (summary.inProgressAssessments / total) * 100,
       icon: "clock" as IconName, 
-      tone: "text-sky-500",
-      accent: "#0ea5e9",
+      tone: "text-[var(--color-chart-2)]",
+      accent: "var(--color-chart-2)",
     },
     { 
       label: "Average Score", 
@@ -147,8 +147,8 @@ function DashboardContent({
       detail: "Success rate", 
       progress: summary.completionRate * 100,
       icon: "crown" as IconName, 
-      tone: "text-fuchsia-500",
-      accent: "#d946ef",
+      tone: "text-[var(--color-chart-3)]",
+      accent: "var(--color-chart-3)",
     },
   ];
 
@@ -231,7 +231,7 @@ function StatCard({ label, value, detail, progress, icon, tone, accent }: {
       <div className="flex items-start gap-4">
         <span
           className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${tone}`}
-          style={{ backgroundColor: `${accent}18`, borderColor: `${accent}55` }}
+          style={{ backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`, borderColor: `color-mix(in srgb, ${accent} 35%, transparent)` }}
         >
           <Icon name={icon} size={24} />
         </span>
@@ -298,11 +298,11 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
           {[0, 25, 50, 75, 100].map((y) => (
             <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--color-chart-grid)" strokeWidth="0.5" />
           ))}
-          {points.length > 1 ? <path d={`${pathD} L 100,100 L 0,100 Z`} fill="#8b5cf6" opacity="0.14" /> : null}
-          <path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          {points.length > 1 ? <path d={`${pathD} L 100,100 L 0,100 Z`} fill="var(--color-chart-1)" opacity="0.14" /> : null}
+          <path d={pathD} fill="none" stroke="var(--color-chart-1)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           {points.map((point, i) => {
             const [cx, cy] = point.split(',');
-            return <circle key={i} cx={cx} cy={cy} r="1.6" fill="#8b5cf6" stroke="var(--theme-panel)" strokeWidth="0.6" />;
+            return <circle key={i} cx={cx} cy={cy} r="1.6" fill="var(--color-chart-1)" stroke="var(--theme-panel)" strokeWidth="0.6" />;
           })}
         </svg>
       </div>
@@ -313,8 +313,8 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
           ) : <span key={i}></span>
         ))}
       </div>
-      <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/10 px-3 py-2">
-        <span className="text-[11px] font-semibold text-violet-600">
+      <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-[var(--color-chart-1)]/20 bg-[var(--color-chart-1)]/10 px-3 py-2">
+        <span className="text-[11px] font-semibold text-[var(--color-chart-1)]">
           Latest: {formatLabel(data[data.length - 1].date)} - Average Score: {data[data.length - 1].score}%
         </span>
       </div>
@@ -325,7 +325,15 @@ function PerformanceChart({ data }: { data: TrendDataPoint[] }) {
 // UPDATED: Uses REAL module performance data from backend
 function AssessmentPieChart({ modulePerformance, total }: { modulePerformance: ModulePerformance[]; total: number }) {
   const totalEvaluations = modulePerformance.reduce((acc, m) => acc + m.evaluationCount, 0);
-  const colors = ["#3b82f6", "#06b6d4", "#10b981", "#ef4444", "#f59e0b", "#eab308", "#8b5cf6"];
+  const colors = [
+    "var(--color-chart-1)",
+    "var(--color-chart-2)",
+    "var(--color-chart-3)",
+    "var(--color-chart-4)",
+    "var(--color-chart-5)",
+    "var(--color-chart-6)",
+    "var(--color-chart-7)",
+  ];
   
   const segments = modulePerformance.map((m, i) => ({
     label: m.title,
@@ -433,11 +441,11 @@ function TopCandidatesTable({ recentCompleted }: { recentCompleted: AnalyticsSum
 
   const getTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      "AI Interview": "bg-purple-100 text-purple-600",
+      "AI Interview": "bg-blue-100 text-blue-600",
       "Coding Test": "bg-sky-100 text-sky-600",
-      Behavioral: "bg-emerald-100 text-emerald-600",
-      Leadership: "bg-orange-100 text-orange-600",
-      Communication: "bg-rose-100 text-rose-600",
+      Behavioral: "bg-cyan-100 text-cyan-600",
+      Leadership: "bg-indigo-100 text-indigo-600",
+      Communication: "bg-teal-100 text-teal-600",
     };
     return colors[type] || "bg-gray-100 text-gray-600";
   };

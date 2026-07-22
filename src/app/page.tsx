@@ -381,7 +381,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-[1200px] px-5 pb-16 sm:px-8 sm:pb-20">
         <div className="relative overflow-hidden rounded-3xl bg-navy px-6 py-12 text-center sm:px-16 sm:py-14">
           <div aria-hidden="true" className="pointer-events-none absolute -top-28 left-1/2 h-64 w-[560px] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl" />
-          <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 right-0 h-64 w-[420px] rounded-full bg-indigo-500/20 blur-3xl" />
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 right-0 h-64 w-[420px] rounded-full bg-primary/20 blur-3xl" />
           <h2 className="relative text-[30px] font-extrabold leading-[1.15] tracking-[-0.02em] text-white sm:text-[36px]">
             Ready to hire smarter?
           </h2>
@@ -486,7 +486,7 @@ function CodingMock() {
   return (
     <div className="mt-6 rounded-xl bg-neutral-950 p-4">
       <div className="font-mono text-[11px] leading-[19px]">
-        <p><span className="text-fuchsia-300">function</span> <span className="text-sky-300">maxProfit</span><span className="text-slate-300">(prices) {"{"}</span></p>
+        <p><span className="text-blue-300">function</span> <span className="text-sky-300">maxProfit</span><span className="text-slate-300">(prices) {"{"}</span></p>
         <p className="pl-4 text-slate-400">let low = Infinity, best = 0;</p>
         <p className="pl-4 text-slate-400">for (const p of prices) {"{ … }"}</p>
         <p className="text-slate-300">{"}"}</p>
@@ -510,16 +510,16 @@ function HeroPreview() {
     { label: "Users & Roles", icon: "users" },
   ];
   const statCards = [
-    { label: "Total Candidates", value: "1,256", change: "+12%", tint: "bg-[#D504FF]/10 text-[#D504FF]", icon: "user" as const },
+    { label: "Total Candidates", value: "1,256", change: "+12%", tint: "bg-blue-100 text-blue-600", icon: "user" as const },
     { label: "Completed", value: "832", change: "+8%", tint: "bg-emerald-100 text-emerald-600", icon: "check" as const },
-    { label: "Average Score", value: "78%", change: "+5%", tint: "bg-blue-100 text-blue-600", icon: "star" as const },
+    { label: "Average Score", value: "78%", change: "+5%", tint: "bg-primary-100 text-primary-700", icon: "star" as const },
     { label: "In Progress", value: "334", change: "-4%", tint: "bg-orange-100 text-orange-500", icon: "clock" as const },
   ];
   const activity = [
     { title: "David Lee completed", detail: "Frontend Developer Interview", time: "2h", tint: "bg-emerald-100 text-emerald-600", icon: "check" as const },
-    { title: "Emma Johnson started", detail: "Backend Developer Interview", time: "6h", tint: "bg-[#D504FF]/10 text-[#D504FF]", icon: "user" as const },
+    { title: "Emma Johnson started", detail: "Backend Developer Interview", time: "6h", tint: "bg-blue-100 text-blue-600", icon: "user" as const },
     { title: "New assessment template", detail: "created by you", time: "1d", tint: "bg-orange-100 text-orange-500", icon: "file" as const },
-    { title: "Report generated for", detail: "Sophia Wilson", time: "2d", tint: "bg-rose-100 text-rose-500", icon: "report" as const },
+    { title: "Report generated for", detail: "Sophia Wilson", time: "2d", tint: "bg-sky-100 text-sky-600", icon: "report" as const },
   ];
 
   return (
@@ -600,15 +600,15 @@ function HeroPreview() {
                   <svg aria-label="Assessment performance line chart" className="h-[110px] w-full overflow-visible" role="img" viewBox="0 0 184 116">
                     <defs>
                       <linearGradient id="hero-chart-fill" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#15c7a8" stopOpacity="0.18" />
-                        <stop offset="100%" stopColor="#15c7a8" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#2fb2e4" stopOpacity="0.18" />
+                        <stop offset="100%" stopColor="#2fb2e4" stopOpacity="0" />
                       </linearGradient>
                     </defs>
                     {[18, 42, 66, 90].map((y) => <line key={y} stroke="#eceff3" strokeWidth="1" x1="0" x2="184" y1={y} y2={y} />)}
                     <path d="M0 88 L13 62 L25 75 L38 67 L51 72 L64 58 L76 65 L89 50 L102 38 L115 46 L128 28 L141 42 L154 21 L167 55 L184 32 L184 116 L0 116 Z" fill="url(#hero-chart-fill)" />
-                    <path d="M0 88 L13 62 L25 75 L38 67 L51 72 L64 58 L76 65 L89 50 L102 38 L115 46 L128 28 L141 42 L154 21 L167 55 L184 32" fill="none" stroke="#00a98f" strokeWidth="2" />
+                    <path d="M0 88 L13 62 L25 75 L38 67 L51 72 L64 58 L76 65 L89 50 L102 38 L115 46 L128 28 L141 42 L154 21 L167 55 L184 32" fill="none" stroke="#0ea5e9" strokeWidth="2" />
                     {[0, 13, 25, 38, 51, 64, 76, 89, 102, 115, 128, 141, 154, 167, 184].map((x, index) => (
-                      <circle cx={x} cy={[88, 62, 75, 67, 72, 58, 65, 50, 38, 46, 28, 42, 21, 55, 32][index]} fill="#00a98f" key={x} r="2" />
+                      <circle cx={x} cy={[88, 62, 75, 67, 72, 58, 65, 50, 38, 46, 28, 42, 21, 55, 32][index]} fill="#0ea5e9" key={x} r="2" />
                     ))}
                     <line stroke="#d9dee8" x1="0" x2="184" y1="116" y2="116" />
                   </svg>

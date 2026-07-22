@@ -41,9 +41,9 @@ const THEME_OPTIONS: Array<{
   icon: IconName;
   swatch: { bg: string; panel: string; accent: string };
 }> = [
-  { value: "light", label: "Light", hint: "Default", icon: "sun", swatch: { bg: "#f7f8fa", panel: "#ffffff", accent: "#2fb2e4" } },
-  { value: "dark", label: "Dark", hint: "Low glare", icon: "moon", swatch: { bg: "#07101a", panel: "#0f1b2a", accent: "#4fc9e8" } },
-  { value: "ocean", label: "Ocean", hint: "Sea glass", icon: "waves", swatch: { bg: "#e7f4f7", panel: "#ffffff", accent: "#0e9bb8" } },
+  { value: "light", label: "Light", hint: "Default", icon: "sun", swatch: { bg: "#f5f7fa", panel: "#ffffff", accent: "#2fb2e4" } },
+  { value: "dark", label: "Dark", hint: "Low glare", icon: "moon", swatch: { bg: "#080c14", panel: "#0f1623", accent: "#3b82f6" } },
+  { value: "ocean", label: "Ocean", hint: "Sky blue", icon: "waves", swatch: { bg: "#eaf4fa", panel: "#f5fafd", accent: "#0284c7" } },
 ];
 
 function preferencesKey(userId: string) {

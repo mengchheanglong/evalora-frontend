@@ -272,8 +272,8 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
 
 function SidebarLink({ active, item, onNavigate }: { active: boolean; item: { label: string; href: string; icon: IconName }; onNavigate?: () => void }) {
   return (
-    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] font-semibold transition ${active ? "bg-[#bfeeff] text-primary-700" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"}`} href={item.href} onClick={onNavigate}>
-      <Icon className={active ? "text-[#0b5f78]" : "text-neutral-950"} name={item.icon} size={21} />
+    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"}`} href={item.href} onClick={onNavigate}>
+      <Icon className={active ? "text-[var(--theme-active-text)]" : "text-neutral-950"} name={item.icon} size={21} />
       <span>{item.label}</span>
     </Link>
   );

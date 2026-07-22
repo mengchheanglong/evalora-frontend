@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
@@ -15,6 +14,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { register, loginWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmationPassword, setShowConfirmationPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -53,14 +53,18 @@ export default function RegisterPage() {
     setError("");
     setSubmitting(true);
     try {
-      await register({
+      const result = await register({
         name: String(form.get("name") ?? ""),
         email: String(form.get("email") ?? ""),
         password: nextPassword,
         organizationName: String(form.get("organizationName") ?? "") || undefined,
       });
-      router.replace("/dashboard");
-      router.refresh();
+      if (result.verificationUrl) {
+        sessionStorage.setItem("evalora-verification-fallback", result.verificationUrl);
+      } else {
+        sessionStorage.removeItem("evalora-verification-fallback");
+      }
+      router.replace(`/verify-email?email=${encodeURIComponent(result.email)}`);
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to create your workspace."));
     } finally {
@@ -70,7 +74,7 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout
-      headline={<><span className="block">Start with structure.</span><span className="block text-[#149bc8]">Scale with clarity.</span></>}
+      headline={<><span className="block xl:whitespace-nowrap">Start with structure.</span><span className="block text-[#149bc8]">Scale with clarity.</span></>}
       lead="Create a company workspace. You become the owner and can invite interviewers to share templates, sessions, and reports."
       panelClassName="max-w-[560px]"
     >
@@ -108,7 +112,12 @@ export default function RegisterPage() {
             shown={showPassword}
             value={password}
           />
-          <PasswordField label="Confirm password" name="confirmation" onToggle={() => setShowPassword((shown) => !shown)} shown={showPassword} />
+          <PasswordField
+            label="Confirm password"
+            name="confirmation"
+            onToggle={() => setShowConfirmationPassword((shown) => !shown)}
+            shown={showConfirmationPassword}
+          />
         </div>
         <ul className="space-y-1.5 text-[11px] text-neutral-600">
           {PASSWORD_RULES.map((rule) => {
@@ -126,13 +135,13 @@ export default function RegisterPage() {
         <p className="text-[11px] leading-5 text-neutral-500">This signup creates the organization owner. Interviewers join by invite; candidates use assessment links.</p>
 
         <label className="flex items-center gap-2 text-[11px] leading-5 text-neutral-500">
-          <input className="size-5 shrink-0 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500" type="checkbox" />
+          <input className="size-5 shrink-0 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500" name="termsAccepted" required type="checkbox" />
           <span>
-            I agree to the <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/terms">Terms of Service</Link> and <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/privacy">Privacy Policy</Link>
+            I agree to the <strong className="font-bold text-neutral-700">Terms of Service</strong> and <strong className="font-bold text-neutral-700">Privacy Policy</strong>
           </span>
         </label>
 
-        <button className="button-primary h-12 w-full !bg-primary-500 hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} type="submit">
+        <button className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-[13px] font-bold hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} type="submit">
           {submitting ? <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : null}
           {submitting ? "Creating workspace" : "Create workspace"}
         </button>
@@ -140,7 +149,7 @@ export default function RegisterPage() {
         <GoogleSignInButton disabled={submitting} mode="signup" onCredential={finishGoogleSignUp} onError={setError} />
 
         <p className="text-center text-[13px] text-neutral-500">
-          Already have an account? <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/login">login</Link>
+          Already have an account? <a className="font-bold !text-primary-700 hover:!text-primary-600" href="/login">Log in</a>
         </p>
       </form>
     </AuthLayout>
@@ -186,7 +195,7 @@ function PasswordField({
           type={shown ? "text" : "password"}
           value={value}
         />
-        <button aria-label={shown ? "Hide password" : "Show password"} className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-neutral-400 hover:text-neutral-800" onClick={onToggle} type="button"><Icon name="eye" size={16} /></button>
+        <button aria-label={shown ? "Hide password" : "Show password"} className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-neutral-400 transition hover:text-neutral-800" onClick={onToggle} type="button"><Icon name="eye" size={16} /></button>
       </span>
     </label>
   );

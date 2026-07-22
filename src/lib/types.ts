@@ -16,6 +16,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  emailVerified: boolean;
   role: UserRole;
   organizationId?: string;
 }
@@ -97,6 +98,20 @@ export interface DeleteWorkspaceDataResult {
 export interface AuthResponse {
   user: AuthUser;
   message: string;
+}
+
+export interface EmailVerificationRequestResponse {
+  message: string;
+  emailDelivery: {
+    status: "sent" | "skipped" | "failed" | "queued";
+    reason?: string;
+  };
+  verificationUrl?: string;
+}
+
+export interface RegistrationResponse extends EmailVerificationRequestResponse {
+  email: string;
+  requiresEmailVerification: true;
 }
 
 /** Workspace teammate (owner or interviewer). */

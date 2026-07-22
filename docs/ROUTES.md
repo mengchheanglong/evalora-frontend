@@ -7,6 +7,7 @@ The browser calls backend APIs through `/api/backend/*`; the route handler forwa
 | `/` | Public | Product overview and workspace entry. | None |
 | `/login` | Public | Workspace login (owner or interviewer). | `POST /api/auth/login` |
 | `/register` | Public | Create a **workspace owner** and organization. | `POST /api/auth/register` |
+| `/verify-email` | Public | Confirm a registration link or resend verification email. | `POST /api/auth/verify-email`, `POST /api/auth/resend-email-verification` |
 | `/forgot-password` | Public | Request a workspace password reset email/link. | `POST /api/auth/forgot-password` |
 | `/reset-password` | Public | Set a new password with the token from email or demo `resetUrl`. | `POST /api/auth/reset-password` |
 | `/invite/[token]` | Public | Accept teammate invite; create interviewer account in that org. | `GET /api/organization/invites/token/:token`, `POST /api/organization/invites/accept` |
@@ -24,4 +25,4 @@ The browser calls backend APIs through `/api/backend/*`; the route handler forwa
 | `/users` | Workspace (Team) | List members; **owner** invites/removes interviewers and manages pending invites. | `/api/organization/members`, `/api/organization/invites*` |
 | `/settings` | Workspace | Workspace name, device preferences, notifications, privacy export/retention/delete. | `GET/PUT /api/organization`, `GET /api/organization/privacy`, `GET /api/organization/export`, `DELETE /api/organization/data` |
 
-Password reset is linked from `/login` → `/forgot-password` → email or demo `resetUrl` → `/reset-password?token=...`. Email-verification pages remain unlinked until those backend workflows exist.
+Password reset is linked from `/login` → `/forgot-password` → email or demo `resetUrl` → `/reset-password?token=...`. Email registration continues from `/register` → verification email → `/verify-email?token=...` → authenticated dashboard.

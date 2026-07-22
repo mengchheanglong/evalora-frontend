@@ -175,13 +175,13 @@ export default function SessionsPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Interview Sessions</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-3xl font-bold text-[var(--theme-heading)]">Interview Sessions</h1>
+            <p className="text-sm text-[var(--theme-muted)] mt-1">
               Create, manage, and monitor all candidate interview sessions.
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/assessment/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-sky-500 bg-sky-500 px-5 text-sm font-bold text-white shadow-sm transition hover:border-sky-600 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500/25">
+            <Link href="/assessment/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[var(--color-primary-500)] bg-[var(--color-primary-500)] px-5 text-sm font-bold text-[var(--theme-panel)] shadow-sm transition hover:border-[var(--color-primary-600)] hover:bg-[var(--color-primary-600)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-ring)]">
               <Icon name="plus" size={16} /> New Session
             </Link>
           </div>
@@ -189,26 +189,26 @@ export default function SessionsPage() {
 
         {/* Stats Cards (Now Real) */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" progress={100} icon="clipboard" tone="text-[#D504FF]" accent="#D504FF" />
-          <StatCard label="Completed" value={String(stats.completed)} detail={stats.completedPercent} progress={stats.completedProgress} icon="check" tone="text-emerald-600" accent="#10b981" />
-          <StatCard label="In Progress" value={String(stats.inProgress)} detail={stats.inProgressPercent} progress={stats.inProgressProgress} icon="clock" tone="text-sky-600" accent="#0ea5e9" />
-          <StatCard label="Scheduled" value={String(stats.scheduled)} detail={stats.scheduledPercent} progress={stats.scheduledProgress} icon="calendar" tone="text-blue-600" accent="#3b82f6" />
-          <StatCard label="Cancelled" value={String(stats.cancelled)} detail={stats.cancelledPercent} progress={stats.cancelledProgress} icon="more" tone="text-rose-600" accent="#e11d48" />
+          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" progress={100} icon="clipboard" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
+          <StatCard label="Completed" value={String(stats.completed)} detail={stats.completedPercent} progress={stats.completedProgress} icon="check" tone="text-emerald-500" accent="#10b981" />
+          <StatCard label="In Progress" value={String(stats.inProgress)} detail={stats.inProgressPercent} progress={stats.inProgressProgress} icon="clock" tone="text-sky-500" accent="#0ea5e9" />
+          <StatCard label="Scheduled" value={String(stats.scheduled)} detail={stats.scheduledPercent} progress={stats.scheduledProgress} icon="calendar" tone="text-amber-500" accent="#f59e0b" />
+          <StatCard label="Cancelled" value={String(stats.cancelled)} detail={stats.cancelledPercent} progress={stats.cancelledProgress} icon="more" tone="text-[var(--theme-muted)]" accent="var(--theme-muted)" />
         </section>
 
         {/* Main Content Card */}
-        <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <section className="bg-[var(--theme-panel)] rounded-xl border border-[var(--theme-border)] shadow-[var(--shadow-card)] overflow-hidden">
           {/* Filters Bar */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-gray-200 px-5 py-4 gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-[var(--theme-border)] px-5 py-4 gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <SelectFilter value={statusFilter} onChange={setStatusFilter} options={["All Status", "Completed", "In Progress", "Scheduled", "Cancelled"]} />
               <SelectFilter value="All Templates" onChange={() => {}} options={["All Templates", "Technical", "Behavioral"]} />
               <SelectFilter value="All Interviewers" onChange={() => {}} options={["All Interviewers", "Unassigned"]} />
               <SelectFilter value="All Time" onChange={() => {}} options={["All Time", "Today", "This Week", "This Month"]} />
             </div>
-            <label className="group flex h-11 w-full items-center gap-3 rounded-lg border border-primary-300/60 bg-primary-50/60 px-3.5 text-primary-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:border-primary-300 focus-within:border-primary-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-500/15 lg:w-72">
+            <label className="group flex h-11 w-full items-center gap-3 rounded-lg border border-[var(--color-primary-300)]/70 bg-[var(--color-primary-50)]/70 px-3.5 text-[var(--color-primary-700)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:border-[var(--color-primary-300)] focus-within:border-[var(--color-primary-500)] focus-within:bg-[var(--theme-panel)] focus-within:ring-4 focus-within:ring-[var(--theme-ring)] lg:w-72">
               <span className="sr-only">Search sessions</span>
-              <span className="relative -top-px flex size-5 shrink-0 items-center justify-center rounded-full text-primary-700/70 transition group-focus-within:text-primary-700">
+              <span className="relative -top-px flex size-5 shrink-0 items-center justify-center rounded-full text-[var(--color-primary-700)]/70 transition group-focus-within:text-[var(--color-primary-700)]">
                 <Icon name="search" size={17} />
               </span>
               <input
@@ -216,7 +216,7 @@ export default function SessionsPage() {
                 placeholder="Search sessions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="min-w-0 flex-1 border-0 !bg-transparent text-sm font-medium leading-none text-gray-800 outline-none placeholder:text-gray-500"
+                className="min-w-0 flex-1 border-0 !bg-transparent text-sm font-medium leading-none text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
               />
             </label>
           </div>
@@ -229,7 +229,7 @@ export default function SessionsPage() {
           {filteredSessions.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <thead className="bg-[var(--theme-panel-soft)] text-xs font-semibold text-[var(--theme-faint)] uppercase tracking-wider">
                   <tr>
                     <th className="px-5 py-3">Session ID</th>
                     <th className="px-4 py-3">Candidate</th>
@@ -241,46 +241,46 @@ export default function SessionsPage() {
                     <th className="px-5 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-[var(--theme-border)]">
                   {filteredSessions.map((session) => (
-                    <tr key={session.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-4 font-mono text-xs text-gray-600">{session.sessionId}</td>
+                    <tr key={session.id} className="hover:bg-[var(--theme-panel-soft)] transition-colors">
+                      <td className="px-5 py-4 font-mono text-xs text-[var(--theme-text)]">{session.sessionId}</td>
                       <td className="px-4 py-4">
                         <Link href={`/candidates/${session.id}`} className="group flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs">
+                          <div className="w-8 h-8 rounded-full bg-[var(--theme-active)] flex items-center justify-center text-[var(--theme-active-text)] font-bold text-xs">
                             {session.candidateName.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900 group-hover:text-sky-700">{session.candidateName}</p>
-                            <p className="text-xs text-gray-500">{session.candidateEmail}</p>
+                            <p className="font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</p>
+                            <p className="text-xs text-[var(--theme-muted)]">{session.candidateEmail}</p>
                           </div>
                         </Link>
                       </td>
                       <td className="px-4 py-4">
-                        <p className="font-medium text-gray-900">{session.templateTitle}</p>
+                        <p className="font-medium text-[var(--theme-heading)]">{session.templateTitle}</p>
                         <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(session.category)}`}>
                           {session.category}
                         </span>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs">
+                          <div className="w-8 h-8 rounded-full bg-[var(--theme-panel-soft)] flex items-center justify-center text-[var(--theme-muted)] font-bold text-xs">
                             {session.interviewerName.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{session.interviewerName}</p>
-                            <p className="text-xs text-gray-500">{session.interviewerRole}</p>
+                            <p className="font-medium text-[var(--theme-heading)]">{session.interviewerName}</p>
+                            <p className="text-xs text-[var(--theme-muted)]">{session.interviewerRole}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-gray-700">
-                            <Icon name="calendar" size={12} className="text-gray-400" />
+                          <div className="flex items-center gap-1.5 text-[var(--theme-text)]">
+                            <Icon name="calendar" size={12} className="text-[var(--theme-faint)]" />
                             <span className="text-xs">{session.date}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-gray-700">
-                            <Icon name="clock" size={12} className="text-gray-400" />
+                          <div className="flex items-center gap-1.5 text-[var(--theme-text)]">
+                            <Icon name="clock" size={12} className="text-[var(--theme-faint)]" />
                             <span className="text-xs">{session.time}</span>
                           </div>
                         </div>
@@ -290,10 +290,10 @@ export default function SessionsPage() {
                       </td>
                       <td className="px-4 py-4 w-32">
                         <div className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-gray-900 w-8">{session.progress}%</span>
-                          <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <span className="text-xs font-bold text-[var(--theme-heading)] w-8">{session.progress}%</span>
+                          <div className="flex-1 h-1.5 bg-[var(--theme-panel-soft)] rounded-full overflow-hidden">
                             <div 
-                              className={`h-full rounded-full ${session.progress === 100 ? 'bg-sky-500' : session.progress > 0 ? 'bg-sky-400' : 'bg-gray-200'}`} 
+                              className={`h-full rounded-full ${session.progress === 100 ? 'bg-[var(--color-primary-500)]' : session.progress > 0 ? 'bg-[var(--color-primary-400)]' : 'bg-[var(--theme-panel-soft)]'}`}
                               style={{ width: `${session.progress}%` }} 
                             />
                           </div>
@@ -305,10 +305,10 @@ export default function SessionsPage() {
                             aria-label={`Delete ${session.candidateName}'s session`}
                             disabled={deletingId === session.id}
                             onClick={() => void removeSession(session)}
-                            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                            className="p-1.5 text-[var(--theme-faint)] hover:text-[var(--theme-muted)] hover:bg-[var(--theme-panel-soft)] rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {deletingId === session.id
-                              ? <span className="block size-4 animate-spin rounded-full border-2 border-gray-300 border-t-rose-500" />
+                              ? <span className="block size-4 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" />
                               : <Icon name="trash" size={16} />}
                           </button>
                         </div>
@@ -346,7 +346,7 @@ function StatCard({ label, value, detail, progress, icon, tone, accent }: {
       <div className="flex items-start gap-4">
         <span
           className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${tone}`}
-          style={{ backgroundColor: `${accent}18`, borderColor: `${accent}55` }}
+          style={{ backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`, borderColor: `color-mix(in srgb, ${accent} 35%, transparent)` }}
         >
           <Icon name={icon} size={24} />
         </span>
@@ -369,11 +369,11 @@ function SelectFilter({ value, onChange, options }: { value: string; onChange: (
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-9 text-sm font-medium text-gray-700 outline-none transition hover:border-gray-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
+        className="h-9 cursor-pointer appearance-none rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] pl-3 pr-9 text-sm font-medium text-[var(--theme-text)] outline-none transition hover:border-[var(--theme-border-strong)] focus:border-[var(--color-primary-500)] focus:ring-2 focus:ring-[var(--theme-ring)]"
       >
         {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
       </select>
-      <Icon name="chevron" size={14} className="pointer-events-none absolute right-2.5 top-[calc(50%-1px)] -translate-y-1/2 text-primary-700/60" />
+      <Icon name="chevron" size={14} className="pointer-events-none absolute right-2.5 top-[calc(50%-1px)] -translate-y-1/2 text-[var(--theme-muted)]" />
     </div>
   );
 }
@@ -383,7 +383,7 @@ function StatusBadge({ status }: { status: SessionStatusUI }) {
     Completed: "text-emerald-700 bg-emerald-50 border-emerald-100",
     "In Progress": "text-sky-700 bg-sky-50 border-sky-100",
     Scheduled: "text-amber-700 bg-amber-50 border-amber-100",
-    Cancelled: "text-rose-700 bg-rose-50 border-rose-100",
+    Cancelled: "text-[var(--theme-muted)] bg-[var(--theme-panel-soft)] border-[var(--theme-border)]",
   };
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${styles[status]}`}>
@@ -394,10 +394,10 @@ function StatusBadge({ status }: { status: SessionStatusUI }) {
 
 function getCategoryColor(category: string) {
   const colors: Record<string, string> = {
-    Technical: "bg-purple-50 text-purple-600",
+    Technical: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)]",
     Behavioral: "bg-emerald-50 text-emerald-600",
     Leadership: "bg-sky-50 text-sky-600",
-    General: "bg-gray-50 text-gray-600",
+    General: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]",
   };
-  return colors[category] || "bg-gray-50 text-gray-600";
+  return colors[category] || "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]";
 }
