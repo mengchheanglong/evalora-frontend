@@ -1,4 +1,15 @@
 const API_PROXY_BASE = "/api/backend";
+const GET_CACHE_TTL_MS = 15_000;
+const MAX_CACHED_GETS = 100;
+
+type CachedResponse = {
+  expiresAt: number;
+  value: unknown;
+};
+
+const responseCache = new Map<string, CachedResponse>();
+const pendingGets = new Map<string, Promise<unknown>>();
+let cacheGeneration = 0;
 
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
@@ -17,6 +28,22 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const normalizedPath = normalizePath(path);
+  const method = (options.method ?? "GET").toUpperCase();
+  const cacheKey = method === "GET" && !options.signal && !options.headers ? normalizedPath : null;
+
+  if (cacheKey) {
+    const cached = responseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value as T;
+    if (cached) responseCache.delete(cacheKey);
+    const pending = pendingGets.get(cacheKey);
+    if (pending) return pending as Promise<T>;
+  } else if (method !== "GET" && method !== "HEAD") {
+    cacheGeneration += 1;
+    responseCache.clear();
+    pendingGets.clear();
+  }
+
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
 
@@ -26,20 +53,37 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(`${API_PROXY_BASE}${normalizePath(path)}`, {
-    ...options,
-    body,
-    headers,
-    cache: "no-store",
-    credentials: "same-origin",
-  });
-  const payload = await readPayload(response);
+  const generationAtStart = cacheGeneration;
+  const request = (async () => {
+    const response = await fetch(`${API_PROXY_BASE}${normalizedPath}`, {
+      ...options,
+      body,
+      headers,
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const payload = await readPayload(response);
 
-  if (!response.ok) {
-    throw new ApiError(errorMessage(payload, response.status), response.status, payload);
+    if (!response.ok) {
+      throw new ApiError(errorMessage(payload, response.status), response.status, payload);
+    }
+
+    if (cacheKey && generationAtStart === cacheGeneration) {
+      if (responseCache.size >= MAX_CACHED_GETS) {
+        const oldestKey = responseCache.keys().next().value;
+        if (oldestKey) responseCache.delete(oldestKey);
+      }
+      responseCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_TTL_MS, value: payload });
+    }
+    return payload as T;
+  })();
+
+  if (cacheKey) pendingGets.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    if (cacheKey && pendingGets.get(cacheKey) === request) pendingGets.delete(cacheKey);
   }
-
-  return payload as T;
 }
 
 export function apiGet<T>(path: string, options: Omit<ApiRequestOptions, "body" | "method"> = {}) {

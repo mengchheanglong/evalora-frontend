@@ -23,7 +23,9 @@ type AppShellProps = {
   hideSidebar?: boolean;
 };
 
-const navigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
+type NavigationItem = { label: string; href: string; key: string; icon: IconName };
+
+const navigation: NavigationItem[] = [
   { label: "Dashboard", href: "/dashboard", key: "dashboard", icon: "home" },
   { label: "Assessment Templates", href: "/templates", key: "templates", icon: "clipboard" },
   { label: "Interview Session", href: "/assessment", key: "session", icon: "message" },
@@ -31,11 +33,11 @@ const navigation: Array<{ label: string; href: string; key: string; icon: IconNa
   { label: "Analytics", href: "/analytics", key: "analytics", icon: "analytics" },
 ];
 
-const ownerNavigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
+const ownerNavigation: NavigationItem[] = [
   { label: "Team", href: "/users", key: "users", icon: "users" },
 ];
 
-const sharedSecondaryNavigation: Array<{ label: string; href: string; key: string; icon: IconName }> = [
+const sharedSecondaryNavigation: NavigationItem[] = [
   { label: "Settings", href: "/settings", key: "settings", icon: "settings" },
 ];
 
@@ -272,9 +274,25 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
 
 function SidebarLink({ active, item, onNavigate }: { active: boolean; item: { label: string; href: string; icon: IconName }; onNavigate?: () => void }) {
   return (
-    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"}`} href={item.href} onClick={onNavigate}>
+    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"}`} href={item.href} onClick={onNavigate} onFocus={() => prefetchWorkspacePage(item.href)} onMouseEnter={() => prefetchWorkspacePage(item.href)}>
       <Icon className={active ? "text-[var(--theme-active-text)]" : "text-neutral-950"} name={item.icon} size={21} />
       <span>{item.label}</span>
     </Link>
   );
 }
+
+function prefetchWorkspacePage(href: string) {
+  const paths = WORKSPACE_PREFETCH_PATHS[href];
+  if (!paths) return;
+  void Promise.allSettled(paths.map((path) => apiGet<unknown>(path)));
+}
+
+const WORKSPACE_PREFETCH_PATHS: Record<string, string[]> = {
+  "/dashboard": ["/analytics/summary", "/analytics/activity", "/sessions", "/analytics/trend"],
+  "/templates": ["/templates/catalog", "/templates"],
+  "/assessment": ["/sessions"],
+  "/candidates": ["/sessions"],
+  "/analytics": ["/analytics/summary", "/analytics/activity", "/analytics/score-distribution", "/analytics/module-performance"],
+  "/users": ["/organization/members", "/organization/invites"],
+  "/settings": ["/organization", "/organization/privacy"],
+};

@@ -416,6 +416,7 @@ const responses: CandidateResponse[] = [
     savedAt: iso(-1.8),
   },
 ];
+const adaptiveQuestionsBySession = new Map<string, string[]>();
 
 const codeQuestions: CodeQuestion[] = [
   {
@@ -951,6 +952,43 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
         ? "Can you walk through one concrete trade-off you made, including the alternatives you rejected and how you measured the outcome?"
         : "Tell us about a specific decision you owned recently and what evidence told you it was the right call.",
     });
+  }
+  if (segments[0] === "ai" && segments[1] === "access" && segments[2] && segments[3] === "adaptive-questions") {
+    const session = findSessionByAccessCode(decodeURIComponent(segments[2]));
+    if (!session) return json({ message: "Invitation not found." }, 404);
+    if (method === "GET") return json({ questions: adaptiveQuestionsBySession.get(session.id) ?? [], provider: "fallback" });
+    if (method === "POST") {
+      const questions = adaptiveQuestionsBySession.get(session.id) ?? [
+        "Which earlier example best demonstrates your readiness for this role, and what measurable result supports it?",
+        "Which decision or trade-off from your earlier answers would you handle differently now, and why?",
+        "What important role skill has not been demonstrated by your previous answers, and what example would show it?",
+      ];
+      adaptiveQuestionsBySession.set(session.id, questions);
+      return json({ questions, provider: "fallback" });
+    }
+  }
+  if (segments[0] === "ai" && segments[1] === "access" && segments[2] && segments[3] === "adaptive-answer" && method === "POST") {
+    const session = findSessionByAccessCode(decodeURIComponent(segments[2]));
+    if (!session) return json({ message: "Invitation not found." }, 404);
+    const input = asRecord(body);
+    const questionId = String(input.questionId ?? "");
+    const question = String(input.question ?? "");
+    const answer = String(input.answer ?? "");
+    const existing = responses.find((response) => {
+      const jsonValue = asRecord(response.responseJson);
+      return response.sessionId === session.id && jsonValue.adaptive === true && jsonValue.questionId === questionId;
+    });
+    const saved: CandidateResponse = {
+      id: existing?.id ?? `resp-adaptive-${Date.now()}`,
+      sessionId: session.id,
+      responseText: `AI interview - ${question}\n\nResponse: ${answer}`,
+      responseJson: { adaptive: true, questionId, question },
+      savedAt: new Date().toISOString(),
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+    };
+    if (existing) Object.assign(existing, saved);
+    else responses.push(saved);
+    return json({ saved: true });
   }
 
   if (segments[0] === "reports" && segments[1]) return handleReports(method, decodeURIComponent(segments[1]), segments[2], body);
