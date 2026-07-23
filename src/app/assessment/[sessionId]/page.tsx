@@ -256,8 +256,20 @@ export default function CandidateAssessmentPage() {
   }
 
   async function flushPendingSaves() {
-    const saved = await Promise.all(Array.from(dirtyQuestions.current).map((questionId) => persistQuestion(questionId)));
+    const pendingQuestionIds = new Set([
+      ...dirtyQuestions.current,
+      ...saveTimers.current.keys(),
+      ...saveRequests.current.keys(),
+    ]);
+    const saved = await Promise.all(Array.from(pendingQuestionIds).map((questionId) => persistQuestion(questionId)));
     if (saved.some((result) => !result)) throw new Error("One or more responses could not be saved.");
+  }
+
+  async function ensureQuestionSaved(questionId: string, answer: Answer): Promise<boolean> {
+    const hasPendingSave = dirtyQuestions.current.has(questionId)
+      || saveTimers.current.has(questionId)
+      || saveRequests.current.has(questionId);
+    return hasPendingSave ? persistQuestion(questionId, answer) : true;
   }
 
   async function prepareAdaptiveQuestions(authoredQuestionCount: number): Promise<boolean> {
@@ -310,7 +322,7 @@ export default function CandidateAssessmentPage() {
       advancingRef.current = true;
       setAdvancing(true);
       try {
-        if (!(await persistQuestion(activeQuestion.id, answer))) {
+        if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
           setActionError("Your response could not be saved. Check your connection and try again.");
           return;
         }
@@ -334,8 +346,6 @@ export default function CandidateAssessmentPage() {
       setActionError("Answer the follow-up question before continuing.");
       return;
     }
-    dirtyQuestions.current.add(activeQuestion.id);
-
     const authoredQuestionCount = authoredQuestionsForModule(session?.template.modules ?? [], activeModule.id).length;
     const finishedAuthoredAiQuestions =
       activeModule.type === "ai_interview"
@@ -345,7 +355,7 @@ export default function CandidateAssessmentPage() {
       advancingRef.current = true;
       setAdvancing(true);
       try {
-        if (!(await persistQuestion(activeQuestion.id, answer))) {
+        if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
           setActionError("Your response could not be saved. Check your connection and try again.");
           return;
         }
@@ -359,9 +369,12 @@ export default function CandidateAssessmentPage() {
 
     advancingRef.current = true;
     setAdvancing(true);
-    void persistQuestion(activeQuestion.id, answer).then((saved) => {
-      if (!saved) setActionError("Your previous response could not be saved. Check your connection and try again.");
-    });
+    if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
+      setActionError("Your response could not be saved. Check your connection and try again.");
+      advancingRef.current = false;
+      setAdvancing(false);
+      return;
+    }
 
     if (displayedQuestionIndex < activeQuestionCount - 1) {
       setActiveQuestionIndex(displayedQuestionIndex + 1);
@@ -572,7 +585,7 @@ function WelcomeFact({ icon, title, body }: { icon: IconName; title: string; bod
 
 function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error, busy = false, disabled }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string; busy?: boolean; disabled?: boolean }) {
   const options = questionOptions(question.options);
-  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[22px] font-black leading-8 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled || busy} onClick={onBack} type="button">Back</button><button aria-busy={busy} className="button-primary transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:hover:translate-y-0" disabled={disabled || busy} onClick={onNext} type="button">{busy ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />Moving to next question...</> : <>Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></>}</button></div></article></div>;
+  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[18px] font-black leading-7 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled || busy} onClick={onBack} type="button">Back</button><button aria-busy={busy} className="button-primary transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:hover:translate-y-0" disabled={disabled || busy} onClick={onNext} type="button">{busy ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />Moving to next question...</> : <>Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></>}</button></div></article></div>;
 }
 
 function QuestionLoading() {
