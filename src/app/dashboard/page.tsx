@@ -475,7 +475,7 @@ function TopCandidatesTable({ recentCompleted }: { recentCompleted: AnalyticsSum
                   <td className="px-3 py-3 font-semibold text-[var(--theme-heading)]">{c.candidateName}</td>
                   <td className="px-3 py-3 text-[var(--theme-text)]">{c.targetRole}</td>
                   <td className="px-3 py-3 font-bold text-[var(--theme-heading)]">
-                    {c.overallScore ? `${Math.round((c.overallScore / 5) * 100)}%` : "-"}
+                    {c.overallScore != null ? `${Math.round((c.overallScore / 5) * 100)}%` : "-"}
                   </td>
                   <td className="px-3 py-3 text-[var(--theme-muted)]">
                     {c.completedAt ? new Date(c.completedAt).toLocaleDateString() : "-"}

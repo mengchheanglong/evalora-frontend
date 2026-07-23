@@ -1060,7 +1060,7 @@ function handleCode(method: string, accessCode: string, action?: string, body?: 
 
 function createSummary(): AnalyticsSummary {
   const completed = sessions.filter((session) => session.status === "completed");
-  const averageScore = average(completed.map((session) => session.overallScore ?? 0).filter(Boolean));
+  const averageScore = average(completed.map((session) => session.overallScore ?? 0));
   const count = (status: SessionStatus) => sessions.filter((session) => session.status === status).length;
   return {
     totalCandidates: new Set(sessions.map((session) => session.candidateId ?? session.candidateEmail ?? session.id)).size,
@@ -1124,7 +1124,7 @@ function createDistribution() {
 }
 
 function createTrend() {
-  const completed = sessions.filter((session) => session.status === "completed" && session.overallScore);
+  const completed = sessions.filter((session) => session.status === "completed" && session.overallScore != null);
   if (completed.length === 0) {
     return [
       { date: iso(-336), score: 72 },
