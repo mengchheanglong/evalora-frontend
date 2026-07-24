@@ -49,7 +49,6 @@ const THEME_OPTIONS: Array<{
 function preferencesKey(userId: string) {
   return `evalora-settings:${userId}`;
 }
-
 function readPreferences(userId: string): UserPreferences {
   if (typeof window === "undefined") return DEFAULT_PREFERENCES;
   try {
@@ -563,8 +562,8 @@ export default function SettingsPage() {
                 <p className="text-[11px] leading-5 text-neutral-500">Export and delete require workspace owner access.</p>
               ) : null}
               <div className="flex flex-wrap gap-5">
-                <FooterLink href="/privacy" label="Privacy Policy" />
-                <FooterLink href="/terms" label="Terms of Service" />
+                <span className="text-[12px] font-bold text-neutral-700">Privacy Policy</span>
+                <span className="text-[12px] font-bold text-neutral-700">Terms of Service</span>
               </div>
             </footer>
           </section>
@@ -853,14 +852,5 @@ function PrivacyRow({
       </span>
       <Icon className={`-rotate-90 ${danger ? "text-[#FF0000]" : "text-neutral-400"}`} name="chevron" size={14} />
     </button>
-  );
-}
-
-function FooterLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link className="inline-flex items-center gap-1 text-[12px] font-bold text-neutral-700 hover:text-neutral-950" href={href}>
-      {label}
-      <Icon className="-rotate-90 text-neutral-400" name="chevron" size={13} />
-    </Link>
   );
 }

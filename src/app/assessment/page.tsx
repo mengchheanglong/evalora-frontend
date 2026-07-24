@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { FilterPanelFrame, FilterSelectField, FilterToggleButton } from "@/components/filter-controls";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
@@ -22,6 +23,7 @@ interface SessionRow {
   interviewerRole: string;
   date: string;
   time: string;
+  timestamp: number;
   status: SessionStatusUI;
   progress: number;
 }
@@ -78,6 +80,7 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
     interviewerRole: session.interviewerRole || "Reviewer",
     date,
     time,
+    timestamp: dateObj.getTime(),
     status: statusMap[session.status],
     progress: progressMap[session.status],
   };
@@ -88,7 +91,11 @@ export default function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All Status");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [templateFilter, setTemplateFilter] = useState("all");
+  const [interviewerFilter, setInterviewerFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
 
@@ -124,15 +131,46 @@ export default function SessionsPage() {
     }
   }, []);
 
+  const templates = useMemo(
+    () => uniqueValues(sessions.map((session) => session.templateTitle)),
+    [sessions],
+  );
+  const interviewers = useMemo(
+    () => uniqueValues(sessions.map((session) => session.interviewerName)),
+    [sessions],
+  );
+
   // Filter logic based on real data
   const filteredSessions = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
     return sessions.filter((s) => {
-      const matchesSearch = s.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            s.sessionId.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "All Status" || s.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesSearch = !normalizedSearch || [
+        s.candidateName,
+        s.candidateEmail,
+        s.sessionId,
+        s.templateTitle,
+        s.interviewerName,
+      ].some((value) => value.toLowerCase().includes(normalizedSearch));
+      const matchesStatus = statusFilter === "all" || s.status === statusFilter;
+      const matchesTemplate = templateFilter === "all" || s.templateTitle === templateFilter;
+      const matchesInterviewer = interviewerFilter === "all" || s.interviewerName === interviewerFilter;
+      return matchesSearch && matchesStatus && matchesTemplate && matchesInterviewer && withinSessionDate(s.timestamp, dateFilter);
     });
-  }, [sessions, searchQuery, statusFilter]);
+  }, [sessions, searchQuery, statusFilter, templateFilter, interviewerFilter, dateFilter]);
+
+  const activeFilterCount = [
+    statusFilter !== "all",
+    templateFilter !== "all",
+    interviewerFilter !== "all",
+    dateFilter !== "all",
+  ].filter(Boolean).length;
+
+  const clearFilters = useCallback(() => {
+    setStatusFilter("all");
+    setTemplateFilter("all");
+    setInterviewerFilter("all");
+    setDateFilter("all");
+  }, []);
 
   // Calculate real stats
   const stats = useMemo(() => {
@@ -198,27 +236,47 @@ export default function SessionsPage() {
 
         {/* Main Content Card */}
         <section className="bg-[var(--theme-panel)] rounded-xl border border-[var(--theme-border)] shadow-[var(--shadow-card)] overflow-hidden">
-          {/* Filters Bar */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-[var(--theme-border)] px-5 py-4 gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <SelectFilter value={statusFilter} onChange={setStatusFilter} options={["All Status", "Completed", "In Progress", "Scheduled", "Cancelled"]} />
-              <SelectFilter value="All Templates" onChange={() => {}} options={["All Templates", "Technical", "Behavioral"]} />
-              <SelectFilter value="All Interviewers" onChange={() => {}} options={["All Interviewers", "Unassigned"]} />
-              <SelectFilter value="All Time" onChange={() => {}} options={["All Time", "Today", "This Week", "This Month"]} />
-            </div>
-            <label className="group flex h-11 w-full items-center gap-3 rounded-lg border border-[var(--color-primary-300)]/70 bg-[var(--color-primary-50)]/70 px-3.5 text-[var(--color-primary-700)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:border-[var(--color-primary-300)] focus-within:border-[var(--color-primary-500)] focus-within:bg-[var(--theme-panel)] focus-within:ring-4 focus-within:ring-[var(--theme-ring)] lg:w-72">
+          <div className="flex flex-wrap items-center gap-3 border-b border-[var(--theme-border)] px-4 py-2.5 sm:px-5">
+            <label className="group flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-[7px] border border-[var(--color-primary-300)]/70 bg-[var(--color-primary-50)]/70 px-3 text-[var(--color-primary-700)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition focus-within:border-[var(--color-primary-500)] focus-within:bg-[var(--theme-panel)] focus-within:ring-4 focus-within:ring-[var(--theme-ring)] sm:max-w-[360px]">
               <span className="sr-only">Search sessions</span>
-              <span className="relative -top-px flex size-5 shrink-0 items-center justify-center rounded-full text-[var(--color-primary-700)]/70 transition group-focus-within:text-[var(--color-primary-700)]">
-                <Icon name="search" size={17} />
-              </span>
               <input
-                type="search"
+                className="min-w-0 flex-1 border-0 bg-transparent text-xs font-medium text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
+                onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search sessions..."
+                type="search"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="min-w-0 flex-1 border-0 !bg-transparent text-sm font-medium leading-none text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
               />
+              <Icon className="pointer-events-none relative -top-px shrink-0 text-[var(--color-primary-700)]/70 transition group-focus-within:text-[var(--color-primary-700)]" name="search" size={15} />
             </label>
+            <span className="ml-auto hidden text-[11px] font-semibold text-[var(--theme-faint)] sm:inline">
+              {filteredSessions.length} {filteredSessions.length === 1 ? "session" : "sessions"}
+            </span>
+            <FilterToggleButton activeCount={activeFilterCount} controls="session-filters" onToggle={() => setFiltersOpen((open) => !open)} open={filtersOpen} subject="session" />
+          </div>
+          <div hidden={!filtersOpen} id="session-filters">
+            <FilterPanelFrame description="Results update as you make a selection." onClear={clearFilters} title="Filter sessions">
+              <FilterSelectField label="Status" onChange={setStatusFilter} value={statusFilter}>
+                <option value="all">All Statuses</option>
+                <option value="Completed">Completed</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Scheduled">Scheduled</option>
+                <option value="Cancelled">Cancelled</option>
+              </FilterSelectField>
+              <FilterSelectField label="Template" onChange={setTemplateFilter} value={templateFilter}>
+                <option value="all">All Templates</option>
+                {templates.map((template) => <option key={template} value={template}>{template}</option>)}
+              </FilterSelectField>
+              <FilterSelectField label="Interviewer" onChange={setInterviewerFilter} value={interviewerFilter}>
+                <option value="all">All Interviewers</option>
+                {interviewers.map((interviewer) => <option key={interviewer} value={interviewer}>{interviewer}</option>)}
+              </FilterSelectField>
+              <FilterSelectField label="Session date" onChange={setDateFilter} value={dateFilter}>
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+              </FilterSelectField>
+            </FilterPanelFrame>
           </div>
 
           {actionError ? (
@@ -363,21 +421,6 @@ function StatCard({ label, value, detail, progress, icon, tone, accent }: {
   );
 }
 
-function SelectFilter({ value, onChange, options }: { value: string; onChange: (val: string) => void; options: string[] }) {
-  return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 cursor-pointer appearance-none rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] pl-3 pr-9 text-sm font-medium text-[var(--theme-text)] outline-none transition hover:border-[var(--theme-border-strong)] focus:border-[var(--color-primary-500)] focus:ring-2 focus:ring-[var(--theme-ring)]"
-      >
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
-      <Icon name="chevron" size={14} className="pointer-events-none absolute right-2.5 top-[calc(50%-1px)] -translate-y-1/2 text-[var(--theme-muted)]" />
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: SessionStatusUI }) {
   const styles: Record<SessionStatusUI, string> = {
     Completed: "text-emerald-700 bg-emerald-50 border-emerald-100",
@@ -400,4 +443,21 @@ function getCategoryColor(category: string) {
     General: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]",
   };
   return colors[category] || "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]";
+}
+
+function withinSessionDate(timestamp: number, filter: string) {
+  if (filter === "all") return true;
+  const now = new Date();
+  if (filter === "today") {
+    const sessionDate = new Date(timestamp);
+    return sessionDate.getFullYear() === now.getFullYear()
+      && sessionDate.getMonth() === now.getMonth()
+      && sessionDate.getDate() === now.getDate();
+  }
+  const days = filter === "7days" ? 7 : 30;
+  return timestamp >= now.getTime() - days * 24 * 60 * 60 * 1000;
+}
+
+function uniqueValues(values: string[]) {
+  return [...new Set(values.filter((value) => value.trim()).map((value) => value.trim()))].sort((a, b) => a.localeCompare(b));
 }

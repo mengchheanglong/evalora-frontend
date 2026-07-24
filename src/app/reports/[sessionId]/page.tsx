@@ -82,18 +82,18 @@ export default function ReportPage() {
       {loading ? <PageLoader label="Loading private report" /> : null}
       {!loading && error && !session ? <ErrorState message={error} onRetry={() => void loadReport()} /> : null}
       {!loading && session ? (
-        <div className="mx-auto max-w-[1180px] space-y-6">
+        <div className="mx-auto max-w-[1180px] space-y-4">
           <header className="flex flex-wrap items-center justify-between gap-3 print:hidden">
             <div>
-              <p className="text-[var(--text-caption)] font-bold uppercase tracking-[0.1em] text-[var(--color-primary-600)]">Candidate Report</p>
-              <h1 className="mt-1 text-[var(--text-h1)] font-black leading-[var(--text-h1--line-height)] text-[var(--theme-heading)]">Assessment Summary</h1>
+              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-primary-600)]">Candidate Report</p>
+              <h1 className="mt-1 text-2xl font-extrabold leading-tight text-[var(--theme-heading)]">Assessment Summary</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Link className="button-secondary h-11 rounded-[9px] px-4 text-[var(--text-caption)]" href={`/candidates/${session.id}`}>
+              <Link className="button-secondary h-9 rounded-[7px] px-3.5 text-xs" href={`/candidates/${session.id}`}>
                 <Icon className="rotate-90" name="chevron" size={14} /> Back
               </Link>
               {report ? (
-                <button className="button-primary h-11 rounded-[9px] px-4 text-[var(--text-caption)] !bg-[var(--color-primary-600)] hover:!bg-[var(--color-primary-700)]" onClick={() => window.print()} type="button">
+                <button className="button-primary h-9 rounded-[7px] px-3.5 text-xs !bg-[var(--color-primary-600)] hover:!bg-[var(--color-primary-700)]" onClick={() => window.print()} type="button">
                   <Icon name="file" size={15} /> Print / Export
                 </button>
               ) : null}

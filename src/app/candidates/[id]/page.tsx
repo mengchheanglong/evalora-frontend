@@ -126,24 +126,24 @@ export default function CandidateDetailPage() {
 
 function ProfileHero({ session, template }: { session: InterviewSession; template: AssessmentTemplate }) {
   return (
-    <section className="card grid gap-4 rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
-      <div className="flex flex-wrap items-center gap-4">
-        <span className={`grid size-20 shrink-0 place-items-center overflow-hidden rounded-full bg-linear-to-br text-2xl font-bold ring-2 ring-[var(--theme-border)] ${candidateAvatarTone(session.candidateName)}`}>
+    <section className="card grid gap-3 rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-linear-to-br text-lg font-bold ring-2 ring-[var(--theme-border)] ${candidateAvatarTone(session.candidateName)}`}>
           {candidateInitials(session.candidateName)}
         </span>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[var(--text-h2)] font-bold leading-tight text-[var(--theme-heading)]">{session.candidateName}</h2>
+            <h2 className="text-lg font-bold leading-tight text-[var(--theme-heading)]">{session.candidateName}</h2>
             <StatusBadge status={session.status} />
           </div>
-          <p className="mt-1.5 text-[var(--text-caption)] font-semibold text-[var(--theme-muted)]">{session.targetRole ?? template.roleType}</p>
-          <div className="mt-3 grid gap-1.5 text-[var(--text-caption)] text-[var(--theme-muted)]">
+          <p className="mt-1 text-xs font-semibold text-[var(--theme-muted)]">{session.targetRole ?? template.roleType}</p>
+          <div className="mt-2 grid gap-1 text-[11px] text-[var(--theme-muted)]">
             <ProfileMeta icon="mail" text={`Email: ${session.candidateEmail ?? "No email"}`} />
             <ProfileMeta icon="calendar" text={`Invited: ${formatDate(session.createdAt)}`} />
           </div>
         </div>
       </div>
-      <dl className="grid content-center gap-2.5 border-[var(--theme-border)] text-[var(--text-caption)] lg:border-l lg:pl-6">
+      <dl className="grid content-center gap-2 border-[var(--theme-border)] text-xs lg:border-l lg:pl-5">
         <Meta label="Template" value={template.title} />
         <Meta label="Interviewer" value={session.interviewerName ?? "Workspace team"} />
         <Meta label="Modules" value={tagList(template)} />
@@ -164,12 +164,12 @@ function Tabs({ active, onChange, reportReady }: { active: "overview" | "report"
         return (
           <button
             aria-current={isActive ? "page" : undefined}
-            className={`relative flex items-center gap-2 px-4 pb-3.5 pt-1 text-[var(--text-h3)] font-bold transition-colors ${isActive ? "text-[var(--color-primary-700)]" : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)]"}`}
+            className={`relative flex items-center gap-1.5 px-3 pb-2.5 pt-1 text-xs font-bold transition-colors ${isActive ? "text-[var(--color-primary-700)]" : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)]"}`}
             key={tab.id}
             onClick={() => onChange(tab.id)}
             type="button"
           >
-            <Icon name={tab.icon} size={17} />
+            <Icon name={tab.icon} size={14} />
             {tab.label}
             {tab.id === "report" && reportReady ? <span className="size-1.5 rounded-full bg-[var(--color-primary-500)]" title="Report ready" /> : null}
             {isActive ? <span className="absolute inset-x-0 -bottom-px h-[2.5px] rounded-full bg-[var(--color-primary-600)]" /> : null}
@@ -184,15 +184,15 @@ function SessionDetailsCard({ session, template }: { session: InterviewSession; 
   const done = session.status === "completed";
   const active = session.status === "in_progress";
   return (
-    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-5">
+    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-[var(--text-h3)] font-bold text-[var(--theme-heading)]">Session details</h2>
+        <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Session details</h2>
         <StatusBadge status={session.status} />
       </div>
-      <p className="mt-2 text-[var(--text-caption)] leading-[var(--text-caption--line-height)] text-[var(--theme-muted)]">
+      <p className="mt-1.5 text-xs leading-5 text-[var(--theme-muted)]">
         Assessment invite for {session.targetRole ?? "the assigned role"}.
       </p>
-      <dl className="mt-4 space-y-2.5 text-[var(--text-caption)]">
+      <dl className="mt-3 space-y-2 text-xs">
         <Meta label="Email" value={session.candidateEmail ?? "—"} />
         <Meta label="Department" value={session.department ?? "—"} />
         <Meta label="Scheduled" value={formatDateTime(session.scheduledAt)} />
@@ -200,12 +200,12 @@ function SessionDetailsCard({ session, template }: { session: InterviewSession; 
         <Meta label="Interviewers" value={session.interviewerName ?? (session.interviewers?.join(", ") || "—")} />
         <Meta label="Language" value={session.language ?? "—"} />
       </dl>
-      <div className="mt-4">
-        <div className="mb-1 flex justify-between text-[var(--text-micro)] font-semibold text-[var(--theme-muted)]">
+      <div className="mt-3">
+        <div className="mb-1 flex justify-between text-[10px] font-semibold leading-4 text-[var(--theme-muted)]">
           <span>Progress</span>
           <span>{done ? "Completed" : statusLabel(session.status)}</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
+        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
           {done ? (
             <div className="h-full w-full rounded-full bg-[var(--color-primary-500)]" />
           ) : active ? (
@@ -229,17 +229,17 @@ function SkillsCard({ report, template }: { report: CandidateReport | null; temp
     ? Object.entries(report.moduleScores).map(([label, score]) => ({ label, value: Math.round(score * 20) }))
     : template.modules.slice(0, 5).map((module) => ({ label: module.title, value: null as number | null }));
   return (
-    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-5">
-      <h2 className="text-[var(--text-h3)] font-bold text-[var(--theme-heading)]">Module scores</h2>
-      <div className="mt-4 space-y-2.5">
+    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
+      <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Module scores</h2>
+      <div className="mt-3 space-y-2">
         {skills.map((skill) => (
-          <div className="grid grid-cols-[1fr_auto] items-center gap-2 text-[var(--text-caption)]" key={skill.label}>
+          <div className="grid grid-cols-[1fr_auto] items-center gap-2 text-xs" key={skill.label}>
             <span className="truncate font-semibold text-[var(--theme-text)]">{skill.label}</span>
             <span className="font-semibold text-[var(--theme-heading)]">{skill.value == null ? "Pending" : `${skill.value}%`}</span>
           </div>
         ))}
       </div>
-      {!report ? <p className="mt-4 text-[var(--text-caption)] text-[var(--theme-muted)]">Scores appear after report generation.</p> : null}
+      {!report ? <p className="mt-3 text-xs text-[var(--theme-muted)]">Scores appear after report generation.</p> : null}
     </article>
   );
 }
@@ -251,14 +251,14 @@ function RecentActivityCard({ session, responses, notes }: { session: InterviewS
     { icon: "file" as const, tone: "bg-[var(--color-primary-50)] text-[var(--color-primary-600)]", title: notes.length ? "Note added" : "Response evidence saved", detail: notes[0]?.note ?? `${responses.length} response records available for review.`, date: notes[0]?.createdAt ?? responses[0]?.createdAt },
   ];
   return (
-    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-5">
-      <h2 className="text-[var(--text-h3)] font-bold text-[var(--theme-heading)]">Recent Activity</h2>
-      <div className="mt-4 space-y-4">
+    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
+      <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Recent Activity</h2>
+      <div className="mt-3 space-y-3">
         {activities.map((activity) => (
-          <div className="grid grid-cols-[38px_1fr_auto] gap-3 text-[var(--text-caption)]" key={activity.title}>
-            <span className={`flex size-9 items-center justify-center rounded-[8px] ${activity.tone}`}><Icon name={activity.icon} size={17} /></span>
-            <div><p className="font-semibold text-[var(--theme-heading)]">{activity.title}</p><p className="mt-1 leading-5 text-[var(--theme-muted)]">{activity.detail}</p></div>
-            <span className="hidden whitespace-nowrap text-[var(--text-caption)] text-[var(--theme-faint)] sm:block">{formatDateTime(activity.date)}</span>
+          <div className="grid grid-cols-[32px_1fr_auto] gap-2.5 text-xs" key={activity.title}>
+            <span className={`flex size-8 items-center justify-center rounded-[7px] ${activity.tone}`}><Icon name={activity.icon} size={14} /></span>
+            <div><p className="font-semibold text-[var(--theme-heading)]">{activity.title}</p><p className="mt-0.5 leading-4 text-[var(--theme-muted)]">{activity.detail}</p></div>
+            <span className="hidden whitespace-nowrap text-[11px] text-[var(--theme-faint)] sm:block">{formatDateTime(activity.date)}</span>
           </div>
         ))}
       </div>
@@ -272,17 +272,17 @@ function OverallSummary({ report, session }: { report: CandidateReport | null; s
   const meta = scoreMeta(score);
   return (
     <article className="card overflow-hidden rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)]">
-      <div className="p-5">
+      <div className="p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[var(--text-h3)] font-bold text-[var(--theme-heading)]">Overall summary</h2>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[var(--text-micro)] font-bold ring-1 ${meta.badge}`}>
+          <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Overall summary</h2>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${meta.badge}`}>
             <span className={`size-1.5 rounded-full ${meta.dot}`} /> {meta.label}
           </span>
         </div>
-        <div className="mt-4 grid place-items-center">
+        <div className="mt-3 grid place-items-center">
           <ScoreDonut meta={meta} score={score} />
         </div>
-        <p className="mt-4 text-center text-[var(--text-caption)] leading-[var(--text-caption--line-height)] text-[var(--theme-muted)]">
+        <p className="mt-3 text-center text-[13px] leading-5 text-[var(--theme-muted)]">
           {report?.summary ?? `${session.candidateName} is progressing through the assessment — a full advisory summary appears once the report is generated.`}
         </p>
         {report ? (
@@ -292,7 +292,7 @@ function OverallSummary({ report, session }: { report: CandidateReport | null; s
           </>
         ) : null}
         {report?.advisoryNotice ? (
-          <p className="mt-4 border-t border-[var(--theme-border)] pt-3 text-center text-[var(--text-micro)] leading-5 text-[var(--theme-faint)]">{report.advisoryNotice}</p>
+          <p className="mt-3 border-t border-[var(--theme-border)] pt-2.5 text-center text-xs leading-[18px] text-[var(--theme-faint)]">{report.advisoryNotice}</p>
         ) : null}
       </div>
     </article>
@@ -303,8 +303,8 @@ function ScoreDonut({ score, meta }: { score: number | null; meta: ScoreMeta }) 
   const clamped = Math.max(0, Math.min(100, score ?? 0));
   const circumference = 2 * Math.PI * 15.5;
   return (
-    <div className="relative grid size-24 place-items-center">
-      <svg className="size-24 -rotate-90" viewBox="0 0 36 36">
+    <div className="relative grid size-20 place-items-center">
+      <svg className="size-20 -rotate-90" viewBox="0 0 36 36">
         <circle className="text-[var(--theme-panel-soft)]" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" strokeWidth="3" />
         {score != null ? (
           <circle
@@ -321,7 +321,7 @@ function ScoreDonut({ score, meta }: { score: number | null; meta: ScoreMeta }) 
         ) : null}
       </svg>
       <div className="absolute text-center">
-        <span className="block text-xl font-extrabold leading-none text-[var(--theme-heading)]">{score == null ? "—" : `${score}%`}</span>
+        <span className="block text-lg font-extrabold leading-none text-[var(--theme-heading)]">{score == null ? "—" : `${score}%`}</span>
         <span className="mt-1 block text-[var(--text-micro)] font-semibold uppercase tracking-[0.08em] text-[var(--theme-faint)]">Overall</span>
       </div>
     </div>
@@ -341,30 +341,30 @@ function scoreMeta(score: number | null): ScoreMeta {
 
 function QuickActions({ session, report, copied, generating, copyInvite, generateReport, onOpenReport }: { session: InterviewSession; report: CandidateReport | null; copied: boolean; generating: boolean; copyInvite: () => Promise<void>; generateReport: () => Promise<void>; onOpenReport: () => void }) {
   return (
-    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-5">
-      <h2 className="text-[var(--text-caption)] font-semibold text-[var(--theme-heading)]">Quick Actions</h2>
+    <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
+      <h2 className="text-xs font-semibold text-[var(--theme-heading)]">Quick Actions</h2>
       <div className="mt-3 divide-y divide-[var(--theme-border)]">
-        <button className="flex w-full items-center gap-3 py-3 text-left text-[var(--text-caption)] font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={() => void copyInvite()} type="button">
-          <Icon name="mail" size={18} />
+        <button className="flex w-full items-center gap-2.5 py-2.5 text-left text-xs font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={() => void copyInvite()} type="button">
+          <Icon name="mail" size={15} />
           <span>{copied ? "Invitation copied" : "Copy assessment invitation"}</span>
           <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
         </button>
         {report ? (
-          <button className="flex w-full items-center gap-3 py-3 text-left text-[var(--text-caption)] font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={onOpenReport} type="button">
-            <Icon name="report" size={18} />
+          <button className="flex w-full items-center gap-2.5 py-2.5 text-left text-xs font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={onOpenReport} type="button">
+            <Icon name="report" size={15} />
             <span>Open report</span>
             <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
           </button>
         ) : session.status === "completed" ? (
-          <button className="flex w-full items-center gap-3 py-3 text-left text-[var(--text-caption)] font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" disabled={generating} onClick={() => void generateReport()} type="button">
-            <Icon name="report" size={18} />
+          <button className="flex w-full items-center gap-2.5 py-2.5 text-left text-xs font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" disabled={generating} onClick={() => void generateReport()} type="button">
+            <Icon name="report" size={15} />
             <span>{generating ? "Generating report" : "Generate report"}</span>
             <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
           </button>
         ) : null}
         {report ? (
-          <button className="flex w-full items-center gap-3 py-3 text-left text-[var(--text-caption)] font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={onOpenReport} type="button">
-            <Icon name="file" size={18} />
+          <button className="flex w-full items-center gap-2.5 py-2.5 text-left text-xs font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={onOpenReport} type="button">
+            <Icon name="file" size={15} />
             <span>Add reviewer note</span>
             <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
           </button>
@@ -385,9 +385,9 @@ function ProfileMeta({ icon, text }: { icon: "mail" | "calendar" | "clipboard"; 
 function SummaryList({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
   return (
-    <div className="mt-4">
-      <h4 className="text-[var(--text-caption)] font-semibold text-[var(--theme-heading)]">{title}</h4>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--text-micro)] leading-5 text-[var(--theme-muted)]">
+    <div className="mt-2.5">
+      <h4 className="text-[13px] font-bold text-[var(--theme-heading)]">{title}</h4>
+      <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs leading-[18px] text-[var(--theme-muted)]">
         {items.slice(0, 3).map((item) => (
           <li key={item}>{item}</li>
         ))}
@@ -410,7 +410,7 @@ function StatusBadge({ status }: { status: SessionStatus }) {
     completed: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)]",
     expired: "bg-[var(--theme-panel-soft)] text-[var(--theme-faint)]",
   }[status];
-  return <span className={`rounded-[5px] px-2 py-1 text-[var(--text-micro)] font-bold ${style}`}>{statusLabel(status)}</span>;
+  return <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-[5px] px-2 py-0.5 text-[10px] font-bold leading-4 ${style}`}>{statusLabel(status)}</span>;
 }
 function statusLabel(status: SessionStatus) {
   return { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];

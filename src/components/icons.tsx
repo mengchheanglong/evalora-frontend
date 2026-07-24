@@ -11,6 +11,7 @@ export type IconName =
   | "copy"
   | "crown"
   | "eye"
+  | "filter"
   | "file"
   | "folder"
   | "globe"
@@ -130,6 +131,13 @@ const icons: Record<IconName, ReactNode> = {
     <>
       <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
       <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  filter: (
+    <>
+      <path d="M4 5h16" />
+      <path d="M7 12h10" />
+      <path d="M10 19h4" />
     </>
   ),
   file: (
