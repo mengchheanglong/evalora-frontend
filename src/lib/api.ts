@@ -1,6 +1,40 @@
 const API_PROXY_BASE = "/api/backend";
 const GET_CACHE_TTL_MS = 15_000;
 const MAX_CACHED_GETS = 100;
+const SERVICE_UNAVAILABLE_MESSAGE = "Evalora could not reach the service. Please try again shortly.";
+const PUBLIC_API_MESSAGES = new Set([
+  SERVICE_UNAVAILABLE_MESSAGE,
+  "Your session has expired. Please sign in again.",
+  "You do not have permission to access this workspace.",
+  "Email must be a valid address.",
+  "Email is required.",
+  "Password is required.",
+  "Password must be at most 128 characters.",
+  "Password must be at least 8 characters.",
+  "Password must include a lowercase letter.",
+  "Password must include an uppercase letter.",
+  "Password must include a number.",
+  "Password must be at least 8 characters and include uppercase, lowercase, and a number.",
+  "Invalid email or password.",
+  "Invalid credentials.",
+  "Google credential is required.",
+  "Reset token is required.",
+  "Organization name is required.",
+  "Catalog template id is required.",
+  "templateId is required for comparable analytics",
+  "This verification link is invalid or has expired.",
+  "Confirmation name does not match the organization name.",
+  "This person is already a member of your workspace.",
+  "A pending invitation already exists for this email.",
+  "Invitation not found.",
+  "Member not found.",
+  "Candidate not found.",
+  "Catalog template not found.",
+  "Template not found.",
+  "Session not found.",
+  "Question not found.",
+  "Report not ready.",
+]);
 
 type CachedResponse = {
   expiresAt: number;
@@ -103,7 +137,43 @@ export function apiDelete<T>(path: string, body?: unknown, options: Omit<ApiRequ
 }
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
-  return error instanceof Error && error.message.trim() ? error.message : fallback;
+  if (!(error instanceof ApiError)) return fallback;
+  return safeUserMessage(error.message) ?? fallback;
+}
+
+export function serviceUnavailableResponse(status = 502, dataSource = "live"): Response {
+  return Response.json(
+    { message: SERVICE_UNAVAILABLE_MESSAGE },
+    {
+      status,
+      headers: { "X-Evalora-Data-Source": dataSource },
+    },
+  );
+}
+
+export async function safeUpstreamErrorResponse(response: Response, contentType: string): Promise<Response> {
+  const isJson = /(?:application|text)\/(?:[\w.+-]*\+)?json\b/i.test(contentType);
+  if (response.status >= 500 || !isJson) {
+    // Drain the upstream body without forwarding framework HTML, stacks, or machine details.
+    await response.arrayBuffer();
+    return serviceUnavailableResponse(response.status >= 500 ? response.status : 502);
+  }
+
+  const responseText = await response.text();
+  let payload: unknown;
+  try {
+    payload = JSON.parse(responseText) as unknown;
+  } catch {
+    return serviceUnavailableResponse();
+  }
+
+  return Response.json(
+    { message: errorMessage(payload, response.status) },
+    {
+      status: response.status,
+      headers: { "X-Evalora-Data-Source": "live" },
+    },
+  );
 }
 
 function normalizePath(path: string): string {
@@ -122,16 +192,35 @@ async function readPayload(response: Response): Promise<unknown> {
 }
 
 function errorMessage(payload: unknown, status: number): string {
+  if (status >= 500) return SERVICE_UNAVAILABLE_MESSAGE;
   if (payload && typeof payload === "object") {
     const message = (payload as { message?: unknown }).message;
-    if (Array.isArray(message)) return message.filter((item): item is string => typeof item === "string").join(" ");
-    if (typeof message === "string" && message.trim()) return message;
+    if (Array.isArray(message)) {
+      const combined = message.filter((item): item is string => typeof item === "string").join(" ");
+      const safeMessage = safeUserMessage(combined);
+      if (safeMessage) return safeMessage;
+    }
+    if (typeof message === "string") {
+      const safeMessage = safeUserMessage(message);
+      if (safeMessage) return safeMessage;
+    }
     const error = (payload as { error?: unknown }).error;
-    if (typeof error === "string" && error.trim()) return error;
+    if (typeof error === "string") {
+      const safeMessage = safeUserMessage(error);
+      if (safeMessage) return safeMessage;
+    }
   }
-  if (typeof payload === "string" && payload.trim()) return payload;
+  if (typeof payload === "string") {
+    const safeMessage = safeUserMessage(payload);
+    if (safeMessage) return safeMessage;
+  }
   if (status === 401) return "Your session has expired. Please sign in again.";
   if (status === 403) return "You do not have permission to access this workspace.";
-  if (status >= 500) return "Evalora could not reach the service. Please try again shortly.";
   return `Request failed (${status}).`;
+}
+
+function safeUserMessage(value: string): string | null {
+  const message = value.trim();
+  if (PUBLIC_API_MESSAGES.has(message)) return message;
+  return /^Request failed \([1-5]\d{2}\)\.$/.test(message) ? message : null;
 }

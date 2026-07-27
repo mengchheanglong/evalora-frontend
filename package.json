@@ -6,6 +6,7 @@
     "dev": "next dev --webpack --port 3010",
     "build": "next build --webpack",
     "start": "next start --port 3010",
+    "test:errors": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/api-errors.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },

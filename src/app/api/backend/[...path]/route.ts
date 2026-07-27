@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeUpstreamErrorResponse, serviceUnavailableResponse } from "@/lib/api";
 import { handleMockBackendRequest } from "@/lib/mock-backend";
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/$/, "");
@@ -65,7 +66,7 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
   const rememberedSession = requestsRememberedSession(relativePath, bodyBuffer);
 
   if (BACKEND_MODE === "true" || (BACKEND_MODE === "auto" && Date.now() < liveUnavailableUntil)) {
-    return withMockHeader(await handleMockBackendRequest(rebuildRequest(request, bodyBuffer), relativePath));
+    return safeMockBackendResponse(request, relativePath, bodyBuffer);
   }
 
   const target = `${BACKEND_URL}/${relativePath}${request.nextUrl.search}`;
@@ -87,8 +88,13 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
     });
     liveUnavailableUntil = 0;
 
-    // Auth responses need token stripping; stream other bodies through as text once.
-    const responseContentType = backendResponse.headers.get("content-type") ?? "application/json; charset=utf-8";
+    const upstreamContentType = backendResponse.headers.get("content-type");
+    if (!backendResponse.ok) {
+      return safeUpstreamErrorResponse(backendResponse, upstreamContentType ?? "");
+    }
+
+    // Auth responses need token stripping; stream other successful bodies through as text once.
+    const responseContentType = upstreamContentType ?? "application/json; charset=utf-8";
     const responseHeaders = new Headers();
     responseHeaders.set("Content-Type", responseContentType);
     responseHeaders.set("X-Evalora-Data-Source", "live");
@@ -132,16 +138,18 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
     if (BACKEND_MODE === "auto") {
       liveUnavailableUntil = Date.now() + LIVE_COOLDOWN_MS;
       // Rebuild a Request with the buffered body so mock handlers can read JSON again.
-      return withMockHeader(await handleMockBackendRequest(rebuildRequest(request, bodyBuffer), relativePath));
+      return safeMockBackendResponse(request, relativePath, bodyBuffer);
     }
 
-    return NextResponse.json(
-      {
-        message:
-          "The Evalora API is unavailable. Start the backend, or set NEXT_PUBLIC_USE_MOCK_BACKEND=auto (or true) to use local demo data.",
-      },
-      { status: 502 },
-    );
+    return serviceUnavailableResponse();
+  }
+}
+
+async function safeMockBackendResponse(request: NextRequest, relativePath: string, bodyBuffer?: ArrayBuffer): Promise<Response> {
+  try {
+    return withMockHeader(await handleMockBackendRequest(rebuildRequest(request, bodyBuffer), relativePath));
+  } catch {
+    return serviceUnavailableResponse(500, "mock");
   }
 }
 
