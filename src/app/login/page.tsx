@@ -71,7 +71,7 @@ export default function LoginPage() {
             <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center text-neutral-400">
               <Icon name="mail" size={16} />
             </span>
-            <input autoComplete="email" autoFocus className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-[13px] focus:border-primary-400 focus:bg-white" onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email" required type="email" value={email} />
+            <input autoComplete="email" autoFocus className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-[13px] focus:border-primary-400 focus:bg-white" onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email" required suppressHydrationWarning type="email" value={email} />
           </span>
         </label>
 
@@ -81,11 +81,12 @@ export default function LoginPage() {
             <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center text-neutral-400">
               <Icon name="lock" size={16} />
             </span>
-            <input autoComplete="current-password" className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 !pr-12 text-[13px] focus:border-primary-400 focus:bg-white" minLength={8} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required type={showPassword ? "text" : "password"} value={password} />
+            <input autoComplete="current-password" className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 !pr-12 text-[13px] focus:border-primary-400 focus:bg-white" minLength={8} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required suppressHydrationWarning type={showPassword ? "text" : "password"} value={password} />
             <button
               aria-label={showPassword ? "Hide password" : "Show password"}
               className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-neutral-400 transition hover:text-neutral-800"
               onClick={() => setShowPassword((shown) => !shown)}
+              suppressHydrationWarning
               type="button"
             >
               <Icon name="eye" size={17} />
@@ -100,6 +101,7 @@ export default function LoginPage() {
               className="size-5 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500"
               name="rememberMe"
               onChange={(event) => setRememberMe(event.target.checked)}
+              suppressHydrationWarning
               type="checkbox"
             />
             <span>Remember me</span>
@@ -107,7 +109,7 @@ export default function LoginPage() {
           <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/forgot-password">Forgot password?</Link>
         </div>
 
-        <button className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-[13px] font-bold hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} type="submit">
+        <button className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-[13px] font-bold hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} suppressHydrationWarning type="submit">
           {submitting ? <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : null}
           {submitting ? "Signing in" : "Sign in"}
         </button>
