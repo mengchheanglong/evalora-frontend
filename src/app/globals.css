@@ -1279,3 +1279,109 @@ textarea.control {
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: #3a4a60;
 }
+
+/* Semantic feedback surfaces stay readable across every product theme. */
+:root,
+[data-theme="light"] {
+  --alert-info-bg: #eff6ff;
+  --alert-info-border: #bae6fd;
+  --alert-info-text: #0c4a6e;
+  --alert-success-bg: #ecfdf5;
+  --alert-success-border: #a7f3d0;
+  --alert-success-text: #065f46;
+  --alert-warning-bg: #fffbeb;
+  --alert-warning-border: #fde68a;
+  --alert-warning-text: #92400e;
+  --alert-error-bg: #fff1f2;
+  --alert-error-border: #fecdd3;
+  --alert-error-text: #9f1239;
+}
+
+[data-theme="dark"] {
+  --alert-info-bg: #102b42;
+  --alert-info-border: #24577d;
+  --alert-info-text: #bae6fd;
+  --alert-success-bg: #0d3028;
+  --alert-success-border: #1f7659;
+  --alert-success-text: #a7f3d0;
+  --alert-warning-bg: #34240f;
+  --alert-warning-border: #805d20;
+  --alert-warning-text: #fde68a;
+  --alert-error-bg: #391923;
+  --alert-error-border: #843044;
+  --alert-error-text: #fecdd3;
+}
+
+[data-theme="ocean"] {
+  --alert-info-bg: #e6f3fa;
+  --alert-info-border: #a8d7ee;
+  --alert-info-text: #075985;
+  --alert-success-bg: #e6f7f1;
+  --alert-success-border: #9adcc7;
+  --alert-success-text: #05634f;
+  --alert-warning-bg: #fff8e6;
+  --alert-warning-border: #f4d58a;
+  --alert-warning-text: #88530c;
+  --alert-error-bg: #fff0f2;
+  --alert-error-border: #f2b9c4;
+  --alert-error-text: #9d174d;
+}
+
+.status-alert {
+  background-color: var(--alert-info-bg) !important;
+  border-color: var(--alert-info-border) !important;
+  color: var(--alert-info-text) !important;
+}
+
+.status-alert--success {
+  background-color: var(--alert-success-bg) !important;
+  border-color: var(--alert-success-border) !important;
+  color: var(--alert-success-text) !important;
+}
+
+.status-alert--warning {
+  background-color: var(--alert-warning-bg) !important;
+  border-color: var(--alert-warning-border) !important;
+  color: var(--alert-warning-text) !important;
+}
+
+.status-alert--error,
+.status-error-state {
+  background-color: var(--alert-error-bg) !important;
+  border-color: var(--alert-error-border) !important;
+  color: var(--alert-error-text) !important;
+}
+
+.status-alert a {
+  color: inherit !important;
+}
+
+.status-error-icon {
+  background-color: color-mix(in srgb, var(--alert-error-text) 14%, transparent);
+  color: var(--alert-error-text);
+}
+
+/* Legacy inline feedback still uses Tailwind's 800/900 text utilities. */
+[data-theme="dark"] [class*="text-red-800"],
+[data-theme="dark"] [class*="text-red-900"],
+[data-theme="dark"] [class*="text-rose-800"],
+[data-theme="dark"] [class*="text-rose-900"] {
+  color: var(--alert-error-text) !important;
+}
+
+[data-theme="dark"] [class*="text-amber-800"],
+[data-theme="dark"] [class*="text-amber-900"],
+[data-theme="dark"] [class*="text-orange-800"],
+[data-theme="dark"] [class*="text-orange-900"] {
+  color: var(--alert-warning-text) !important;
+}
+
+[data-theme="dark"] [class*="text-emerald-800"],
+[data-theme="dark"] [class*="text-emerald-900"] {
+  color: var(--alert-success-text) !important;
+}
+
+[data-theme="dark"] [class*="text-sky-800"],
+[data-theme="dark"] [class*="text-sky-900"] {
+  color: var(--alert-info-text) !important;
+}

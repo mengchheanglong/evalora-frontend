@@ -250,7 +250,7 @@ export default function SessionsPage() {
           </div>
 
           {actionError ? (
-            <div className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700" role="alert">{actionError}</div>
+            <div className="status-alert status-alert--error rounded-none border-x-0 border-t-0 px-5 py-3 text-sm" role="alert">{actionError}</div>
           ) : null}
 
           {/* Table */}

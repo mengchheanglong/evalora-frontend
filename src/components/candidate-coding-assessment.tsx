@@ -120,7 +120,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
         <div className="flex items-center gap-3"><span className="text-[9px] font-semibold text-[var(--theme-muted)]">{completedCount}/{questions.length} submitted</span><div className="h-1.5 w-28 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${questions.length ? (completedCount / questions.length) * 100 : 0}%` }} /></div></div>
       </header>
 
-      {error ? <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-[10px] text-red-800" role="alert">{error}</div> : null}
+      {error ? <div className="status-alert status-alert--error rounded-none border-x-0 border-t-0 px-5 py-3 text-[10px]" role="alert">{error}</div> : null}
 
       <div className="grid min-h-[620px] lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav aria-label="Coding challenges" className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] p-3 lg:border-b-0 lg:border-r">

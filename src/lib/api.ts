@@ -15,6 +15,7 @@ const PUBLIC_API_MESSAGES = new Set([
   "Password must include an uppercase letter.",
   "Password must include a number.",
   "Password must be at least 8 characters and include uppercase, lowercase, and a number.",
+  "Name is required.",
   "Invalid email or password.",
   "Invalid credentials.",
   "Google credential is required.",

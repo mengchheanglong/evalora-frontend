@@ -137,7 +137,7 @@ function formatNow(prefs: UserPreferences) {
 }
 
 export default function SettingsPage() {
-  const { user, status, refresh } = useAuth();
+  const { user, status, refresh, updateProfile } = useAuth();
   const isOwner = user?.role === "organization" || user?.role === "admin";
 
   const [workspace, setWorkspace] = useState<WorkspaceProfile | null>(null);
@@ -146,6 +146,8 @@ export default function SettingsPage() {
   const [notice, setNotice] = useState("");
   const [orgName, setOrgName] = useState("");
   const [savingOrg, setSavingOrg] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [prefNotice, setPrefNotice] = useState("");
   const [theme, setTheme] = useState<ThemeName>("light");
@@ -169,6 +171,7 @@ export default function SettingsPage() {
       ]);
       setWorkspace(nextWorkspace);
       setOrgName(nextWorkspace.name);
+      setProfileName(user.name);
       setPrivacy(nextPrivacy);
       setOrgLogo(readOrgLogo(nextWorkspace.id));
       setPreferences(readPreferences(user.id));
@@ -208,6 +211,22 @@ export default function SettingsPage() {
       setError(getErrorMessage(requestError, "Unable to update workspace."));
     } finally {
       setSavingOrg(false);
+    }
+  }
+
+  async function saveProfile(event: FormEvent) {
+    event.preventDefault();
+    setSavingProfile(true);
+    setNotice("");
+    setError("");
+    try {
+      const updated = await updateProfile({ name: profileName.trim() });
+      setProfileName(updated.name);
+      setNotice("Profile updated.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to update profile."));
+    } finally {
+      setSavingProfile(false);
     }
   }
 
@@ -340,13 +359,49 @@ export default function SettingsPage() {
   return (
     <AppShell
       active="settings"
-      description="Manage your workspace profile, personal preferences, and data controls."
+      description={isOwner ? "Manage workspace details, preferences, and data controls." : "Manage your profile, organization details, and device preferences."}
       title="Settings"
     >
       <div className="mx-auto max-w-[860px]">
         <div className="space-y-5">
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
           {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
+
+          {!isOwner ? (
+            <section className="card scroll-mt-[96px] overflow-hidden" id="profile">
+              <form onSubmit={(event) => void saveProfile(event)}>
+                <div className="p-5 sm:p-6">
+                  <SectionHeader
+                    description="Update how teammates see you in this organization."
+                    icon="user"
+                    title="Your profile"
+                  />
+                  <div className="mt-6 grid gap-4 border-t border-neutral-100 pt-6 sm:grid-cols-2">
+                    <label className="block sm:col-span-2">
+                      <span className="mb-2 block text-[12px] font-bold text-neutral-800">Full name</span>
+                      <input
+                        autoComplete="name"
+                        className="control h-11 rounded-[6px] px-3 text-[13px]"
+                        disabled={savingProfile}
+                        maxLength={200}
+                        onChange={(event) => setProfileName(event.target.value)}
+                        required
+                        value={profileName}
+                      />
+                    </label>
+                    <ReadOnlyField label="Email" value={user.email} />
+                    <ReadOnlyField label="Organization" value={workspace?.name ?? "—"} />
+                  </div>
+                </div>
+                <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-5 py-3.5 sm:px-6">
+                  <p className="text-[11px] text-neutral-500">Your name appears in team activity and reviewer notes.</p>
+                  <button className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-[12px] hover:!bg-primary-600" disabled={savingProfile || !profileName.trim()} type="submit">
+                    {savingProfile ? "Saving…" : "Save profile"}
+                  </button>
+                </footer>
+              </form>
+            </section>
+          ) : null}
 
           {/* Workspace */}
           <section className="card scroll-mt-[96px] overflow-hidden" id="workspace">

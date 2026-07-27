@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Icon } from "@/components/icons";
@@ -12,7 +11,6 @@ import type { WorkspaceInvite, WorkspaceMember } from "@/lib/types";
 
 export default function UsersAndRolesPage() {
   const { user, status } = useAuth();
-  const router = useRouter();
   const isOwner = user?.role === "organization" || user?.role === "admin";
 
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
@@ -48,12 +46,6 @@ export default function UsersAndRolesPage() {
   useEffect(() => {
     if (status === "authenticated") void load();
   }, [status, load]);
-
-  useEffect(() => {
-    if (status === "authenticated" && user && user.role === "interviewer") {
-      // Interviewers can view the member list but primary nav is owner-focused; allow read-only.
-    }
-  }, [status, user]);
 
   const pendingInvites = useMemo(() => invites.filter((invite) => invite.status === "pending"), [invites]);
   const ownerCount = members.filter((member) => member.role === "organization").length;
@@ -155,16 +147,18 @@ export default function UsersAndRolesPage() {
   return (
     <AppShell
       active="users"
-      description="One organization, many people. The owner invites interviewers to share templates, sessions, and reports."
+      description={isOwner ? "One organization, many people. The owner invites interviewers to share templates, sessions, and reports." : "People who share this organization and can work with the same templates, candidates, and reports."}
       title="Team"
     >
       <div className="space-y-5">
-        <section className={`grid gap-3 sm:grid-cols-2 ${isOwner ? "xl:grid-cols-4" : "xl:max-w-2xl"}`}>
-          <OverviewCard detail={`${ownerCount} workspace ${ownerCount === 1 ? "owner" : "owners"}`} icon="users" label="Members" value={members.length.toLocaleString()} tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
-          <OverviewCard detail="Can run assessments and review reports" icon="user" label="Interviewers" value={interviewerCount.toLocaleString()} tone="text-sky-600" accent="#0ea5e9" />
-          {isOwner ? <OverviewCard detail="Invitations awaiting acceptance" icon="plusUser" label="Pending invites" value={pendingInvites.length.toLocaleString()} tone="text-amber-600" accent="#f59e0b" /> : null}
-          {isOwner ? <OverviewCard detail="Pending links expiring within 48 hours" emphasis={expiringSoonInvites > 0 ? "attention" : "quiet"} icon="clock" label="Expiring soon" value={expiringSoonInvites.toLocaleString()} tone="text-amber-600" accent="#f59e0b" /> : null}
-        </section>
+        {isOwner ? (
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <OverviewCard detail={`${ownerCount} workspace ${ownerCount === 1 ? "owner" : "owners"}`} icon="users" label="Members" value={members.length.toLocaleString()} tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
+            <OverviewCard detail="Can run assessments and review reports" icon="user" label="Interviewers" value={interviewerCount.toLocaleString()} tone="text-sky-600" accent="#0ea5e9" />
+            <OverviewCard detail="Invitations awaiting acceptance" icon="plusUser" label="Pending invites" value={pendingInvites.length.toLocaleString()} tone="text-amber-600" accent="#f59e0b" />
+            <OverviewCard detail="Pending links expiring within 48 hours" emphasis={expiringSoonInvites > 0 ? "attention" : "quiet"} icon="clock" label="Expiring soon" value={expiringSoonInvites.toLocaleString()} tone="text-amber-600" accent="#f59e0b" />
+          </section>
+        ) : null}
 
         {actionError ? <InlineAlert tone="error">{actionError}</InlineAlert> : null}
         {actionMessage ? <InlineAlert tone="success">{actionMessage}</InlineAlert> : null}
@@ -200,14 +194,15 @@ export default function UsersAndRolesPage() {
               </div>
             ) : null}
           </section>
-        ) : (
-          <InlineAlert tone="info">Only the workspace owner can invite or remove teammates. You can view who shares this organization.</InlineAlert>
-        )}
+        ) : null}
 
         <section className="card overflow-hidden rounded-[10px]">
-          <div className="border-b border-neutral-100 px-5 py-4">
-            <h2 className="text-[15px] font-black text-neutral-900">Members</h2>
-            <p className="mt-1 text-[11px] text-neutral-500">Everyone listed here shares the same templates, candidates, and reports.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+            <div>
+              <h2 className="text-[15px] font-black text-neutral-900">Members</h2>
+              <p className="mt-1 text-[11px] text-neutral-500">Everyone listed here shares the same templates, candidates, and reports.</p>
+            </div>
+            {!isOwner ? <span className="rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--theme-muted)]">View only</span> : null}
           </div>
           {members.length === 0 ? (
             <div className="p-6">
@@ -318,7 +313,7 @@ export default function UsersAndRolesPage() {
           </section>
         ) : null}
 
-        <section className="card rounded-[10px] p-5">
+        {isOwner ? <section className="card rounded-[10px] p-5">
           <h2 className="text-[15px] font-black text-neutral-900">Roles in this product</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <article className="rounded-[10px] border border-neutral-200 p-4">
@@ -343,12 +338,7 @@ export default function UsersAndRolesPage() {
           <p className="mt-4 text-[11px] text-neutral-500">
             Candidates never join the workspace — they use a private assessment link only.
           </p>
-          {!isOwner ? (
-            <button className="button-secondary mt-4 h-9 px-3 text-[11px]" onClick={() => router.push("/dashboard")} type="button">
-              Back to dashboard
-            </button>
-          ) : null}
-        </section>
+        </section> : null}
       </div>
     </AppShell>
   );

@@ -13,9 +13,9 @@ export function PageLoader({ label = "Loading workspace" }: { label?: string }) 
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="flex min-h-[300px] items-center justify-center rounded-[8px] border border-red-100 bg-red-50/40 p-8 text-center" role="alert">
+    <div className="status-error-state flex min-h-[300px] items-center justify-center rounded-[8px] border p-8 text-center" role="alert">
       <div className="max-w-md">
-        <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-red-100 text-red-600">
+        <span className="status-error-icon mx-auto flex size-11 items-center justify-center rounded-full">
           <Icon name="question" size={20} />
         </span>
         <h2 className="mt-4 text-base font-bold text-neutral-950">We could not load this view</h2>
@@ -55,11 +55,6 @@ export function EmptyState({
   );
 }
 
-export function InlineAlert({ children, tone = "info" }: { children: React.ReactNode; tone?: "info" | "success" | "error" }) {
-  const classes = {
-    info: "border-sky-200 bg-sky-50 text-sky-900",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    error: "border-red-200 bg-red-50 text-red-900",
-  }[tone];
-  return <div className={`rounded-[6px] border px-4 py-3 text-sm leading-5 ${classes}`} role={tone === "error" ? "alert" : "status"}>{children}</div>;
+export function InlineAlert({ children, tone = "info" }: { children: React.ReactNode; tone?: "info" | "success" | "warning" | "error" }) {
+  return <div className={`status-alert status-alert--${tone} rounded-[6px] border px-4 py-3 text-sm leading-5`} role={tone === "error" ? "alert" : "status"}>{children}</div>;
 }

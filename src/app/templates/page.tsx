@@ -908,7 +908,7 @@ export default function TemplatesPage() {
                     <p className="mt-1 truncate text-[13px] font-bold text-neutral-900">{deleteTarget.title}</p>
                   </div>
 
-                  <div className="mt-3 rounded-[6px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] leading-5 text-amber-900">
+                  <div className="status-alert status-alert--warning mt-3 rounded-[6px] border px-3.5 py-3 text-[12px] leading-5">
                     Templates linked to interview sessions cannot be deleted until those sessions are removed.
                   </div>
 
