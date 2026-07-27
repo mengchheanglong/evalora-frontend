@@ -76,13 +76,17 @@ export default function CandidateAssessmentPage() {
   useEffect(() => { void loadAssessment(); }, [loadAssessment]);
 
   useEffect(() => {
-    if (!session?.startedAt || !session.template.timeLimitMin || view === "complete") return;
-    const endAt = new Date(session.startedAt).getTime() + session.template.timeLimitMin * 60_000;
+    const startedAtMs = session?.startedAt ? new Date(session.startedAt).getTime() : Number.NaN;
+    const limitMin = Number(session?.template?.timeLimitMin);
+    // Untimed (or not yet started / malformed date) → leave the timer null so the
+    // badge reads "Untimed" instead of ticking "NaN:NaN".
+    if (Number.isNaN(startedAtMs) || !Number.isFinite(limitMin) || limitMin <= 0 || view === "complete") return;
+    const endAt = startedAtMs + limitMin * 60_000;
     const update = () => setTimeLeft(Math.max(0, Math.ceil((endAt - Date.now()) / 1_000)));
     update();
     const timer = window.setInterval(update, 1_000);
     return () => window.clearInterval(timer);
-  }, [session?.startedAt, session?.template.timeLimitMin, view]);
+  }, [session?.startedAt, session?.template?.timeLimitMin, view]);
 
   // When time runs out, drop focus so a field that was already active cannot keep
   // receiving keystrokes behind the lock overlay.
@@ -451,4 +455,4 @@ function numericAnswer(answer?: Answer) { const value = Number(answer?.json && t
 function formatResponseForSave(answer: string, followUp?: FollowUp) { return followUp ? `${answer.trim()}\n\nAI follow-up: ${followUp.question.trim()}\nFollow-up response: ${followUp.answer.trim()}` : answer; }
 function parseSavedResponse(value: string): { answer: string; followUp?: FollowUp } { const marker = "\n\nAI follow-up: "; const index = value.indexOf(marker); if (index < 0) return { answer: value }; const answer = value.slice(0, index); const remaining = value.slice(index + marker.length); const responseMarker = "\nFollow-up response: "; const responseIndex = remaining.indexOf(responseMarker); return responseIndex < 0 ? { answer } : { answer, followUp: { question: remaining.slice(0, responseIndex), answer: remaining.slice(responseIndex + responseMarker.length) } }; }
 function firstName(name: string) { return name.trim().split(/\s+/)[0] || "Candidate"; }
-function formatTimer(seconds: number) { const minutes = Math.floor(seconds / 60); return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
+function formatTimer(seconds: number) { if (!Number.isFinite(seconds) || seconds < 0) return "--:--"; const minutes = Math.floor(seconds / 60); return `${String(minutes).padStart(2, "0")}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`; }
