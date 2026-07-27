@@ -131,25 +131,11 @@ function AnalyticsContent({
   const reportCount = scoreDistribution.reduce((total, item) => total + item.count, 0);
   const completionPercent = ratePercent(summary.closedCompletionRate);
   const coveragePercent = ratePercent(summary.reportCoverageRate);
-  const storyTitle = summary.reportsPending > 0
-    ? `${summary.reportsPending} completed ${summary.reportsPending === 1 ? "session still needs" : "sessions still need"} a persisted report.`
-    : summary.completedAssessments > 0
-      ? "Every completed session has a persisted report."
-      : "There are no completed sessions to report yet.";
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-4 sm:p-5">
-        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--color-primary-700)]">All-time takeaway</p>
-        <h2 className="mt-1 text-[17px] font-extrabold leading-6 text-[var(--theme-heading)]">{storyTitle}</h2>
-        <p className="mt-1 text-[12px] leading-5 text-[var(--theme-muted)]">
-          {summary.completedAssessments} of {summary.closedAssessments} closed sessions completed, while {summary.reportReadyAssessments} of {summary.completedAssessments} completed sessions have persisted reports.
-        </p>
-      </section>
-
       <section>
-        <SectionHeading description={`All time · updated ${new Date(summary.asOf).toLocaleString()}`} title="Workflow health" />
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <OverviewCard
             accent="var(--color-chart-1)"
             detail={`${summary.completedAssessments} completed of ${summary.closedAssessments} completed + expired sessions`}

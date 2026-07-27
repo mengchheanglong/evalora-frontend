@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { safeUpstreamErrorResponse, serviceUnavailableResponse } from "@/lib/api";
 import { handleMockBackendRequest } from "@/lib/mock-backend";
+import { isTrustedMutationOrigin } from "@/lib/request-origin";
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/$/, "");
 const SESSION_COOKIE = "evalora_session";
@@ -185,12 +186,12 @@ function requestsRememberedSession(relativePath: string, bodyBuffer?: ArrayBuffe
 }
 
 function isTrustedMutation(request: NextRequest): boolean {
-  if (request.method === "GET" || request.method === "HEAD") return true;
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return new URL(origin).origin === request.nextUrl.origin;
-  } catch {
-    return false;
-  }
+  return isTrustedMutationOrigin({
+    method: request.method,
+    origin: request.headers.get("origin"),
+    host: request.headers.get("host"),
+    forwardedHost: request.headers.get("x-forwarded-host"),
+    forwardedProto: request.headers.get("x-forwarded-proto"),
+    requestOrigin: request.nextUrl.origin,
+  });
 }

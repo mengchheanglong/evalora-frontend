@@ -74,41 +74,10 @@ function OverviewContent({
   summary: AnalyticsSummary;
   upcoming: UpcomingAssessment[];
 }) {
-  const hasAttention = summary.reportsPending > 0;
-
   return (
     <div className="space-y-6">
-      <section
-        className={`rounded-[10px] border p-4 sm:flex sm:items-center sm:justify-between sm:gap-6 ${
-          hasAttention
-            ? "border-amber-300 bg-amber-50/50"
-            : "border-[var(--theme-border)] bg-[var(--theme-panel)]"
-        }`}
-      >
-        <div>
-          <p className={`text-[10px] font-black uppercase tracking-[0.12em] ${hasAttention ? "text-amber-700" : "text-[var(--color-primary-700)]"}`}>
-            {hasAttention ? "Needs attention" : "Workflow status"}
-          </p>
-          <h2 className="mt-1 text-[17px] font-extrabold leading-6 text-[var(--theme-heading)]">
-            {hasAttention
-              ? `${summary.reportsPending} completed ${summary.reportsPending === 1 ? "assessment still needs" : "assessments still need"} a report.`
-              : "No completed assessments are waiting for a report."}
-          </h2>
-          <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[var(--theme-muted)]">
-            {summary.reportReadyAssessments} of {summary.completedAssessments} completed sessions have persisted reports. AI feedback remains advisory until a human reviewer checks the evidence.
-          </p>
-        </div>
-        <Link className="button-secondary mt-3 h-9 shrink-0 px-3 text-[11px] sm:mt-0" href="/assessment">
-          {hasAttention ? "Review completed sessions" : "View sessions"}
-        </Link>
-      </section>
-
       <section>
-        <SectionHeading
-          description={`Current snapshot · updated ${new Date(summary.asOf).toLocaleString()}`}
-          title="Workflow at a glance"
-        />
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <OverviewCard
             accent="var(--color-chart-1)"
             detail="Candidates actively completing an assessment"
@@ -126,12 +95,11 @@ function OverviewContent({
             value={summary.pendingAssessments.toLocaleString()}
           />
           <OverviewCard
-            accent="#f59e0b"
+            accent="var(--color-primary-500)"
             detail="Completed sessions without a persisted report"
-            emphasis={hasAttention ? "attention" : "quiet"}
             icon="report"
             label="Reports pending"
-            tone="text-amber-600"
+            tone="text-[var(--color-primary-700)]"
             value={summary.reportsPending.toLocaleString()}
           />
         </div>
@@ -152,15 +120,6 @@ function OverviewContent({
         <PanelHeader action={<Link className="text-[11px] font-bold text-[var(--color-primary-700)]" href="/assessment">View all</Link>} title="Recent session updates" />
         {activity.length ? <ActivityList items={activity.slice(0, 8)} /> : <EmptyState description="Session state changes will appear here." title="No recent updates" />}
       </Panel>
-    </div>
-  );
-}
-
-function SectionHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-2">
-      <h2 className="text-[15px] font-extrabold text-[var(--theme-heading)]">{title}</h2>
-      <p className="text-[10px] font-medium text-[var(--theme-faint)]">{description}</p>
     </div>
   );
 }

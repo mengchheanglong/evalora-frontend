@@ -489,7 +489,7 @@ export default function TemplatesPage() {
                         <Icon name="eye" size={14} /> Review
                       </button>
                       <button
-                        className="button-primary h-9 w-full px-3 text-[11px] disabled:cursor-not-allowed disabled:opacity-70"
+                        className="button-primary template-use-button h-9 w-full px-3 text-[11px] disabled:cursor-not-allowed disabled:opacity-70"
                         disabled={busyId === item.id}
                         onClick={() => void useCatalogTemplate(item.id, "mine")}
                       >

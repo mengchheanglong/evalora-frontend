@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 import { ApiError, apiPost, getErrorMessage } from "../src/lib/api.ts";
 import * as apiPolicy from "../src/lib/api.ts";
+import { isTrustedMutationOrigin } from "../src/lib/request-origin.ts";
 
 const originalFetch = globalThis.fetch;
 const SERVICE_ERROR = "Evalora could not reach the service. Please try again shortly.";
@@ -193,6 +194,19 @@ test("proxy policy replaces technical JSON 4xx messages with a safe status messa
 
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { message: "Request failed (400)." });
+});
+
+test("mutation origin policy accepts browser-visible localhost and LAN hosts", () => {
+  const sharedInput = {
+    method: "POST",
+    forwardedProto: "http",
+    requestOrigin: "http://0.0.0.0:3010",
+  };
+
+  assert.equal(isTrustedMutationOrigin({ ...sharedInput, origin: "http://localhost:3010", host: "localhost:3010" }), true);
+  assert.equal(isTrustedMutationOrigin({ ...sharedInput, origin: "http://10.1.64.27:3010", host: "10.1.64.27:3010" }), true);
+  assert.equal(isTrustedMutationOrigin({ ...sharedInput, origin: "http://malicious.example", host: "localhost:3010" }), false);
+  assert.equal(isTrustedMutationOrigin({ ...sharedInput, origin: "not a URL", host: "localhost:3010" }), false);
 });
 
 test("React error boundaries never log or render raw error details", async () => {
