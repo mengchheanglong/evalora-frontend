@@ -17,21 +17,21 @@ const trustItems = [
 
 export function AuthLayout({ children, headline, lead, panelClassName = "max-w-[440px]" }: AuthLayoutProps) {
   return (
-    <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-[minmax(420px,0.92fr)_minmax(560px,1.08fr)]">
-      <aside className="auth-visual-panel relative hidden min-h-screen overflow-hidden border-r border-[#dce5e9] bg-[#eff7f9] lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-14">
+    <main className="grid min-h-screen bg-white text-neutral-950 lg:grid-cols-[46%_54%]">
+      <aside className="auth-visual-panel relative hidden overflow-hidden border-r border-[#dce5e9] bg-[#eff7f9] lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start lg:flex-col lg:justify-between lg:p-10 xl:p-14">
         <div className="auth-visual-grid absolute inset-0 opacity-50" />
         <div className="auth-visual-glow absolute -left-24 top-28 h-72 w-72 rounded-full opacity-70 blur-3xl" />
         <div className="relative"><EvaloraLogo href="/" size="auth" /></div>
-        <div className="relative max-w-[500px] py-14">
-          {headline ? <div className="max-w-[460px] text-[42px] font-black leading-[1.08] text-neutral-950 xl:text-[50px]">{headline}</div> : null}
-          <p className="mt-5 max-w-[470px] text-[15px] leading-6 text-neutral-600">{lead}</p>
-          <div className="mt-10 space-y-5">
+        <div className="relative w-full max-w-[560px] py-12">
+          {headline ? <div className="max-w-[560px] text-[42px] font-black leading-[1.08] text-neutral-950 xl:text-[46px] 2xl:text-[50px]">{headline}</div> : null}
+          <p className="mt-5 max-w-[520px] text-[15px] leading-6 text-neutral-600">{lead}</p>
+          <div className="mt-9 space-y-4">
             {trustItems.map((item) => (
               <div className="auth-trust-row flex items-center gap-4 rounded-[10px] p-2" key={item.title}>
                 <span className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[7px] ${item.tint}`}><Icon name={item.icon} size={18} /></span>
                 <div>
                   <h2 className="text-[13px] font-bold text-neutral-950">{item.title}</h2>
-                  <p className="mt-1 max-w-[390px] text-[12px] leading-5 text-neutral-600">{item.body}</p>
+                  <p className="mt-1 max-w-[430px] text-[12px] leading-5 text-neutral-600">{item.body}</p>
                 </div>
               </div>
             ))}

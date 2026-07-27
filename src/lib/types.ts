@@ -16,6 +16,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  emailVerified: boolean;
   role: UserRole;
   organizationId?: string;
 }
@@ -97,6 +98,20 @@ export interface DeleteWorkspaceDataResult {
 export interface AuthResponse {
   user: AuthUser;
   message: string;
+}
+
+export interface EmailVerificationRequestResponse {
+  message: string;
+  emailDelivery: {
+    status: "sent" | "skipped" | "failed" | "queued";
+    reason?: string;
+  };
+  verificationUrl?: string;
+}
+
+export interface RegistrationResponse extends EmailVerificationRequestResponse {
+  email: string;
+  requiresEmailVerification: true;
 }
 
 /** Workspace teammate (owner or interviewer). */
@@ -271,6 +286,9 @@ export interface ModulePerformance {
 }
 
 export interface AnalyticsSummary {
+  asOf: string;
+  dataWindow: "all_time";
+  scope: "organization" | "platform";
   totalCandidates: number;
   totalTemplates: number;
   totalSessions: number;
@@ -278,19 +296,53 @@ export interface AnalyticsSummary {
   inProgressAssessments: number;
   pendingAssessments: number;
   expiredAssessments: number;
-  averageScore: number;
-  completionRate: number;
+  activeAssessments: number;
+  closedAssessments: number;
+  reportReadyAssessments: number;
+  reportsPending: number;
+  closedCompletionRate: number | null;
+  reportCoverageRate: number | null;
   statusBreakdown: Array<{ status: SessionStatus; count: number }>;
-  modulePerformance: ModulePerformance[];
-  recentCompleted: Array<{
-    sessionId: string;
-    candidateName: string;
-    candidateEmail?: string;
-    assessmentName: string;
-    targetRole: string;
-    overallScore?: number;
-    completedAt?: string;
-  }>;
+}
+
+export interface UpcomingAssessment {
+  sessionId: string;
+  candidateName: string;
+  targetRole: string;
+  status: Extract<SessionStatus, "not_started" | "in_progress">;
+  scheduledAt?: string;
+  expiresAt?: string;
+}
+
+export interface ScoreDistributionBucket {
+  label: string;
+  count: number;
+  noEvidence?: boolean;
+}
+
+export interface CompletionDuration {
+  templateId: string;
+  medianMinutes: number | null;
+  sampleSize: number;
+  buckets: Array<{ label: string; count: number }>;
+}
+
+export interface TemplateUsageItem {
+  templateId: string;
+  title: string;
+  assignments: number;
+  completed: number;
+}
+
+export interface AnalyticsTrendPoint {
+  date: string;
+  score: number;
+  completedCount: number;
+}
+
+export interface AnalyticsThemes {
+  strengths: Array<{ label: string; count: number }>;
+  improvementAreas: Array<{ label: string; count: number }>;
 }
 
 export interface ActivityItem {

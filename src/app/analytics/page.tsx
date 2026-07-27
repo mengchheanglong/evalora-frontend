@@ -1,37 +1,46 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { Icon, type IconName } from "@/components/icons";
+import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, getErrorMessage } from "@/lib/api";
-import type { ActivityItem, AnalyticsSummary, ModulePerformance, SessionStatus } from "@/lib/types";
-
-type ScoreBucket = { label: string; count: number };
+import type {
+  AnalyticsSummary,
+  CompletionDuration,
+  ModulePerformance,
+  ScoreDistributionBucket,
+  SessionStatus,
+  TemplateUsageItem,
+} from "@/lib/types";
 
 export default function AnalyticsPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [scoreDistribution, setScoreDistribution] = useState<ScoreBucket[]>([]);
+  const [usage, setUsage] = useState<TemplateUsageItem[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [scoreDistribution, setScoreDistribution] = useState<ScoreDistributionBucket[]>([]);
   const [modulePerformance, setModulePerformance] = useState<ModulePerformance[]>([]);
+  const [duration, setDuration] = useState<CompletionDuration | null>(null);
   const [loading, setLoading] = useState(true);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [error, setError] = useState("");
+  const [evidenceError, setEvidenceError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [nextSummary, nextActivity, nextScores, nextModules] = await Promise.all([
+      const [nextSummary, nextUsage] = await Promise.all([
         apiGet<AnalyticsSummary>("/analytics/summary"),
-        apiGet<ActivityItem[]>("/analytics/activity"),
-        apiGet<ScoreBucket[]>("/analytics/score-distribution"),
-        apiGet<ModulePerformance[]>("/analytics/module-performance"),
+        apiGet<TemplateUsageItem[]>("/analytics/template-usage"),
       ]);
       setSummary(nextSummary);
-      setActivity(nextActivity);
-      setScoreDistribution(nextScores);
-      setModulePerformance(nextModules);
+      setUsage(nextUsage);
+      setSelectedTemplateId((current) => (
+        current && nextUsage.some((item) => item.templateId === current)
+          ? current
+          : nextUsage[0]?.templateId ?? ""
+      ));
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -39,24 +48,58 @@ export default function AnalyticsPage() {
     }
   }, []);
 
+  useEffect(() => { void load(); }, [load]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!selectedTemplateId) {
+      setScoreDistribution([]);
+      setModulePerformance([]);
+      setDuration(null);
+      return;
+    }
+    let cancelled = false;
+    const templateId = encodeURIComponent(selectedTemplateId);
+    setEvidenceLoading(true);
+    setEvidenceError("");
+    void Promise.all([
+      apiGet<ScoreDistributionBucket[]>(`/analytics/score-distribution?templateId=${templateId}`),
+      apiGet<ModulePerformance[]>(`/analytics/module-performance?templateId=${templateId}`),
+      apiGet<CompletionDuration>(`/analytics/completion-duration?templateId=${templateId}`),
+    ])
+      .then(([nextScores, nextModules, nextDuration]) => {
+        if (cancelled) return;
+        setScoreDistribution(nextScores);
+        setModulePerformance(nextModules);
+        setDuration(nextDuration);
+      })
+      .catch((requestError) => {
+        if (!cancelled) setEvidenceError(getErrorMessage(requestError, "Unable to load comparable assessment evidence."));
+      })
+      .finally(() => {
+        if (!cancelled) setEvidenceLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedTemplateId]);
 
   return (
     <AppShell
       active="analytics"
-      description="Live organization metrics from completed assessments and activity."
+      description="Aggregate outcomes and comparable assessment evidence. Operational work remains on Overview."
       title="Analytics"
     >
       {loading ? <PageLoader label="Loading analytics" /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
       {!loading && !error && summary ? (
         <AnalyticsContent
-          activity={activity}
-          modulePerformance={modulePerformance.length ? modulePerformance : summary.modulePerformance}
+          duration={duration}
+          evidenceError={evidenceError}
+          evidenceLoading={evidenceLoading}
+          modulePerformance={modulePerformance}
+          onTemplateChange={setSelectedTemplateId}
           scoreDistribution={scoreDistribution}
+          selectedTemplateId={selectedTemplateId}
           summary={summary}
+          usage={usage}
         />
       ) : null}
     </AppShell>
@@ -65,281 +108,246 @@ export default function AnalyticsPage() {
 
 function AnalyticsContent({
   summary,
-  activity,
+  usage,
+  selectedTemplateId,
+  onTemplateChange,
   scoreDistribution,
   modulePerformance,
+  duration,
+  evidenceLoading,
+  evidenceError,
 }: {
   summary: AnalyticsSummary;
-  activity: ActivityItem[];
-  scoreDistribution: ScoreBucket[];
+  usage: TemplateUsageItem[];
+  selectedTemplateId: string;
+  onTemplateChange: (value: string) => void;
+  scoreDistribution: ScoreDistributionBucket[];
   modulePerformance: ModulePerformance[];
+  duration: CompletionDuration | null;
+  evidenceLoading: boolean;
+  evidenceError: string;
 }) {
-  const totalCandidates = summary.totalCandidates || 1;
-  const averageScoreProgress = summary.averageScore ? (summary.averageScore / 5) * 100 : 0;
-  const kpis: Array<{ label: string; value: string; detail: string; progress: number; icon: IconName; tone: string; accent: string }> = [
-    {
-      label: "Total Candidates",
-      value: summary.totalCandidates.toLocaleString(),
-      detail: `${summary.totalSessions} sessions`,
-      progress: 100,
-      icon: "users",
-      tone: "text-[#D504FF]",
-      accent: "#D504FF",
-    },
-    {
-      label: "Completed",
-      value: summary.completedAssessments.toLocaleString(),
-      detail: `${Math.round(summary.completionRate * 100)}% completion rate`,
-      progress: summary.completionRate * 100,
-      icon: "check",
-      tone: "text-emerald-600",
-      accent: "#10b981",
-    },
-    {
-      label: "In progress",
-      value: summary.inProgressAssessments.toLocaleString(),
-      detail: `${summary.pendingAssessments} not started`,
-      progress: (summary.inProgressAssessments / totalCandidates) * 100,
-      icon: "clock",
-      tone: "text-sky-600",
-      accent: "#0ea5e9",
-    },
-    {
-      label: "Average score",
-      value: summary.averageScore ? `${summary.averageScore.toFixed(1)}/5` : "—",
-      detail: "Across generated reports",
-      progress: averageScoreProgress,
-      icon: "report",
-      tone: "text-amber-600",
-      accent: "#f59e0b",
-    },
-    {
-      label: "Templates",
-      value: summary.totalTemplates.toLocaleString(),
-      detail: `${summary.expiredAssessments} expired sessions`,
-      progress: 100,
-      icon: "clipboard",
-      tone: "text-rose-600",
-      accent: "#e11d48",
-    },
-  ];
-
-  const statusRows = useMemo(() => {
-    const colors: Record<string, string> = {
-      completed: "#2fc49a",
-      in_progress: "#3b82f6",
-      not_started: "#fb923c",
-      expired: "#ec5b91",
-    };
-    const labels: Record<string, string> = {
-      completed: "Completed",
-      in_progress: "In progress",
-      not_started: "Not started",
-      expired: "Expired",
-    };
-    const total = summary.totalSessions || 1;
-    return summary.statusBreakdown.map((row) => ({
-      label: labels[row.status] ?? row.status,
-      value: row.count,
-      percent: `${Math.round((row.count / total) * 1000) / 10}%`,
-      color: colors[row.status] ?? "#94a3b8",
-      status: row.status as SessionStatus,
-    }));
-  }, [summary]);
-
-  const topModules = [...modulePerformance].sort((a, b) => b.average - a.average).slice(0, 6);
-  const topCompleted = [...summary.recentCompleted]
-    .sort((a, b) => (b.overallScore ?? 0) - (a.overallScore ?? 0))
-    .slice(0, 6);
+  const selectedTemplate = usage.find((item) => item.templateId === selectedTemplateId);
+  const reportCount = scoreDistribution.reduce((total, item) => total + item.count, 0);
+  const completionPercent = ratePercent(summary.closedCompletionRate);
+  const coveragePercent = ratePercent(summary.reportCoverageRate);
 
   return (
-    <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {kpis.map((kpi) => (
-          <article className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-[var(--theme-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--theme-border-strong)] hover:shadow-[0_16px_42px_rgba(15,23,42,0.16)]" key={kpi.label}>
-            <div className="flex items-start gap-4">
-              <span
-                className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${kpi.tone}`}
-                style={{ backgroundColor: `${kpi.accent}18`, borderColor: `${kpi.accent}55` }}
-              >
-                <Icon name={kpi.icon} size={24} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-[var(--theme-text)]">{kpi.label}</p>
-                <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{kpi.value}</p>
-                <p className="mt-2 text-[11px] font-medium text-[var(--theme-muted)]">{kpi.detail}</p>
-              </div>
-            </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${Math.max(0, Math.min(100, kpi.progress))}%`, backgroundColor: kpi.accent }}
-              />
-            </div>
-          </article>
-        ))}
+    <div className="space-y-6">
+      <section>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <OverviewCard
+            accent="var(--color-chart-1)"
+            detail={`${summary.completedAssessments} completed of ${summary.closedAssessments} completed + expired sessions`}
+            icon="check"
+            label="Closed-session completion"
+            progress={completionPercent}
+            tone="text-[var(--color-chart-1)]"
+            value={completionPercent === null ? "—" : `${Math.round(completionPercent)}%`}
+          />
+          <OverviewCard
+            accent="var(--color-chart-2)"
+            detail={`${summary.reportReadyAssessments} reports across ${summary.completedAssessments} completed sessions`}
+            icon="report"
+            label="Report coverage"
+            progress={coveragePercent}
+            tone="text-[var(--color-chart-2)]"
+            value={coveragePercent === null ? "—" : `${Math.round(coveragePercent)}%`}
+          />
+        </div>
+        <div className="mt-5">
+          <ChartCard
+            caption={`${summary.totalSessions} authorized sessions · current status snapshot`}
+            title={`${summary.completedAssessments} of ${summary.totalSessions} sessions are completed`}
+          >
+            <StatusBars summary={summary} />
+          </ChartCard>
+        </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
-        <ChartCard title="Sessions by status">
-          {summary.totalSessions === 0 ? (
-            <EmptyState description="Create interview sessions to see status breakdown." title="No sessions yet" />
-          ) : (
-            <div className="space-y-3">
-              {statusRows.map((row) => (
-                <div className="grid grid-cols-[120px_1fr_70px] items-center gap-3 text-[12px]" key={row.status}>
-                  <span className="flex items-center gap-2 font-semibold text-gray-700">
-                    <span className="size-2.5 rounded-full" style={{ backgroundColor: row.color }} />
-                    {row.label}
-                  </span>
-                  <div className="h-2 overflow-hidden rounded bg-gray-100">
-                    <div className="h-full rounded" style={{ width: row.percent, backgroundColor: row.color }} />
-                  </div>
-                  <span className="text-right font-bold text-gray-800">
-                    {row.value} ({row.percent})
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </ChartCard>
+      <section>
+        <div className="flex flex-col gap-3 rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--color-primary-700)]">Comparable evidence</p>
+            <h2 className="mt-1 text-[15px] font-extrabold text-[var(--theme-heading)]">Compare one exact assessment template</h2>
+            <p className="mt-1 text-[11px] leading-4 text-[var(--theme-muted)]">Different template IDs are never mixed. Historical template edits are not versioned yet, so interpret edited templates cautiously.</p>
+          </div>
+          <label className="min-w-0 sm:w-[320px]">
+            <span className="mb-1 block text-[10px] font-bold text-[var(--theme-muted)]">Assessment template</span>
+            <select className="control h-10 text-[12px]" disabled={!usage.length} onChange={(event) => onTemplateChange(event.target.value)} value={selectedTemplateId}>
+              {usage.length ? usage.map((item) => <option key={item.templateId} value={item.templateId}>{item.title}</option>) : <option value="">No assigned templates</option>}
+            </select>
+          </label>
+        </div>
 
-        <ChartCard title="Score distribution">
-          {scoreDistribution.every((b) => b.count === 0) ? (
-            <EmptyState description="Scores appear after candidate reports are generated." title="No scores yet" />
-          ) : (
-            <ScoreBars buckets={scoreDistribution} />
-          )}
-        </ChartCard>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-2">
-        <ChartCard title="Module performance">
-          {topModules.length === 0 ? (
-            <EmptyState description="Module averages appear after evaluations are saved." title="No evaluations yet" />
-          ) : (
-            <div className="space-y-3">
-              {topModules.map((module, index) => (
-                <div className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-50 pb-2 text-[12px] last:border-0" key={module.moduleId ?? `${module.moduleType}-${module.title}-${index}`}>
-                  <div>
-                    <p className="font-bold text-gray-900">{module.title}</p>
-                    <p className="text-[10px] text-gray-500">
-                      {module.moduleType} · {module.evaluationCount} evaluations
-                    </p>
-                  </div>
-                  <p className="font-black text-gray-900">{module.average.toFixed(1)}/5</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </ChartCard>
-
-        <ChartCard
-          action={
-            <Link className="text-[12px] font-bold text-sky-600 hover:text-sky-700" href="/candidates">
-              View candidates
-            </Link>
-          }
-          title="Top completed candidates"
-        >
-          {topCompleted.length === 0 ? (
-            <EmptyState description="Completed assessments with reports will show here." title="No completions yet" />
-          ) : (
-            <div className="space-y-3">
-              {topCompleted.map((row) => (
-                <Link
-                  className="flex items-center justify-between gap-3 rounded-[8px] border border-gray-100 px-3 py-2 text-[12px] transition hover:border-sky-200 hover:bg-sky-50/40"
-                  href={`/candidates/${row.sessionId}`}
-                  key={row.sessionId}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-gray-900">{row.candidateName}</p>
-                    <p className="truncate text-[10px] text-gray-500">{row.assessmentName}</p>
-                  </div>
-                  <p className="shrink-0 font-black text-gray-900">
-                    {row.overallScore != null ? `${Math.round((row.overallScore / 5) * 100)}%` : "—"}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
-        </ChartCard>
-      </section>
-
-      <ChartCard
-        action={
-          <Link className="text-[12px] font-bold text-sky-600 hover:text-sky-700" href="/assessment">
-            View sessions
-          </Link>
-        }
-        title="Recent activity"
-      >
-        {activity.length === 0 ? (
-          <EmptyState description="Session activity will appear as candidates progress." title="No activity yet" />
+        {!usage.length ? (
+          <div className="mt-5"><EmptyState description="Assign an assessment template to begin building comparable evidence." title="No template usage yet" /></div>
+        ) : evidenceLoading ? (
+          <PageLoader label="Loading comparable evidence" />
+        ) : evidenceError ? (
+          <div className="mt-5"><ErrorState message={evidenceError} /></div>
         ) : (
-          <div className="space-y-3">
-            {activity.slice(0, 10).map((item) => (
-              <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-gray-50 pb-2 text-[12px] last:border-0" key={item.id}>
-                <div>
-                  <p className="font-semibold text-gray-900">{item.message}</p>
-                  <p className="text-[10px] text-gray-500">{item.assessmentName}</p>
-                </div>
-                <span className="text-[10px] text-gray-400">{formatRelative(item.createdAt)}</span>
-              </div>
-            ))}
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <ChartCard
+              caption={`${selectedTemplate?.title ?? "Selected template"} · all time · n=${reportCount} reports${reportCount > 0 && reportCount < 5 ? " · small sample" : ""}`}
+              title={scoreTitle(scoreDistribution, reportCount)}
+            >
+              <ScoreBars buckets={scoreDistribution} />
+            </ChartCard>
+            <ChartCard
+              caption="Persisted evaluations only; each row shows its evidence count"
+              title={moduleTitle(modulePerformance)}
+            >
+              <ModuleBars modules={modulePerformance} />
+            </ChartCard>
+            <ChartCard
+              caption="Completed sessions with valid start and completion timestamps"
+              className="xl:col-span-2"
+              title={durationTitle(duration)}
+            >
+              <CountBars items={duration?.buckets ?? []} />
+            </ChartCard>
           </div>
         )}
-      </ChartCard>
+      </section>
+
+      <section>
+        <SectionHeading description="All authorized assignments" title="Usage context" />
+        <div className="mt-3">
+          <ChartCard caption="Assignment volume is context, not candidate performance" title={usageTitle(usage)}>
+            <UsageList usage={usage} />
+          </ChartCard>
+        </div>
+      </section>
     </div>
   );
 }
 
-function ChartCard({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-[14px] font-black text-gray-950">{title}</h2>
-        {action}
-      </div>
-      {children}
+    <div className="flex flex-wrap items-end justify-between gap-2">
+      <h2 className="text-[15px] font-extrabold text-[var(--theme-heading)]">{title}</h2>
+      <p className="text-[10px] font-medium text-[var(--theme-faint)]">{description}</p>
+    </div>
+  );
+}
+
+function ChartCard({ title, caption, className = "", children }: { title: string; caption: string; className?: string; children: React.ReactNode }) {
+  return (
+    <article className={`card rounded-[10px] p-4 sm:p-5 ${className}`}>
+      <h3 className="text-[14px] font-extrabold leading-5 text-[var(--theme-heading)]">{title}</h3>
+      <p className="mt-1 text-[10px] leading-4 text-[var(--theme-muted)]">{caption}</p>
+      <div className="mt-4">{children}</div>
     </article>
   );
 }
 
-function ScoreBars({ buckets }: { buckets: ScoreBucket[] }) {
-  const max = Math.max(1, ...buckets.map((item) => item.count));
+function StatusBars({ summary }: { summary: AnalyticsSummary }) {
+  const colors: Record<SessionStatus, string> = {
+    completed: "var(--color-chart-1)",
+    in_progress: "var(--color-chart-2)",
+    not_started: "#f59e0b",
+    expired: "var(--theme-faint)",
+  };
+  const labels: Record<SessionStatus, string> = { completed: "Completed", in_progress: "In progress", not_started: "Not started", expired: "Expired" };
   return (
-    <div className="flex h-[220px] items-end gap-3 border-b border-gray-100 px-1 pt-2">
-      {buckets.map((item) => (
-        <div className="flex h-full flex-1 flex-col justify-end" key={item.label}>
-          <div className="flex flex-1 items-end justify-center">
-            <div
-              className="relative w-full max-w-[48px] rounded-t bg-violet-200"
-              style={{ height: `${Math.max(8, (item.count / max) * 100)}%` }}
-            >
-              <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[11px] font-black text-gray-700">{item.count}</span>
-            </div>
+    <div className="space-y-3">
+      {summary.statusBreakdown.map((row) => {
+        const percent = summary.totalSessions ? (row.count / summary.totalSessions) * 100 : 0;
+        return (
+          <div className="grid grid-cols-[92px_1fr_64px] items-center gap-3 text-[11px]" key={row.status}>
+            <span className="font-semibold text-[var(--theme-text)]">{labels[row.status]}</span>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full" style={{ backgroundColor: colors[row.status], width: `${percent}%` }} /></div>
+            <span className="text-right font-bold text-[var(--theme-heading)]">{row.count} · {Math.round(percent)}%</span>
           </div>
-          <p className="py-2 text-center text-[10px] font-semibold text-gray-600">{item.label}</p>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScoreBars({ buckets }: { buckets: ScoreDistributionBucket[] }) {
+  if (!buckets.some((item) => item.count > 0)) return <EmptyState description="Scores appear after reports are persisted for this template." title="No score evidence yet" />;
+  const max = Math.max(1, ...buckets.map((item) => item.count));
+  return <HorizontalBars items={buckets.map((item) => ({ ...item, color: item.noEvidence ? "var(--theme-faint)" : "var(--color-chart-1)" }))} max={max} />;
+}
+
+function ModuleBars({ modules }: { modules: ModulePerformance[] }) {
+  if (!modules.length) return <EmptyState description="Module comparisons appear after evaluations are persisted for this template." title="No module evidence yet" />;
+  return (
+    <div className="space-y-3">
+      {modules.map((module) => (
+        <div key={module.moduleType}>
+          <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px]">
+            <span className="font-semibold text-[var(--theme-text)]">{module.title}</span>
+            <span className="font-bold text-[var(--theme-heading)]">{module.average.toFixed(1)}/5 · n={module.evaluationCount}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full bg-[var(--color-chart-1)]" style={{ width: `${Math.max(0, Math.min(100, module.average * 20))}%` }} /></div>
         </div>
       ))}
     </div>
   );
 }
 
-function formatRelative(date: string) {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(date).getTime()) / 60_000));
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+function CountBars({ items }: { items: Array<{ label: string; count: number }> }) {
+  if (!items.some((item) => item.count > 0)) return <EmptyState description="Duration needs completed sessions with valid start and completion timestamps." title="No duration evidence yet" />;
+  return <HorizontalBars items={items.map((item) => ({ ...item, color: "var(--color-chart-2)" }))} max={Math.max(1, ...items.map((item) => item.count))} />;
+}
+
+function HorizontalBars({ items, max }: { items: Array<{ label: string; count: number; color: string }>; max: number }) {
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <div className="grid grid-cols-[minmax(110px,1fr)_2fr_32px] items-center gap-3 text-[11px]" key={item.label}>
+          <span className="font-semibold text-[var(--theme-text)]">{item.label}</span>
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full" style={{ backgroundColor: item.color, width: `${item.count ? (item.count / max) * 100 : 0}%` }} /></div>
+          <span className="text-right font-bold text-[var(--theme-heading)]">{item.count}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UsageList({ usage }: { usage: TemplateUsageItem[] }) {
+  if (!usage.length) return <EmptyState description="Template assignments will appear here." title="No template usage yet" />;
+  const max = Math.max(1, ...usage.map((item) => item.assignments));
+  return (
+    <div className="space-y-3">
+      {usage.map((item) => (
+        <div key={item.templateId}>
+          <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px]">
+            <span className="truncate font-semibold text-[var(--theme-text)]">{item.title}</span>
+            <span className="shrink-0 font-bold text-[var(--theme-heading)]">{item.assignments} assigned · {item.completed} completed</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full bg-[var(--color-chart-1)]" style={{ width: `${(item.assignments / max) * 100}%` }} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ratePercent(rate: number | null) { return rate == null ? null : rate * 100; }
+
+function scoreTitle(buckets: ScoreDistributionBucket[], count: number) {
+  if (!count) return "No persisted score evidence for this template yet";
+  const high = buckets.find((item) => item.label === "4.0-5.0")?.count ?? 0;
+  return `${high} of ${count} reports score 4.0 or above`;
+}
+
+function moduleTitle(modules: ModulePerformance[]) {
+  if (!modules.length) return "No persisted module evidence for this template yet";
+  const highest = [...modules].sort((a, b) => b.average - a.average)[0];
+  return `${highest.title} is highest at ${highest.average.toFixed(1)}/5 (n=${highest.evaluationCount})`;
+}
+
+function durationTitle(duration: CompletionDuration | null) {
+  return duration?.medianMinutes == null
+    ? "No valid completion-duration evidence yet"
+    : `Median completion is ${duration.medianMinutes} minutes (n=${duration.sampleSize})`;
+}
+
+function usageTitle(usage: TemplateUsageItem[]) {
+  if (!usage.length) return "No template assignments yet";
+  const total = usage.reduce((sum, item) => sum + item.assignments, 0);
+  return `${usage[0].title} accounts for ${usage[0].assignments} of ${total} assignments`;
 }

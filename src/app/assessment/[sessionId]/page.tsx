@@ -24,9 +24,14 @@ export default function CandidateAssessmentPage() {
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [codingComplete, setCodingComplete] = useState(false);
-  const [aiQuestions, setAiQuestions] = useState<Question[] | null>(null);
+  const [codingSandboxActive, setCodingSandboxActive] = useState(false);
+  const [adaptiveQuestions, setAdaptiveQuestions] = useState<Question[] | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
-  const aiRequested = useRef(false);
+  const [advancing, setAdvancing] = useState(false);
+  const adaptiveRequested = useRef(false);
+  const advancingRef = useRef(false);
+  const advancingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedAdaptiveAnswers = useRef(new Map<string, Answer>());
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [pageError, setPageError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -36,6 +41,8 @@ export default function CandidateAssessmentPage() {
   const [reportStatus, setReportStatus] = useState<"generated" | "pending">("pending");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const saveRequests = useRef(new Map<string, Promise<boolean>>());
+  const answerRevisions = useRef(new Map<string, number>());
   const dirtyQuestions = useRef(new Set<string>());
   const timedOut = useRef(false);
 
@@ -49,19 +56,57 @@ export default function CandidateAssessmentPage() {
       ]);
       const nextAnswers: Record<string, Answer> = {};
       const nextFollowUps: Record<string, FollowUp> = {};
+      const nextAdaptiveAnswers = new Map<string, Answer>();
       for (const response of savedResponses) {
-        if (!response.questionId) continue;
+        if (!response.questionId) {
+          const adaptive = parseAdaptiveSavedResponse(response);
+          if (adaptive) nextAdaptiveAnswers.set(adaptive.question, { text: adaptive.answer });
+          continue;
+        }
         const parsed = parseSavedResponse(response.responseText);
         nextAnswers[response.questionId] = { text: parsed.answer, json: response.responseJson };
         if (parsed.followUp) nextFollowUps[response.questionId] = parsed.followUp;
       }
+      savedAdaptiveAnswers.current = nextAdaptiveAnswers;
+      let restoredAdaptiveQuestions: Question[] | null = null;
+      if (nextSession.status === "in_progress" && nextSession.template.modules.some((module) => module.type === "ai_interview")) {
+        try {
+          const existing = await apiGet<{ questions: string[] }>(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-questions`);
+          const generated = toAdaptiveQuestions(existing.questions);
+          if (generated.length) {
+            restoredAdaptiveQuestions = generated;
+            for (const question of generated) {
+              const saved = nextAdaptiveAnswers.get(question.questionText);
+              if (saved) nextAnswers[question.id] = saved;
+            }
+          }
+        } catch {
+          restoredAdaptiveQuestions = null;
+        }
+      }
       setSession(nextSession);
       setAnswers(nextAnswers);
       setFollowUps(nextFollowUps);
+      setAdaptiveQuestions(restoredAdaptiveQuestions);
+      adaptiveRequested.current = Boolean(restoredAdaptiveQuestions);
+      if (restoredAdaptiveQuestions) {
+        const preparedModules = candidateModules(nextSession.template.modules);
+        const aiModuleIndex = preparedModules.findIndex((module) => module.type === "ai_interview");
+        const authoredCount = preparedModules[aiModuleIndex]?.questions?.length ?? 0;
+        const firstUnanswered = restoredAdaptiveQuestions.findIndex((question) => !nextAnswers[question.id]?.text.trim());
+        setActiveModuleIndex(Math.max(0, aiModuleIndex));
+        setActiveQuestionIndex(authoredCount + (firstUnanswered >= 0 ? firstUnanswered : Math.max(0, restoredAdaptiveQuestions.length - 1)));
+      }
+      const codingModule = candidateModules(nextSession.template.modules).find((module) => module.type === "coding");
+      setCodingSandboxActive(Boolean(codingModule && questionResponsesComplete(codingModule, nextAnswers, nextFollowUps)));
       if (nextSession.status === "in_progress" && nextSession.template.modules.some((module) => module.type === "coding")) {
         try {
-          const codeSubmissions = await apiGet<CandidateCodeSubmission[]>(`/code/access/${encodeURIComponent(accessCode)}/submissions`);
-          setCodingComplete(codeSubmissions.length >= 3);
+          const [codeQuestions, codeSubmissions] = await Promise.all([
+            apiGet<Array<{ id: string }>>(`/code/access/${encodeURIComponent(accessCode)}/questions`),
+            apiGet<CandidateCodeSubmission[]>(`/code/access/${encodeURIComponent(accessCode)}/submissions`),
+          ]);
+          const submittedQuestionIds = new Set(codeSubmissions.map((submission) => submission.questionId));
+          setCodingComplete(codeQuestions.length > 0 && codeQuestions.every((question) => submittedQuestionIds.has(question.id)));
         } catch {
           setCodingComplete(false);
         }
@@ -107,39 +152,38 @@ export default function CandidateAssessmentPage() {
       .catch(() => undefined);
   }, [timeLeft, session?.status, accessCode]);
 
-  useEffect(() => () => { for (const timer of saveTimers.current.values()) clearTimeout(timer); }, []);
+  useEffect(() => () => {
+    for (const timer of saveTimers.current.values()) clearTimeout(timer);
+    if (advancingTimer.current) clearTimeout(advancingTimer.current);
+  }, []);
 
   const modules = useMemo(() => {
     const base = candidateModules(session?.template.modules ?? []);
-    // Once the AI has produced tailored questions, they replace the AI module's static ones.
-    return aiQuestions ? base.map((module) => (module.type === "ai_interview" ? { ...module, questions: aiQuestions } : module)) : base;
-  }, [session?.template.modules, aiQuestions]);
+    if (!adaptiveQuestions) return base;
+    return base.map((module) => (
+      module.type === "ai_interview"
+        ? { ...module, questions: [...(module.questions ?? []), ...adaptiveQuestions] }
+        : module
+    ));
+  }, [session?.template.modules, adaptiveQuestions]);
   const activeModule = modules[activeModuleIndex];
-  const activeQuestion = activeModule?.questions?.[activeQuestionIndex];
+  const activeQuestionCount = activeModule?.questions?.length ?? 0;
+  const displayedQuestionIndex = activeQuestionCount > 0
+    ? Math.min(activeQuestionIndex, activeQuestionCount - 1)
+    : 0;
+  const activeQuestion = activeModule?.questions?.[displayedQuestionIndex];
+  const adaptiveReady = !modules.some((module) => module.type === "ai_interview") || adaptiveQuestions !== null;
 
-  // When the candidate reaches the final AI module, generate questions tailored to
-  // everything they have answered so far. Falls back to the template's AI questions.
   useEffect(() => {
-    if (view !== "assessment" || activeModule?.type !== "ai_interview") return;
-    if (aiQuestions || aiRequested.current) return;
-    aiRequested.current = true;
-    setAiGenerating(true);
-    void (async () => {
-      const templateQuestions = activeModule.questions ?? [];
-      try {
-        await flushPendingSaves();
-        const result = await apiPost<{ questions: string[] }>(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-questions`, { count: 3 });
-        const generated = (result.questions ?? [])
-          .map((text, index) => ({ id: `ai-adaptive-${index}`, questionText: text.trim(), questionType: "short_answer" as const }))
-          .filter((question) => question.questionText);
-        setAiQuestions(generated.length ? generated : templateQuestions);
-      } catch {
-        setAiQuestions(templateQuestions);
-      } finally {
-        setAiGenerating(false);
-      }
-    })();
-  }, [view, activeModule?.type, aiQuestions, accessCode]);
+    if (activeModuleIndex >= modules.length && modules.length > 0) {
+      setActiveModuleIndex(modules.length - 1);
+      setActiveQuestionIndex(0);
+      return;
+    }
+    if (activeQuestionCount > 0 && activeQuestionIndex !== displayedQuestionIndex) {
+      setActiveQuestionIndex(displayedQuestionIndex);
+    }
+  }, [activeModuleIndex, activeQuestionCount, activeQuestionIndex, displayedQuestionIndex, modules.length]);
 
   async function startAssessment() {
     setStarting(true);
@@ -158,6 +202,7 @@ export default function CandidateAssessmentPage() {
   function updateAnswer(question: Question, answer: Answer) {
     if (timeLeft === 0) return;
     setAnswers((current) => ({ ...current, [question.id]: answer }));
+    answerRevisions.current.set(question.id, (answerRevisions.current.get(question.id) ?? 0) + 1);
     dirtyQuestions.current.add(question.id);
     setSaveState("saving");
     const currentTimer = saveTimers.current.get(question.id);
@@ -165,39 +210,110 @@ export default function CandidateAssessmentPage() {
     saveTimers.current.set(question.id, setTimeout(() => void persistQuestion(question.id, answer), 700));
   }
 
-  async function persistQuestion(questionId: string, answerOverride?: Answer) {
+  async function persistQuestion(questionId: string, answerOverride?: Answer): Promise<boolean> {
+    const existingRequest = saveRequests.current.get(questionId);
+    if (existingRequest) {
+      const saved = await existingRequest;
+      if (saveRequests.current.get(questionId) === existingRequest) saveRequests.current.delete(questionId);
+      if (!saved || !dirtyQuestions.current.has(questionId)) return saved;
+      return persistQuestion(questionId, answerOverride ?? answers[questionId]);
+    }
+
     const answer = answerOverride ?? answers[questionId];
-    if (!answer) return;
+    if (!answer) return false;
+    const revision = answerRevisions.current.get(questionId) ?? 0;
     const timer = saveTimers.current.get(questionId);
     if (timer) clearTimeout(timer);
     saveTimers.current.delete(questionId);
     setSaveState("saving");
-    try {
-      if (questionId.startsWith("ai-adaptive-")) {
-        // AI-generated questions aren't in the template, so they save through the AI transcript.
-        const question = aiQuestions?.find((item) => item.id === questionId)?.questionText ?? "";
-        await apiPost(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-answer`, { question, answer: answer.text });
-      } else {
-        const followUp = followUps[questionId];
-        await apiPost<CandidateResponse>(`/responses/access/${encodeURIComponent(accessCode)}`, {
-          questionId,
-          responseText: formatResponseForSave(answer.text, followUp),
-          responseJson: answer.json,
-        });
+    const request = (async () => {
+      try {
+        if (questionId.startsWith("ai-adaptive-")) {
+          const question = adaptiveQuestions?.find((item) => item.id === questionId)?.questionText ?? "";
+          await apiPost(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-answer`, {
+            questionId,
+            question,
+            answer: answer.text,
+          });
+        } else {
+          const followUp = followUps[questionId];
+          await apiPost<CandidateResponse>(`/responses/access/${encodeURIComponent(accessCode)}`, {
+            questionId,
+            responseText: formatResponseForSave(answer.text, followUp),
+            responseJson: answer.json,
+          });
+        }
+        if ((answerRevisions.current.get(questionId) ?? 0) === revision) dirtyQuestions.current.delete(questionId);
+        setSaveState("saved");
+        return true;
+      } catch {
+        setSaveState("error");
+        return false;
       }
-      dirtyQuestions.current.delete(questionId);
-      setSaveState("saved");
-    } catch {
-      setSaveState("error");
+    })();
+    saveRequests.current.set(questionId, request);
+    try {
+      return await request;
+    } finally {
+      if (saveRequests.current.get(questionId) === request) saveRequests.current.delete(questionId);
     }
   }
 
   async function flushPendingSaves() {
-    await Promise.all(Array.from(dirtyQuestions.current).map((questionId) => persistQuestion(questionId)));
+    const pendingQuestionIds = new Set([
+      ...dirtyQuestions.current,
+      ...saveTimers.current.keys(),
+      ...saveRequests.current.keys(),
+    ]);
+    const saved = await Promise.all(Array.from(pendingQuestionIds).map((questionId) => persistQuestion(questionId)));
+    if (saved.some((result) => !result)) throw new Error("One or more responses could not be saved.");
+  }
+
+  async function ensureQuestionSaved(questionId: string, answer: Answer): Promise<boolean> {
+    const hasPendingSave = dirtyQuestions.current.has(questionId)
+      || saveTimers.current.has(questionId)
+      || saveRequests.current.has(questionId);
+    return hasPendingSave ? persistQuestion(questionId, answer) : true;
+  }
+
+  async function prepareAdaptiveQuestions(authoredQuestionCount: number): Promise<boolean> {
+    if (adaptiveQuestions?.length) {
+      setActiveQuestionIndex(authoredQuestionCount);
+      return true;
+    }
+    if (adaptiveRequested.current) return false;
+
+    adaptiveRequested.current = true;
+    setAiGenerating(true);
+    setActionError("");
+    try {
+      await flushPendingSaves();
+      const result = await apiPost<{ questions: string[] }>(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-questions`, { count: 3 });
+      const generated = toAdaptiveQuestions(result.questions);
+      if (!generated.length) throw new Error("No tailored questions were generated.");
+
+      setAnswers((current) => {
+        const next = { ...current };
+        for (const question of generated) {
+          const saved = savedAdaptiveAnswers.current.get(question.questionText);
+          if (saved) next[question.id] = saved;
+        }
+        return next;
+      });
+      setAdaptiveQuestions(generated);
+      setActiveQuestionIndex(authoredQuestionCount);
+      return true;
+    } catch (requestError) {
+      adaptiveRequested.current = false;
+      setActionError(getErrorMessage(requestError, "Your answers were saved, but the tailored interview could not load. Try again."));
+      return false;
+    } finally {
+      setAiGenerating(false);
+    }
   }
 
   async function nextQuestion() {
-    if (timeLeft === 0) return;
+    if (timeLeft === 0 || advancingRef.current) return;
     if (!activeModule || !activeQuestion) return;
     const answer = answers[activeQuestion.id];
     if (!answer?.text.trim()) {
@@ -206,9 +322,14 @@ export default function CandidateAssessmentPage() {
     }
     setActionError("");
 
-    if (activeModule.type === "ai_interview" && activeQuestionIndex === 0 && !activeQuestion.id.startsWith("ai-adaptive-") && !followUps[activeQuestion.id]) {
-      await persistQuestion(activeQuestion.id, answer);
+    if (activeModule.type === "ai_interview" && displayedQuestionIndex === 0 && !activeQuestion.id.startsWith("ai-adaptive-") && !followUps[activeQuestion.id]) {
+      advancingRef.current = true;
+      setAdvancing(true);
       try {
+        if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
+          setActionError("Your response could not be saved. Check your connection and try again.");
+          return;
+        }
         const generated = await apiPost<{ question: string }>(`/ai/access/${encodeURIComponent(accessCode)}/follow-up`, {
           question: activeQuestion.questionText,
           answer: answer.text,
@@ -217,6 +338,9 @@ export default function CandidateAssessmentPage() {
         setActionError("One follow-up question was added based on your response.");
       } catch (requestError) {
         setActionError(getErrorMessage(requestError, "Your answer was saved, but the follow-up could not load. You can continue."));
+      } finally {
+        advancingRef.current = false;
+        setAdvancing(false);
       }
       return;
     }
@@ -226,20 +350,63 @@ export default function CandidateAssessmentPage() {
       setActionError("Answer the follow-up question before continuing.");
       return;
     }
-    dirtyQuestions.current.add(activeQuestion.id);
-    await persistQuestion(activeQuestion.id, answer);
+    const authoredQuestionCount = authoredQuestionsForModule(session?.template.modules ?? [], activeModule.id).length;
+    const finishedAuthoredAiQuestions =
+      activeModule.type === "ai_interview"
+      && adaptiveQuestions === null
+      && displayedQuestionIndex === authoredQuestionCount - 1;
+    if (finishedAuthoredAiQuestions) {
+      advancingRef.current = true;
+      setAdvancing(true);
+      try {
+        if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
+          setActionError("Your response could not be saved. Check your connection and try again.");
+          return;
+        }
+        await prepareAdaptiveQuestions(authoredQuestionCount);
+      } finally {
+        advancingRef.current = false;
+        setAdvancing(false);
+      }
+      return;
+    }
 
-    const questionCount = activeModule.questions?.length ?? 0;
-    if (activeQuestionIndex < questionCount - 1) {
-      setActiveQuestionIndex((index) => index + 1);
+    advancingRef.current = true;
+    setAdvancing(true);
+    if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
+      setActionError("Your response could not be saved. Check your connection and try again.");
+      advancingRef.current = false;
+      setAdvancing(false);
+      return;
+    }
+
+    if (displayedQuestionIndex < activeQuestionCount - 1) {
+      setActiveQuestionIndex(displayedQuestionIndex + 1);
+      releaseAdvanceLock();
+      return;
+    }
+    if (activeModule.type === "coding") {
+      setCodingSandboxActive(true);
+      releaseAdvanceLock();
       return;
     }
     if (activeModuleIndex < modules.length - 1) {
       setActiveModuleIndex((index) => index + 1);
       setActiveQuestionIndex(0);
+      releaseAdvanceLock();
       return;
     }
     setView("review");
+    releaseAdvanceLock();
+  }
+
+  function releaseAdvanceLock() {
+    if (advancingTimer.current) clearTimeout(advancingTimer.current);
+    advancingTimer.current = setTimeout(() => {
+      advancingRef.current = false;
+      setAdvancing(false);
+      advancingTimer.current = null;
+    }, 220);
   }
 
   function previousQuestion() {
@@ -249,12 +416,13 @@ export default function CandidateAssessmentPage() {
       const previousModule = modules[activeModuleIndex - 1];
       setActiveModuleIndex((index) => index - 1);
       setActiveQuestionIndex(Math.max(0, (previousModule.questions?.length ?? 1) - 1));
+      setCodingSandboxActive(previousModule.type === "coding" && questionResponsesComplete(previousModule, answers, followUps));
     }
   }
 
   async function submitAssessment() {
     if (timeLeft === 0) return;
-    if (!confirmed || !allModulesComplete(modules, answers, followUps, codingComplete)) return;
+    if (!confirmed || !allModulesComplete(modules, answers, followUps, codingComplete, adaptiveReady)) return;
     setSubmitting(true);
     setActionError("");
     try {
@@ -275,7 +443,7 @@ export default function CandidateAssessmentPage() {
   if (view === "welcome") return <CandidateWelcome error={actionError} onStart={() => void startAssessment()} session={session} starting={starting} />;
   if (view === "complete") return <CandidateComplete candidateName={session.candidateName} reportStatus={reportStatus} />;
 
-  const completion = completionPercent(modules, answers, followUps, codingComplete);
+  const completion = completionPercent(modules, answers, followUps, codingComplete, adaptiveReady);
   const timeUp = timeLeft === 0;
 
   return (
@@ -295,20 +463,20 @@ export default function CandidateAssessmentPage() {
       <div className="mx-auto grid max-w-[1480px] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden min-h-[calc(100vh-64px)] border-r border-neutral-200 bg-white p-4 lg:block">
           <p className="px-2 pb-3 text-[10px] font-bold uppercase text-neutral-400">Assessment modules</p>
-          <nav className="space-y-1">{modules.map((module, index) => { const complete = moduleComplete(module, answers, followUps, codingComplete); const active = index === activeModuleIndex && view === "assessment"; return <button className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left transition ${active ? "bg-sky-50 text-sky-900" : "text-neutral-600 hover:bg-neutral-50"}`} disabled={index > activeModuleIndex && !moduleComplete(modules[index - 1], answers, followUps, codingComplete)} key={module.id} onClick={() => { setActiveModuleIndex(index); setActiveQuestionIndex(0); setView("assessment"); }} type="button"><span className={`flex size-7 shrink-0 items-center justify-center rounded-[5px] ${complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-sky-100 text-sky-700" : "bg-neutral-100 text-neutral-500"}`}>{complete ? <Icon name="check" size={13} /> : <Icon name={moduleIcon(module.type)} size={13} />}</span><span className="min-w-0"><span className="block truncate text-[11px] font-bold">{module.title}</span><span className="mt-0.5 block text-[9px] text-neutral-400">{module.type === "coding" ? "Sandbox task" : `${module.questions?.length ?? 0} questions`}</span></span></button>; })}</nav>
+          <nav className="space-y-1">{modules.map((module, index) => { const complete = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); const active = index === activeModuleIndex && view === "assessment"; return <button className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left transition ${active ? "bg-sky-50 text-sky-900" : "text-neutral-600 hover:bg-neutral-50"}`} disabled={index > activeModuleIndex && !moduleComplete(modules[index - 1], answers, followUps, codingComplete, adaptiveReady)} key={module.id} onClick={() => { setActiveModuleIndex(index); setActiveQuestionIndex(0); setCodingSandboxActive(module.type === "coding" && questionResponsesComplete(module, answers, followUps)); setView("assessment"); }} type="button"><span className={`flex size-7 shrink-0 items-center justify-center rounded-[5px] ${complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-sky-100 text-sky-700" : "bg-neutral-100 text-neutral-500"}`}>{complete ? <Icon name="check" size={13} /> : <Icon name={moduleIcon(module.type)} size={13} />}</span><span className="min-w-0"><span className="block truncate text-[11px] font-bold">{module.title}</span><span className="mt-0.5 block text-[9px] text-neutral-400">{module.type === "coding" ? `${module.questions?.length ?? 0} questions + sandbox` : `${module.questions?.length ?? 0} questions`}</span></span></button>; })}</nav>
           <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-[11px] font-bold ${view === "review" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("review")} type="button"><span className="flex size-7 items-center justify-center rounded-[5px] bg-white/10"><Icon name="report" size={13} /></span>Review and submit</button>
         </aside>
 
         <section className="min-w-0 p-4 sm:p-6 lg:p-8">
           {view === "review" ? (
-            <ReviewPanel answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} submitting={submitting} />
-          ) : activeModule?.type === "coding" ? (
-            <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={previousQuestion} onContinue={() => { setCodingComplete(true); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
+            <ReviewPanel adaptiveReady={adaptiveReady} answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} submitting={submitting} />
+          ) : activeModule?.type === "coding" && (codingSandboxActive || !(activeModule.questions?.length ?? 0)) ? (
+            <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={() => { setCodingSandboxActive(false); setActiveQuestionIndex(Math.max(0, (activeModule.questions?.length ?? 1) - 1)); }} onContinue={() => { setCodingComplete(true); setCodingSandboxActive(false); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
           ) : activeModule?.type === "ai_interview" && aiGenerating ? (
             <AiPreparing />
           ) : activeModule && activeQuestion ? (
-            <QuestionPanel answer={answers[activeQuestion.id]} disabled={timeUp} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { if (timeLeft === 0) return; setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={activeQuestionIndex} />
-          ) : <CandidateError message="This assessment module has no candidate questions." />}
+            <QuestionPanel answer={answers[activeQuestion.id]} busy={advancing} disabled={timeUp} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { if (timeLeft === 0) return; setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); answerRevisions.current.set(activeQuestion.id, (answerRevisions.current.get(activeQuestion.id) ?? 0) + 1); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={displayedQuestionIndex} />
+          ) : <QuestionLoading />}
         </section>
       </div>
 
@@ -392,9 +560,6 @@ function CandidateWelcome({ session, onStart, starting, error }: { session: Cand
               {!starting ? <Icon className="-rotate-90" name="chevron" size={14} /> : null}
             </button>
 
-            <div className="mt-14 flex justify-center text-neutral-400">
-              <Icon name="lock" size={14} />
-            </div>
           </div>
         </form>
 
@@ -422,14 +587,18 @@ function WelcomeFact({ icon, title, body }: { icon: IconName; title: string; bod
   );
 }
 
-function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error, disabled }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string; disabled?: boolean }) {
+function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error, busy = false, disabled }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string; busy?: boolean; disabled?: boolean }) {
   const options = questionOptions(question.options);
-  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[22px] font-black leading-8 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled} onClick={onBack} type="button">Back</button><button className="button-primary" disabled={disabled} onClick={onNext} type="button">Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></button></div></article></div>;
+  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[18px] font-black leading-7 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled || busy} onClick={onBack} type="button">Back</button><button aria-busy={busy} className="button-primary transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:hover:translate-y-0" disabled={disabled || busy} onClick={onNext} type="button">{busy ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />Moving to next question...</> : <>Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></>}</button></div></article></div>;
 }
 
-function ReviewPanel({ modules, answers, followUps, codingComplete, confirmed, onConfirm, onBack, onSubmit, submitting, error }: { modules: AssessmentModule[]; answers: Record<string, Answer>; followUps: Record<string, FollowUp>; codingComplete: boolean; confirmed: boolean; onConfirm: (value: boolean) => void; onBack: () => void; onSubmit: () => void; submitting: boolean; error: string }) {
-  const complete = allModulesComplete(modules, answers, followUps, codingComplete);
-  return <div className="mx-auto max-w-[860px]"><p className="text-[10px] font-bold uppercase text-[#087aa4]">Final review</p><h1 className="mt-2 text-[30px] font-black text-neutral-950">Ready to submit?</h1><p className="mt-2 text-sm leading-6 text-neutral-600">Check each module before closing access to this assessment.</p><div className="mt-6 border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]"><div className="divide-y divide-neutral-100">{modules.map((module) => { const done = moduleComplete(module, answers, followUps, codingComplete); return <div className="flex items-center gap-4 px-5 py-4 sm:px-6" key={module.id}><span className={`flex size-9 items-center justify-center rounded-[7px] ${done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}><Icon name={done ? "check" : moduleIcon(module.type)} size={16} /></span><div className="min-w-0 flex-1"><p className="text-[12px] font-bold text-neutral-900">{module.title}</p><p className="mt-0.5 text-[10px] text-neutral-500">{done ? "Complete" : "Response required"}</p></div></div>; })}</div><div className="border-t border-neutral-200 bg-neutral-50 p-5 sm:p-6"><label className="flex cursor-pointer items-start gap-3"><input checked={confirmed} className="mt-0.5 size-4 accent-[#159ac8]" onChange={(event) => onConfirm(event.target.checked)} type="checkbox" /><span className="text-[11px] leading-5 text-neutral-600">I confirm that I reviewed my responses and understand that submitting will close this private assessment link.</span></label>{error ? <p className="mt-3 text-[11px] text-red-700">{error}</p> : null}<div className="mt-5 flex justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Return to assessment</button><button className="button-primary" disabled={!complete || !confirmed || submitting} onClick={onSubmit} type="button">{submitting ? "Submitting" : "Submit assessment"}</button></div></div></div><p className="mt-4 text-center text-[10px] leading-5 text-neutral-500">AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions.</p></div>;
+function QuestionLoading() {
+  return <div className="mx-auto flex min-h-[360px] max-w-[860px] items-center justify-center border border-neutral-200 bg-white"><span aria-label="Loading question" className="size-8 animate-spin rounded-full border-[3px] border-neutral-200 border-t-sky-500" /></div>;
+}
+
+function ReviewPanel({ modules, answers, followUps, codingComplete, adaptiveReady, confirmed, onConfirm, onBack, onSubmit, submitting, error }: { modules: AssessmentModule[]; answers: Record<string, Answer>; followUps: Record<string, FollowUp>; codingComplete: boolean; adaptiveReady: boolean; confirmed: boolean; onConfirm: (value: boolean) => void; onBack: () => void; onSubmit: () => void; submitting: boolean; error: string }) {
+  const complete = allModulesComplete(modules, answers, followUps, codingComplete, adaptiveReady);
+  return <div className="mx-auto max-w-[860px]"><p className="text-[10px] font-bold uppercase text-[#087aa4]">Final review</p><h1 className="mt-2 text-[30px] font-black text-neutral-950">Ready to submit?</h1><p className="mt-2 text-sm leading-6 text-neutral-600">Check each module before closing access to this assessment.</p><div className="mt-6 border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]"><div className="divide-y divide-neutral-100">{modules.map((module) => { const done = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); return <div className="flex items-center gap-4 px-5 py-4 sm:px-6" key={module.id}><span className={`flex size-9 items-center justify-center rounded-[7px] ${done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}><Icon name={done ? "check" : moduleIcon(module.type)} size={16} /></span><div className="min-w-0 flex-1"><p className="text-[12px] font-bold text-neutral-900">{module.title}</p><p className="mt-0.5 text-[10px] text-neutral-500">{done ? "Complete" : "Response required"}</p></div></div>; })}</div><div className="border-t border-neutral-200 bg-neutral-50 p-5 sm:p-6"><label className="flex cursor-pointer items-start gap-3"><input checked={confirmed} className="mt-0.5 size-4 accent-[#159ac8]" onChange={(event) => onConfirm(event.target.checked)} type="checkbox" /><span className="text-[11px] leading-5 text-neutral-600">I confirm that I reviewed my responses and understand that submitting will close this private assessment link.</span></label>{error ? <p className="mt-3 text-[11px] text-red-700">{error}</p> : null}<div className="mt-5 flex justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Return to assessment</button><button className="button-primary" disabled={!complete || !confirmed || submitting} onClick={onSubmit} type="button">{submitting ? "Submitting" : "Submit assessment"}</button></div></div></div><p className="mt-4 text-center text-[10px] leading-5 text-neutral-500">AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions.</p></div>;
 }
 
 function CandidateComplete({ candidateName, reportStatus }: { candidateName: string; reportStatus: "generated" | "pending" }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[620px] border border-neutral-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.09)] sm:p-12"><span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Icon name="check" size={23} /></span><h1 className="mt-5 text-[30px] font-black text-neutral-950">Assessment submitted</h1><p className="mt-3 text-sm leading-6 text-neutral-600">Thank you, {firstName(candidateName)}. Your saved responses and coding evidence are now available to the authorized review team.</p><div className="mt-6 rounded-[7px] bg-neutral-50 px-4 py-3 text-[11px] leading-5 text-neutral-600">{reportStatus === "generated" ? "The reviewer report is ready inside the private workspace." : "Your submission is complete. Report processing will continue for the review team."}</div><p className="mt-7 text-[11px] text-neutral-500">You may close this window.</p></div></main>; }
@@ -439,14 +608,17 @@ function CandidateError({ message }: { message: string }) { return <main classNa
 function candidateModules(modules: AssessmentModule[]): AssessmentModule[] {
   const prepared = [...modules]
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((module) => (module.type === "coding" ? { ...module, questions: [] } : { ...module, questions: module.questions ?? [] }))
+    .map((module) => ({ ...module, questions: module.questions ?? [] }))
     .filter((module) => module.type === "coding" || (module.questions?.length ?? 0) > 0);
   // AI interview always comes last: it adapts to everything answered before it.
   return [...prepared.filter((module) => module.type !== "ai_interview"), ...prepared.filter((module) => module.type === "ai_interview")];
 }
-function moduleComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { if (module.type === "coding") return codingComplete; const questions = module.questions ?? []; return questions.length > 0 && questions.every((question, index) => Boolean(answers[question.id]?.text.trim()) && (module.type !== "ai_interview" || index !== 0 || question.id.startsWith("ai-adaptive-") || Boolean(followUps[question.id]?.answer.trim()))); }
-function allModulesComplete(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { return modules.length > 0 && modules.every((module) => moduleComplete(module, answers, followUps, codingComplete)); }
-function completionPercent(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean) { return modules.length ? Math.round((modules.filter((module) => moduleComplete(module, answers, followUps, codingComplete)).length / modules.length) * 100) : 0; }
+function toAdaptiveQuestions(questions: string[] | undefined): Question[] { return (questions ?? []).map((text, index) => ({ id: `ai-adaptive-${index}`, questionText: text.trim(), questionType: "short_answer" as const })).filter((question) => question.questionText); }
+function authoredQuestionsForModule(modules: AssessmentModule[], moduleId: string): Question[] { return modules.find((module) => module.id === moduleId)?.questions ?? []; }
+function questionResponsesComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>) { const questions = module.questions ?? []; return (module.type === "coding" && questions.length === 0) || (questions.length > 0 && questions.every((question, index) => Boolean(answers[question.id]?.text.trim()) && (module.type !== "ai_interview" || index !== 0 || question.id.startsWith("ai-adaptive-") || Boolean(followUps[question.id]?.answer.trim())))); }
+function moduleComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean, adaptiveReady: boolean) { return questionResponsesComplete(module, answers, followUps) && (module.type !== "coding" || codingComplete) && (module.type !== "ai_interview" || adaptiveReady); }
+function allModulesComplete(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean, adaptiveReady: boolean) { return modules.length > 0 && modules.every((module) => moduleComplete(module, answers, followUps, codingComplete, adaptiveReady)); }
+function completionPercent(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean, adaptiveReady: boolean) { return modules.length ? Math.round((modules.filter((module) => moduleComplete(module, answers, followUps, codingComplete, adaptiveReady)).length / modules.length) * 100) : 0; }
 function moduleIcon(type: AssessmentModule["type"]): IconName { return type === "coding" || type === "debugging" ? "code" : type === "leadership" ? "crown" : type === "communication" ? "paperPlane" : type === "behavioral" || type === "work_style" ? "users" : type === "problem_solving" ? "sparkle" : "message"; }
 function questionOptions(value: JsonValue | undefined): string[] { if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string"); if (value && typeof value === "object") { const record = value as Record<string, JsonValue>; for (const key of ["options", "choices", "answers"]) { const nested = record[key]; if (Array.isArray(nested)) return nested.map((item) => typeof item === "string" ? item : typeof item === "object" && item ? String((item as Record<string, JsonValue>).label ?? (item as Record<string, JsonValue>).value ?? "") : "").filter(Boolean); } } return []; }
 function ChoiceInput({ options, value, onChange, disabled }: { options: string[]; value: string; onChange: (value: string) => void; disabled?: boolean }) { return <div className="grid gap-2">{options.map((option) => <label className={`flex items-center gap-3 rounded-[7px] border px-4 py-3 text-[12px] font-semibold transition ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${value === option ? "border-sky-300 bg-sky-50 text-sky-950" : "border-neutral-200 hover:bg-neutral-50"}`} key={option}><input checked={value === option} className="size-4 accent-[#159ac8]" disabled={disabled} name="choice" onChange={() => onChange(option)} type="radio" />{option}</label>)}</div>; }
@@ -454,5 +626,6 @@ function ScaleInput({ value, onChange, disabled }: { value?: number; onChange: (
 function numericAnswer(answer?: Answer) { const value = Number(answer?.json && typeof answer.json === "object" && !Array.isArray(answer.json) ? (answer.json as Record<string, JsonValue>).value : answer?.text); return Number.isFinite(value) ? value : undefined; }
 function formatResponseForSave(answer: string, followUp?: FollowUp) { return followUp ? `${answer.trim()}\n\nAI follow-up: ${followUp.question.trim()}\nFollow-up response: ${followUp.answer.trim()}` : answer; }
 function parseSavedResponse(value: string): { answer: string; followUp?: FollowUp } { const marker = "\n\nAI follow-up: "; const index = value.indexOf(marker); if (index < 0) return { answer: value }; const answer = value.slice(0, index); const remaining = value.slice(index + marker.length); const responseMarker = "\nFollow-up response: "; const responseIndex = remaining.indexOf(responseMarker); return responseIndex < 0 ? { answer } : { answer, followUp: { question: remaining.slice(0, responseIndex), answer: remaining.slice(responseIndex + responseMarker.length) } }; }
+function parseAdaptiveSavedResponse(response: CandidateResponse): { question: string; answer: string } | undefined { const json = response.responseJson; if (!json || typeof json !== "object" || Array.isArray(json)) return undefined; const record = json as Record<string, JsonValue>; if (record.adaptive !== true || typeof record.question !== "string") return undefined; const marker = "\n\nResponse: "; const markerIndex = response.responseText.indexOf(marker); const answer = markerIndex >= 0 ? response.responseText.slice(markerIndex + marker.length).trim() : response.responseText.trim(); return answer ? { question: record.question, answer } : undefined; }
 function firstName(name: string) { return name.trim().split(/\s+/)[0] || "Candidate"; }
 function formatTimer(seconds: number) { if (!Number.isFinite(seconds) || seconds < 0) return "--:--"; const minutes = Math.floor(seconds / 60); return `${String(minutes).padStart(2, "0")}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`; }

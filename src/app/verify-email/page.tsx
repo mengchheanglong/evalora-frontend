@@ -1,70 +1,117 @@
-import Image from "next/image";
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AuthLayout } from "@/components/auth-layout";
-import { Button } from "@/components/button-link";
+import { useAuth } from "@/components/auth-provider";
 import { Icon } from "@/components/icons";
+import { InlineAlert } from "@/components/ui-states";
+import { getErrorMessage } from "@/lib/api";
+
+type VerificationState = "checking" | "waiting" | "error";
 
 export default function VerifyEmailPage() {
+  const router = useRouter();
+  const { verifyEmail, resendEmailVerification } = useAuth();
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<VerificationState>("checking");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [resending, setResending] = useState(false);
+  const [fallbackUrl, setFallbackUrl] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nextEmail = params.get("email")?.trim() ?? "";
+    const token = params.get("token")?.trim() ?? "";
+    setEmail(nextEmail);
+    setFallbackUrl(sessionStorage.getItem("evalora-verification-fallback") ?? "");
+
+    if (!token) {
+      setState("waiting");
+      return;
+    }
+
+    void (async () => {
+      try {
+        await verifyEmail(token);
+        sessionStorage.removeItem("evalora-verification-fallback");
+        router.replace("/dashboard");
+        router.refresh();
+      } catch (requestError) {
+        setError(getErrorMessage(requestError, "Unable to verify this email."));
+        setState("error");
+      }
+    })();
+  }, [router, verifyEmail]);
+
+  async function resend() {
+    if (!email || resending) return;
+    setResending(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await resendEmailVerification(email);
+      setNotice(result.message);
+      if (result.verificationUrl) {
+        sessionStorage.setItem("evalora-verification-fallback", result.verificationUrl);
+        setFallbackUrl(result.verificationUrl);
+      }
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to resend the verification email."));
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <AuthLayout
-      headline={
-        <>
-          <span className="block">One last step to</span>
-          <span className="block text-primary">get you started</span>
-        </>
-      }
-      lead="Please verify your email address to activate your account and start using Evalora."
-      panelClassName="max-w-[400px]"
+      headline={<><span className="block">One last step.</span><span className="block text-[#149bc8]">Verify your email.</span></>}
+      lead="Confirm your work email before entering the workspace. This keeps account ownership and invitations tied to the right person."
+      panelClassName="max-w-[440px]"
     >
-      <section className="mx-auto w-full space-y-[18px] text-center">
-        <Icon className="mx-auto text-blue-700" name="mail" size={78} />
+      <div className="space-y-5 text-center">
+        <span className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+          <Icon name="mail" size={22} />
+        </span>
 
-        <div>
-          <h1 className="mt-[20px] text-[26px] font-black leading-[31px] tracking-[-0.01em] text-neutral-950">
-            Verify your email
-          </h1>
+        {state === "checking" ? (
+          <>
+            <h1 className="text-[28px] font-black text-[#151922]">Verifying your email</h1>
+            <p className="text-[13px] text-neutral-500">Please wait while we activate your workspace.</p>
+            <span className="mx-auto block size-5 animate-spin rounded-full border-2 border-primary-100 border-t-primary-600" />
+          </>
+        ) : (
+          <>
+            <div>
+              <h1 className="text-[28px] font-black text-[#151922]">Check your inbox</h1>
+              <p className="mt-3 text-[13px] leading-6 text-neutral-500">
+                We sent a verification link{email ? <> to <strong className="text-neutral-800">{email}</strong></> : ""}.
+              </p>
+            </div>
 
-          <p className="mx-auto mt-[18px] max-w-[310px] text-[14px] leading-[17px] text-neutral-600">
-            We&apos;ve sent a verification link to
-          </p>
+            {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+            {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
-          <p className="mt-[10px] text-[11px] font-bold text-neutral-950">
-            limpotkolbotey@gmail.com
-          </p>
-        </div>
+            {email ? (
+              <button className="button-secondary h-11 w-full rounded-lg text-[12px] font-bold" disabled={resending} onClick={() => void resend()} type="button">
+                {resending ? "Sending..." : "Resend verification email"}
+              </button>
+            ) : null}
 
-        <div className="mx-auto flex min-h-[62px] w-full items-center justify-center rounded-[8px] bg-primary-50 px-5 text-center text-[11px] leading-[13px] text-neutral-500">
-          <p>
-            Click the link in the email to verify your account.
-            <br />
-            The link will expire in 15 minutes.
-          </p>
-        </div>
+            {fallbackUrl ? (
+              <a className="button-primary flex h-11 w-full items-center justify-center rounded-lg text-[12px] font-bold" href={fallbackUrl}>
+                Continue verification
+              </a>
+            ) : null}
 
-        <Button
-          className="flex h-[44px] w-full items-center justify-center gap-3 rounded-[8px] border border-neutral-300 bg-white !text-[12px] font-medium text-neutral-800 shadow-none transition hover:bg-neutral-50"
-          variant="outline"
-        >
-          <Image
-            src="/gmail-logo.png"
-            alt="Gmail"
-            width={20}
-            height={20}
-            className="object-contain"
-          />
-          <span>Open Gmail</span>
-        </Button>
-
-        <div className="space-y-[8px] pt-[2px] text-[11px] text-neutral-500">
-          <p>Didn&apos;t receive the email?</p>
-
-          <p>
-            <button className="font-bold text-blue-700" type="button">
-              Resend email
-            </button>{" "}
-            <span>(00:45)</span>
-          </p>
-        </div>
-      </section>
+            <p className="text-[12px] text-neutral-500">
+              Already verified? <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/login">Back to sign in</Link>
+            </p>
+          </>
+        )}
+      </div>
     </AuthLayout>
   );
 }

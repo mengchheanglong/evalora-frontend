@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeUpstreamErrorResponse, serviceUnavailableResponse } from "@/lib/api";
 import { handleMockBackendRequest } from "@/lib/mock-backend";
+import { isTrustedMutationOrigin } from "@/lib/request-origin";
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/$/, "");
 const SESSION_COOKIE = "evalora_session";
-const AUTH_RESPONSE_PATHS = new Set(["auth/login", "auth/register", "auth/google", "organization/invites/accept"]);
+const REMEMBERED_SESSION_SECONDS = 60 * 60 * 24 * 30;
+const AUTH_RESPONSE_PATHS = new Set(["auth/login", "auth/google", "auth/verify-email", "organization/invites/accept"]);
 
 /**
  * Backend mode for local/dev UX:
@@ -61,9 +64,10 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
   if (!isBodyless) {
     bodyBuffer = await request.arrayBuffer();
   }
+  const rememberedSession = requestsRememberedSession(relativePath, bodyBuffer);
 
   if (BACKEND_MODE === "true" || (BACKEND_MODE === "auto" && Date.now() < liveUnavailableUntil)) {
-    return withMockHeader(await handleMockBackendRequest(rebuildRequest(request, bodyBuffer), relativePath));
+    return safeMockBackendResponse(request, relativePath, bodyBuffer);
   }
 
   const target = `${BACKEND_URL}/${relativePath}${request.nextUrl.search}`;
@@ -85,8 +89,13 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
     });
     liveUnavailableUntil = 0;
 
-    // Auth responses need token stripping; stream other bodies through as text once.
-    const responseContentType = backendResponse.headers.get("content-type") ?? "application/json; charset=utf-8";
+    const upstreamContentType = backendResponse.headers.get("content-type");
+    if (!backendResponse.ok) {
+      return safeUpstreamErrorResponse(backendResponse, upstreamContentType ?? "");
+    }
+
+    // Auth responses need token stripping; stream other successful bodies through as text once.
+    const responseContentType = upstreamContentType ?? "application/json; charset=utf-8";
     const responseHeaders = new Headers();
     responseHeaders.set("Content-Type", responseContentType);
     responseHeaders.set("X-Evalora-Data-Source", "live");
@@ -111,7 +120,7 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
           sameSite: "lax",
           secure: process.env.NODE_ENV === "production",
           path: "/",
-          maxAge: 60 * 60 * 24,
+          ...(rememberedSession ? { maxAge: REMEMBERED_SESSION_SECONDS } : {}),
         });
       }
       return response;
@@ -130,16 +139,18 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
     if (BACKEND_MODE === "auto") {
       liveUnavailableUntil = Date.now() + LIVE_COOLDOWN_MS;
       // Rebuild a Request with the buffered body so mock handlers can read JSON again.
-      return withMockHeader(await handleMockBackendRequest(rebuildRequest(request, bodyBuffer), relativePath));
+      return safeMockBackendResponse(request, relativePath, bodyBuffer);
     }
 
-    return NextResponse.json(
-      {
-        message:
-          "The Evalora API is unavailable. Start the backend, or set NEXT_PUBLIC_USE_MOCK_BACKEND=auto (or true) to use local demo data.",
-      },
-      { status: 502 },
-    );
+    return serviceUnavailableResponse();
+  }
+}
+
+async function safeMockBackendResponse(request: NextRequest, relativePath: string, bodyBuffer?: ArrayBuffer): Promise<Response> {
+  try {
+    return withMockHeader(await handleMockBackendRequest(rebuildRequest(request, bodyBuffer), relativePath));
+  } catch {
+    return serviceUnavailableResponse(500, "mock");
   }
 }
 
@@ -164,13 +175,23 @@ function rebuildRequest(request: NextRequest, bodyBuffer?: ArrayBuffer): NextReq
   });
 }
 
-function isTrustedMutation(request: NextRequest): boolean {
-  if (request.method === "GET" || request.method === "HEAD") return true;
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
+function requestsRememberedSession(relativePath: string, bodyBuffer?: ArrayBuffer): boolean {
+  if ((relativePath !== "auth/login" && relativePath !== "auth/google") || !bodyBuffer?.byteLength) return false;
   try {
-    return new URL(origin).origin === request.nextUrl.origin;
+    const body = JSON.parse(new TextDecoder().decode(bodyBuffer)) as { remember?: unknown };
+    return body.remember === true;
   } catch {
     return false;
   }
+}
+
+function isTrustedMutation(request: NextRequest): boolean {
+  return isTrustedMutationOrigin({
+    method: request.method,
+    origin: request.headers.get("origin"),
+    host: request.headers.get("host"),
+    forwardedHost: request.headers.get("x-forwarded-host"),
+    forwardedProto: request.headers.get("x-forwarded-proto"),
+    requestOrigin: request.nextUrl.origin,
+  });
 }

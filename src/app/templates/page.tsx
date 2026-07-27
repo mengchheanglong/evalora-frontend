@@ -405,18 +405,18 @@ export default function TemplatesPage() {
           </div>
           
           <div className="flex items-center gap-3">
-            <label className="group flex h-12 w-full items-center gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-4 text-[var(--theme-text)] shadow-sm transition focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-500/25 sm:w-72">
+            <label className="group flex h-10 w-full items-center gap-2.5 rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 text-[var(--theme-text)] shadow-[var(--theme-shadow)] transition focus-within:border-[var(--color-primary-500)] focus-within:ring-2 focus-within:ring-[var(--color-primary-500)]/20 sm:w-72">
               <span className="sr-only">Search templates</span>
-              <Icon className="pointer-events-none h-5 w-5 shrink-0 text-[var(--theme-muted)] transition group-focus-within:text-sky-500" name="search" size={20} />
+              <Icon className="pointer-events-none shrink-0 text-[var(--theme-muted)] transition group-focus-within:text-[var(--color-primary-600)]" name="search" size={16} />
               <input
-                className="h-full min-w-0 flex-1 border-0 !bg-transparent text-[15px] font-medium leading-none text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
+                className="h-full min-w-0 flex-1 border-0 !bg-transparent text-[12px] font-medium leading-none text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search templates..."
                 type="search"
                 value={searchQuery}
               />
             </label>
-            <Link href="/templates/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-5 text-sm font-bold text-[var(--theme-heading)] shadow-sm transition hover:border-sky-400 hover:bg-[var(--theme-panel-soft)] focus:outline-none focus:ring-2 focus:ring-sky-500/25">
+            <Link href="/templates/create" className="session-blue-button h-10 px-4 text-[12px]">
               <Icon name="plus" size={16} /> New Template
             </Link>
           </div>
@@ -455,62 +455,47 @@ export default function TemplatesPage() {
               {filteredCatalog.map((item) => {
                 const theme = roleTheme(item.roleType);
                 return (
-                  <article key={item.id} className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow" style={{
-                    backgroundColor: 'var(--theme-panel)',
-                    borderColor: 'var(--theme-border)',
-                  }}>
+                  <article key={item.id} className="group flex flex-col overflow-hidden rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-[var(--theme-shadow)] transition hover:border-[var(--theme-border-strong)] hover:shadow-[0_12px_30px_rgba(15,23,42,0.1)]">
                     <button
-                      className="flex flex-1 flex-col p-5 text-left"
+                      className="flex flex-1 flex-col p-4 text-left"
                       disabled={previewLoading} 
                       onClick={() => void openCatalogPreview(item.id)}
                     >
                       <div className="flex items-start gap-3">
-                        <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${theme.iconBg}`}>
-                          <Icon name={theme.icon} size={22} />
+                        <span className={`flex size-10 shrink-0 items-center justify-center rounded-[9px] ${theme.iconBg}`}>
+                          <Icon name={theme.icon} size={18} />
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5 mb-2">
                             <span className="tpl-chip tpl-chip-sky rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">Prebuilt</span>
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${theme.badge}`}>{item.roleType}</span>
                           </div>
-                          <h3 className="text-base font-bold text-gray-900 group-hover:text-sky-600 transition-colors line-clamp-1" style={{
-                            color: 'var(--theme-heading)',
-                          }}>{item.title}</h3>
+                          <h3 className="line-clamp-1 text-[14px] font-extrabold text-[var(--theme-heading)] transition-colors group-hover:text-[var(--color-primary-700)]">{item.title}</h3>
                         </div>
                       </div>
-                      <p className="mt-3 line-clamp-2 flex-1 text-xs leading-5 text-gray-500" style={{
-                        color: 'var(--theme-muted)',
-                      }}>{item.description}</p>
+                      <p className="mt-3 line-clamp-2 flex-1 text-[11px] leading-[18px] text-[var(--theme-muted)]">{item.description}</p>
                       <dl className="mt-4 grid grid-cols-3 gap-2">
                         <Stat label="Modules" value={item.moduleCount} />
                         <Stat label="Questions" value={item.questionCount} />
                         <Stat label="Minutes" value={item.timeLimitMin ?? "—"} />
                       </dl>
                     </button>
-                    <div className="grid grid-cols-2 gap-2 border-t border-gray-100 bg-gray-50 p-3" style={{
-                      borderColor: 'var(--theme-border)',
-                      backgroundColor: 'var(--theme-panel-soft)',
-                    }}>
+                    <div className="grid grid-cols-2 gap-2 border-t border-[var(--theme-border)] bg-[var(--theme-panel-tint)] p-3">
                       <button
-                        className="flex items-center justify-center gap-1.5 h-9 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                        style={{
-                          backgroundColor: 'var(--theme-panel)',
-                          borderColor: 'var(--theme-border)',
-                          color: 'var(--theme-text)',
-                        }}
+                        className="button-secondary h-9 text-[11px]"
                         disabled={previewLoading || busyId === item.id}
                         onClick={() => void openCatalogPreview(item.id)}
                       >
                         <Icon name="eye" size={14} /> Review
                       </button>
                       <button
-                        className="flex items-center justify-center gap-1.5 h-8 sm:h-9 rounded-lg bg-sky-500 text-xs sm:text-sm font-semibold text-white hover:bg-sky-600 transition-colors px-3 sm:px-4 w-full sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="button-primary template-use-button h-9 w-full px-3 text-[11px] disabled:cursor-not-allowed disabled:opacity-70"
                         disabled={busyId === item.id}
                         onClick={() => void useCatalogTemplate(item.id, "mine")}
                       >
                         {busyId === item.id ? (
                           <>
-                            <span className="inline-block animate-spin text-xs">⚙</span>
+                            <span aria-hidden="true" className="size-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                             Adding…
                           </>
                         ) : (

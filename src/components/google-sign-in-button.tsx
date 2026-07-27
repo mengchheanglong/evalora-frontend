@@ -38,22 +38,26 @@ type GoogleSignInButtonProps = {
   mode?: "signin" | "signup";
   organizationName?: string;
   disabled?: boolean;
+  className?: string;
   onCredential: (credential: string) => Promise<void>;
   onError?: (message: string) => void;
 };
 
 const SCRIPT_ID = "evalora-google-gsi";
-const SCRIPT_SRC = "https://accounts.google.com/gsi/client";
+const SCRIPT_SRC = "https://accounts.google.com/gsi/client?hl=en";
 
 export function GoogleSignInButton({
   mode = "signin",
   disabled = false,
+  className = "",
   onCredential,
   onError,
 }: GoogleSignInButtonProps) {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
   const buttonHostRef = useRef<HTMLDivElement | null>(null);
+  const renderedButtonKeyRef = useRef("");
   const [scriptReady, setScriptReady] = useState(false);
+  const [buttonWidth, setButtonWidth] = useState(0);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState("");
 
@@ -100,9 +104,6 @@ export function GoogleSignInButton({
   useEffect(() => {
     if (!clientId || !scriptReady || !buttonHostRef.current || !window.google?.accounts?.id) return;
 
-    const host = buttonHostRef.current;
-    host.innerHTML = "";
-
     window.google.accounts.id.initialize({
       client_id: clientId,
       callback: async (response) => {
@@ -127,28 +128,51 @@ export function GoogleSignInButton({
       auto_select: false,
       cancel_on_tap_outside: true,
     });
+  }, [clientId, scriptReady]);
+
+  useEffect(() => {
+    if (!scriptReady || !buttonHostRef.current) return;
+
+    const host = buttonHostRef.current;
+    const updateWidth = () => setButtonWidth(Math.floor(host.getBoundingClientRect().width));
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [scriptReady]);
+
+  useEffect(() => {
+    if (!clientId || !scriptReady || !buttonHostRef.current || !window.google?.accounts?.id || buttonWidth <= 0) return;
+
+    const host = buttonHostRef.current;
+    const renderKey = `${clientId}:${mode}`;
+    if (renderedButtonKeyRef.current === renderKey) return;
+
+    host.innerHTML = "";
 
     window.google.accounts.id.renderButton(host, {
       theme: "outline",
       size: "large",
       text: mode === "signup" ? "signup_with" : "signin_with",
-      width: Math.min(400, Math.max(280, host.clientWidth || 320)),
+      width: Math.min(400, Math.max(200, buttonWidth || host.clientWidth || 320)),
       shape: "rectangular",
       logo_alignment: "left",
     });
-  }, [clientId, scriptReady, mode]);
+    renderedButtonKeyRef.current = renderKey;
+  }, [buttonWidth, clientId, scriptReady, mode]);
 
   if (!clientId) {
     return (
-      <div className="space-y-3">
+      <div className={`space-y-3 ${className}`}>
         <AuthDivider label="or continue with" />
         <button
-          className="button-secondary h-12 w-full rounded-lg border-neutral-300 bg-white text-[13px] font-bold text-neutral-500"
+          className="h-[52px] w-full rounded-lg border border-solid border-[#cbd5df] bg-white text-[13px] font-bold text-neutral-700 inline-flex items-center justify-center gap-3 shadow-sm cursor-not-allowed opacity-70"
           disabled
           type="button"
         >
           <GoogleIcon />
-          <span>Google sign-in not configured</span>
+          <span>{mode === "signup" ? "Sign up with Google" : "Sign in with Google"}</span>
         </button>
         <p className="text-center text-[11px] text-neutral-400">
           Set <code className="font-mono">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> and backend{" "}
@@ -159,10 +183,23 @@ export function GoogleSignInButton({
   }
 
   return (
-    <div className="space-y-3">
+    <div className={`space-y-3 ${className}`}>
       <AuthDivider label="or continue with" />
-      <div className={`flex min-h-12 w-full justify-center ${disabled || busy ? "pointer-events-none opacity-60" : ""}`}>
-        <div className="w-full max-w-[400px]" ref={buttonHostRef} />
+      <div className={`relative h-[52px] w-full overflow-hidden rounded-lg ${disabled || busy ? "pointer-events-none opacity-60" : ""}`}>
+        {!scriptReady ? (
+          <div className="flex h-full w-full items-center justify-center border border-solid border-[#cbd5df] bg-white text-[12px] font-semibold text-neutral-500">
+            Loading Google sign-in...
+          </div>
+        ) : (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 border border-solid border-[#cbd5df] bg-white text-[13px] font-semibold text-neutral-800 shadow-sm">
+            <GoogleIcon />
+            <span>{mode === "signup" ? "Sign up with Google" : "Sign in with Google"}</span>
+          </div>
+        )}
+        <div
+          ref={buttonHostRef}
+          className={`${scriptReady ? "flex" : "hidden"} absolute inset-0 h-full w-full items-center justify-center overflow-hidden opacity-[0.01] [&>div]:!w-full [&_iframe]:!h-[52px] [&_iframe]:!w-full`}
+        />
       </div>
       {busy ? <p className="text-center text-[12px] text-neutral-500">Signing in with Google…</p> : null}
       {localError ? <p className="text-center text-[12px] text-rose-600">{localError}</p> : null}

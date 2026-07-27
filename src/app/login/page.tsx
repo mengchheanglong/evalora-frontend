@@ -15,6 +15,8 @@ export default function LoginPage() {
   const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,7 +24,7 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      await loginWithGoogle(credential);
+      await loginWithGoogle(credential, undefined, rememberMe);
       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
       router.replace(returnTo?.startsWith("/") ? returnTo : "/dashboard");
       router.refresh();
@@ -39,7 +41,7 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      await login({ email, password });
+      await login({ email, password, remember: rememberMe });
       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
       router.replace(returnTo?.startsWith("/") ? returnTo : "/dashboard");
       router.refresh();
@@ -66,7 +68,9 @@ export default function LoginPage() {
         <label className="block">
           <span className="text-[13px] font-bold text-neutral-800">Email</span>
           <span className="relative mt-2 block">
-            <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" name="mail" size={16} />
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center text-neutral-400">
+              <Icon name="mail" size={16} />
+            </span>
             <input autoComplete="email" autoFocus className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-[13px] focus:border-primary-400 focus:bg-white" onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email" required type="email" value={email} />
           </span>
         </label>
@@ -74,14 +78,30 @@ export default function LoginPage() {
         <label className="block">
           <span className="text-[13px] font-bold text-neutral-800">Password</span>
           <span className="relative mt-2 block">
-            <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" name="lock" size={16} />
-            <input autoComplete="current-password" className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-[13px] focus:border-primary-400 focus:bg-white" minLength={8} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required type="password" value={password} />
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center text-neutral-400">
+              <Icon name="lock" size={16} />
+            </span>
+            <input autoComplete="current-password" className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 !pr-12 text-[13px] focus:border-primary-400 focus:bg-white" minLength={8} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required type={showPassword ? "text" : "password"} value={password} />
+            <button
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-neutral-400 transition hover:text-neutral-800"
+              onClick={() => setShowPassword((shown) => !shown)}
+              type="button"
+            >
+              <Icon name="eye" size={17} />
+            </button>
           </span>
         </label>
 
         <div className="flex items-center justify-between gap-4 pt-3 text-[12px]">
           <label className="flex items-center gap-2 text-neutral-500">
-            <input className="size-5 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500" type="checkbox" />
+            <input
+              checked={rememberMe}
+              className="size-5 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500"
+              name="rememberMe"
+              onChange={(event) => setRememberMe(event.target.checked)}
+              type="checkbox"
+            />
             <span>Remember me</span>
           </label>
           <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/forgot-password">Forgot password?</Link>
@@ -95,7 +115,7 @@ export default function LoginPage() {
         <GoogleSignInButton disabled={submitting} mode="signin" onCredential={finishGoogleSignIn} onError={setError} />
 
         <p className="pt-3 text-center text-[12px] text-neutral-500">
-          Don&apos;t have an account? <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/register">Sign up</Link>
+          Don&apos;t have an account? <a className="font-bold !text-primary-700 hover:!text-primary-600" href="/register">Sign up</a>
         </p>
       </form>
     </AuthLayout>
