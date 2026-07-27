@@ -549,7 +549,7 @@ function CandidateWelcome({ session, onStart, starting, error }: { session: Cand
               />
             </label>
 
-            {error ? <p className="mt-4 rounded-[7px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-800">{error}</p> : null}
+            {error ? <p className="status-alert status-alert--error mt-4 rounded-[7px] border px-4 py-3 text-[12px]">{error}</p> : null}
 
             <button className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[7px] bg-primary-500 text-[13px] font-bold text-white transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60" disabled={starting || !candidateName.trim()} type="submit">
               {starting ? "Starting interview" : "Continue to interview"}

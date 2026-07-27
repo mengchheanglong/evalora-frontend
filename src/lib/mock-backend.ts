@@ -469,6 +469,12 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   const body = method === "GET" || method === "HEAD" ? undefined : await readJson(request);
 
   if (relativePath === "auth/me" && method === "GET") return json(mockUser);
+  if (relativePath === "auth/me" && method === "PUT") {
+    const name = String(asRecord(body).name ?? "").trim();
+    if (!name) return json({ message: "Name is required." }, 400);
+    mockUser.name = name.slice(0, 200);
+    return json(mockUser);
+  }
   if ((relativePath === "auth/login" || relativePath === "auth/google") && method === "POST") {
     const input = asRecord(body);
     if (relativePath === "auth/google") {

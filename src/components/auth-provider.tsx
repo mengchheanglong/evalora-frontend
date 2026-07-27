@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 import type { AuthResponse, AuthUser, EmailVerificationRequestResponse, RegistrationResponse } from "@/lib/types";
 
 type AuthStatus = "loading" | "authenticated" | "anonymous";
@@ -17,6 +17,7 @@ interface AuthContextValue {
   verifyEmail(token: string): Promise<AuthUser>;
   resendEmailVerification(email: string): Promise<EmailVerificationRequestResponse>;
   loginWithGoogle(credential: string, organizationName?: string, remember?: boolean): Promise<AuthUser>;
+  updateProfile(input: { name: string }): Promise<AuthUser>;
   logout(): Promise<void>;
   refresh(): Promise<void>;
 }
@@ -138,6 +139,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.user;
   }, []);
 
+  const updateProfile = useCallback(async (input: { name: string }) => {
+    if (!user) throw new Error("You must be signed in to update your profile.");
+    const remembered = readCachedUser()?.remembered ?? false;
+    const updatedProfile = await apiPut<AuthUser>("/auth/me", input);
+    // The profile endpoint is intentionally limited to a display-name change.
+    // Preserve role and workspace identity from the established session so a
+    // stale/mock response cannot change the visible access level.
+    const updatedUser = { ...user, name: updatedProfile.name };
+    setUser(updatedUser);
+    setStatus("authenticated");
+    writeCachedUser(updatedUser, remembered);
+    return updatedUser;
+  }, [user]);
+
   const logout = useCallback(async () => {
     try {
       await apiPost<{ message: string }>("/auth/logout");
@@ -149,8 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, status, login, register, verifyEmail, resendEmailVerification, loginWithGoogle, logout, refresh }),
-    [user, status, login, register, verifyEmail, resendEmailVerification, loginWithGoogle, logout, refresh],
+    () => ({ user, status, login, register, verifyEmail, resendEmailVerification, loginWithGoogle, updateProfile, logout, refresh }),
+    [user, status, login, register, verifyEmail, resendEmailVerification, loginWithGoogle, updateProfile, logout, refresh],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

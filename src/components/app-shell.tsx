@@ -33,7 +33,7 @@ const navigation: NavigationItem[] = [
   { label: "Analytics", href: "/analytics", key: "analytics", icon: "analytics" },
 ];
 
-const ownerNavigation: NavigationItem[] = [
+const workspaceNavigation: NavigationItem[] = [
   { label: "Team", href: "/users", key: "users", icon: "users" },
 ];
 
@@ -243,9 +243,6 @@ export function AppShell({
 }
 
 function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => void }) {
-  const { user } = useAuth();
-  const isOwner = user?.role === "organization" || user?.role === "admin";
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-[82px] items-center px-5">
@@ -255,14 +252,10 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
         <div className="space-y-2">
           {navigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
-        {isOwner ? (
-          <>
-            <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Workspace</p>
-            <div className="mt-3 space-y-2">
-              {ownerNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
-            </div>
-          </>
-        ) : null}
+        <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Workspace</p>
+        <div className="mt-3 space-y-2">
+          {workspaceNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
+        </div>
         <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Account</p>
         <div className="mt-3 space-y-2">
           {sharedSecondaryNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
@@ -293,6 +286,6 @@ const WORKSPACE_PREFETCH_PATHS: Record<string, string[]> = {
   "/assessment": ["/sessions", "/analytics/summary"],
   "/candidates": ["/sessions", "/analytics/summary"],
   "/analytics": ["/analytics/summary", "/analytics/template-usage"],
-  "/users": ["/organization/members", "/organization/invites"],
+  "/users": ["/organization/members"],
   "/settings": ["/organization", "/organization/privacy"],
 };

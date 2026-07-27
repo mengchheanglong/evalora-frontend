@@ -70,9 +70,9 @@ export default function ForgotPasswordPage() {
           ) : null}
 
           {result.resetUrl ? (
-            <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-4 text-left">
-              <p className="text-[12px] font-bold text-amber-900">Email was not delivered</p>
-              <p className="mt-1 text-[12px] leading-5 text-amber-800">
+            <div className="status-alert status-alert--warning rounded-[8px] border p-4 text-left">
+              <p className="text-[12px] font-bold">Email was not delivered</p>
+              <p className="mt-1 text-[12px] leading-5">
                 {result.emailDelivery?.reason ??
                   "Copy this one-time link to choose a new password (local/demo mode)."}
               </p>
