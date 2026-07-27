@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Icon } from "@/components/icons";
+import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import type { WorkspaceInvite, WorkspaceMember } from "@/lib/types";
@@ -57,6 +58,10 @@ export default function UsersAndRolesPage() {
   const pendingInvites = useMemo(() => invites.filter((invite) => invite.status === "pending"), [invites]);
   const ownerCount = members.filter((member) => member.role === "organization").length;
   const interviewerCount = members.filter((member) => member.role === "interviewer").length;
+  const expiringSoonInvites = pendingInvites.filter((invite) => {
+    const remainingMs = new Date(invite.expiresAt).getTime() - Date.now();
+    return remainingMs >= 0 && remainingMs <= 48 * 60 * 60 * 1000;
+  }).length;
 
   async function handleInvite(event: FormEvent) {
     event.preventDefault();
@@ -154,10 +159,11 @@ export default function UsersAndRolesPage() {
       title="Team"
     >
       <div className="space-y-5">
-        <section className="grid gap-3 sm:grid-cols-3">
-          <StatCard detail="Workspace accounts" label="Total members" value={String(members.length)} />
-          <StatCard detail="Can invite teammates" label="Owners" value={String(ownerCount)} />
-          <StatCard detail="Shared workspace access" label="Interviewers" value={String(interviewerCount)} />
+        <section className={`grid gap-3 sm:grid-cols-2 ${isOwner ? "xl:grid-cols-4" : "xl:max-w-2xl"}`}>
+          <OverviewCard detail={`${ownerCount} workspace ${ownerCount === 1 ? "owner" : "owners"}`} icon="users" label="Members" value={members.length.toLocaleString()} tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
+          <OverviewCard detail="Can run assessments and review reports" icon="user" label="Interviewers" value={interviewerCount.toLocaleString()} tone="text-sky-600" accent="#0ea5e9" />
+          {isOwner ? <OverviewCard detail="Invitations awaiting acceptance" icon="plusUser" label="Pending invites" value={pendingInvites.length.toLocaleString()} tone="text-amber-600" accent="#f59e0b" /> : null}
+          {isOwner ? <OverviewCard detail="Pending links expiring within 48 hours" emphasis={expiringSoonInvites > 0 ? "attention" : "quiet"} icon="clock" label="Expiring soon" value={expiringSoonInvites.toLocaleString()} tone="text-amber-600" accent="#f59e0b" /> : null}
         </section>
 
         {actionError ? <InlineAlert tone="error">{actionError}</InlineAlert> : null}
@@ -345,16 +351,6 @@ export default function UsersAndRolesPage() {
         </section>
       </div>
     </AppShell>
-  );
-}
-
-function StatCard({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <article className="card rounded-[10px] px-4 py-4">
-      <p className="text-[11px] font-bold text-neutral-700">{label}</p>
-      <p className="mt-1 text-[24px] font-black leading-none text-neutral-950">{value}</p>
-      <p className="mt-2 text-[10px] font-semibold text-neutral-500">{detail}</p>
-    </article>
   );
 }
 

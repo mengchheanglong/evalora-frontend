@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { FilterPanelFrame, FilterSelectField, FilterToggleButton } from "@/components/filter-controls";
-import { Icon, type IconName } from "@/components/icons";
+import { Icon } from "@/components/icons";
+import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
-import type { InterviewSession, SessionStatus } from "@/lib/types";
+import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
 
 // --- UI Types (Matches Figma Design) ---
-type SessionStatusUI = "Completed" | "In Progress" | "Scheduled" | "Cancelled";
+type SessionStatusUI = "Completed" | "In Progress" | "Scheduled" | "Expired";
 
 interface SessionRow {
   id: string;
@@ -25,7 +26,6 @@ interface SessionRow {
   time: string;
   timestamp: number;
   status: SessionStatusUI;
-  progress: number;
 }
 
 // --- Helper: Map Backend Data to UI Structure ---
@@ -35,15 +35,7 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
     not_started: "Scheduled",
     in_progress: "In Progress",
     completed: "Completed",
-    expired: "Cancelled",
-  };
-
-  // Calculate progress based on status
-  const progressMap: Record<SessionStatus, number> = {
-    not_started: 0,
-    in_progress: 50, // Default for in progress
-    completed: 100,
-    expired: 0,
+    expired: "Expired",
   };
 
   // Infer category from targetRole
@@ -82,12 +74,12 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
     time,
     timestamp: dateObj.getTime(),
     status: statusMap[session.status],
-    progress: progressMap[session.status],
   };
 }
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -104,8 +96,12 @@ export default function SessionsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await apiGet<InterviewSession[]>("/sessions");
+      const [data, nextSummary] = await Promise.all([
+        apiGet<InterviewSession[]>("/sessions"),
+        apiGet<AnalyticsSummary>("/analytics/summary"),
+      ]);
       setSessions(data.map(mapSessionToRow));
+      setSummary(nextSummary);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -123,13 +119,13 @@ export default function SessionsPage() {
     setActionError("");
     try {
       await apiDelete(`/sessions/${session.id}`);
-      setSessions((current) => current.filter((item) => item.id !== session.id));
+      await loadSessions();
     } catch (requestError) {
       setActionError(getErrorMessage(requestError, "Could not delete this session. Please try again."));
     } finally {
       setDeletingId(null);
     }
-  }, []);
+  }, [loadSessions]);
 
   const templates = useMemo(
     () => uniqueValues(sessions.map((session) => session.templateTitle)),
@@ -172,32 +168,6 @@ export default function SessionsPage() {
     setDateFilter("all");
   }, []);
 
-  // Calculate real stats
-  const stats = useMemo(() => {
-    const total = sessions.length;
-    const completed = sessions.filter(s => s.status === "Completed").length;
-    const inProgress = sessions.filter(s => s.status === "In Progress").length;
-    const scheduled = sessions.filter(s => s.status === "Scheduled").length;
-    const cancelled = sessions.filter(s => s.status === "Cancelled").length;
-
-    const getPercent = (count: number) => total > 0 ? `${((count / total) * 100).toFixed(1)}% of total` : "0% of total";
-
-    return {
-      total,
-      completed,
-      inProgress,
-      scheduled,
-      cancelled,
-      completedProgress: total > 0 ? (completed / total) * 100 : 0,
-      inProgressProgress: total > 0 ? (inProgress / total) * 100 : 0,
-      scheduledProgress: total > 0 ? (scheduled / total) * 100 : 0,
-      cancelledProgress: total > 0 ? (cancelled / total) * 100 : 0,
-      completedPercent: getPercent(completed),
-      inProgressPercent: getPercent(inProgress),
-      scheduledPercent: getPercent(scheduled),
-      cancelledPercent: getPercent(cancelled),
-    };
-  }, [sessions]);
 
   if (loading) {
     return <AppShell active="session" title="" description=""><PageLoader label="Loading interview sessions" /></AppShell>;
@@ -225,14 +195,14 @@ export default function SessionsPage() {
           </div>
         </div>
 
-        {/* Stats Cards (Now Real) */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Total Sessions" value={String(stats.total)} detail="All time sessions" progress={100} icon="clipboard" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
-          <StatCard label="Completed" value={String(stats.completed)} detail={stats.completedPercent} progress={stats.completedProgress} icon="check" tone="text-emerald-500" accent="#10b981" />
-          <StatCard label="In Progress" value={String(stats.inProgress)} detail={stats.inProgressPercent} progress={stats.inProgressProgress} icon="clock" tone="text-sky-500" accent="#0ea5e9" />
-          <StatCard label="Scheduled" value={String(stats.scheduled)} detail={stats.scheduledPercent} progress={stats.scheduledProgress} icon="calendar" tone="text-amber-500" accent="#f59e0b" />
-          <StatCard label="Cancelled" value={String(stats.cancelled)} detail={stats.cancelledPercent} progress={stats.cancelledProgress} icon="more" tone="text-[var(--theme-muted)]" accent="var(--theme-muted)" />
-        </section>
+        {summary ? (
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <OverviewCard label="Awaiting start" value={summary.pendingAssessments.toLocaleString()} detail="Invitation sent; candidate has not started" icon="calendar" tone="text-amber-500" accent="#f59e0b" />
+            <OverviewCard label="In progress" value={summary.inProgressAssessments.toLocaleString()} detail="Candidates actively completing assessments" icon="clock" tone="text-sky-500" accent="#0ea5e9" />
+            <OverviewCard label="Reports pending" value={summary.reportsPending.toLocaleString()} detail="Completed sessions still awaiting a report" emphasis={summary.reportsPending > 0 ? "attention" : "quiet"} icon="more" tone="text-amber-600" accent="#f59e0b" />
+            <OverviewCard label="Reports ready" value={summary.reportReadyAssessments.toLocaleString()} detail={`${summary.completedAssessments} completed assessments`} progress={summary.reportCoverageRate == null ? null : summary.reportCoverageRate * 100} icon="report" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
+          </section>
+        ) : null}
 
         {/* Main Content Card */}
         <section className="bg-[var(--theme-panel)] rounded-xl border border-[var(--theme-border)] shadow-[var(--shadow-card)] overflow-hidden">
@@ -260,7 +230,7 @@ export default function SessionsPage() {
                 <option value="Completed">Completed</option>
                 <option value="In Progress">In Progress</option>
                 <option value="Scheduled">Scheduled</option>
-                <option value="Cancelled">Cancelled</option>
+                <option value="Expired">Expired</option>
               </FilterSelectField>
               <FilterSelectField label="Template" onChange={setTemplateFilter} value={templateFilter}>
                 <option value="all">All Templates</option>
@@ -295,7 +265,6 @@ export default function SessionsPage() {
                     <th className="px-4 py-3">Interviewer</th>
                     <th className="px-4 py-3">Session Date & Time</th>
                     <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Progress</th>
                     <th className="px-5 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -346,17 +315,6 @@ export default function SessionsPage() {
                       <td className="px-4 py-4">
                         <StatusBadge status={session.status} />
                       </td>
-                      <td className="px-4 py-4 w-32">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-[var(--theme-heading)] w-8">{session.progress}%</span>
-                          <div className="flex-1 h-1.5 bg-[var(--theme-panel-soft)] rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full ${session.progress === 100 ? 'bg-[var(--color-primary-500)]' : session.progress > 0 ? 'bg-[var(--color-primary-400)]' : 'bg-[var(--theme-panel-soft)]'}`}
-                              style={{ width: `${session.progress}%` }} 
-                            />
-                          </div>
-                        </div>
-                      </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -392,41 +350,12 @@ export default function SessionsPage() {
   );
 }
 
-// --- Sub-Components ---
-
-function StatCard({ label, value, detail, progress, icon, tone, accent }: {
-  label: string; value: string; detail: string; progress: number; icon: IconName; tone: string; accent: string;
-}) {
-  const clampedProgress = Math.max(0, Math.min(100, progress));
-
-  return (
-    <div className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-[var(--theme-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--theme-border-strong)] hover:shadow-[0_16px_42px_rgba(15,23,42,0.16)]">
-      <div className="flex items-start gap-4">
-        <span
-          className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${tone}`}
-          style={{ backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`, borderColor: `color-mix(in srgb, ${accent} 35%, transparent)` }}
-        >
-          <Icon name={icon} size={24} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-[var(--theme-text)]">{label}</p>
-          <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{value}</p>
-          <p className="mt-2 text-[11px] font-medium text-[var(--theme-muted)]">{detail}</p>
-        </div>
-      </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
-        <div className="h-full rounded-full" style={{ width: `${clampedProgress}%`, backgroundColor: accent }} />
-      </div>
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: SessionStatusUI }) {
   const styles: Record<SessionStatusUI, string> = {
     Completed: "text-emerald-700 bg-emerald-50 border-emerald-100",
     "In Progress": "text-sky-700 bg-sky-50 border-sky-100",
     Scheduled: "text-amber-700 bg-amber-50 border-amber-100",
-    Cancelled: "text-[var(--theme-muted)] bg-[var(--theme-panel-soft)] border-[var(--theme-border)]",
+    Expired: "text-[var(--theme-muted)] bg-[var(--theme-panel-soft)] border-[var(--theme-border)]",
   };
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${styles[status]}`}>

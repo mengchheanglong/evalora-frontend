@@ -4,16 +4,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { FilterPanelFrame, FilterSelectField, FilterToggleButton } from "@/components/filter-controls";
-import { Icon, type IconName } from "@/components/icons";
+import { Icon } from "@/components/icons";
+import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { InterviewSession, SessionStatus } from "@/lib/types";
+import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
 
 const CANDIDATES_PER_PAGE = 8;
 
 export default function CandidatesPage() {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | SessionStatus>("all");
   const [positionFilter, setPositionFilter] = useState("all");
@@ -28,12 +30,17 @@ export default function CandidatesPage() {
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadCandidates = useCallback(async () => {
+  const loadCandidates = useCallback(async (syncQueryFromUrl = false) => {
     setLoading(true);
     setError("");
     try {
-      setSessions(await apiGet<InterviewSession[]>("/sessions"));
-      setQuery(new URLSearchParams(window.location.search).get("q") ?? "");
+      const [nextSessions, nextSummary] = await Promise.all([
+        apiGet<InterviewSession[]>("/sessions"),
+        apiGet<AnalyticsSummary>("/analytics/summary"),
+      ]);
+      setSessions(nextSessions);
+      setSummary(nextSummary);
+      if (syncQueryFromUrl) setQuery(new URLSearchParams(window.location.search).get("q") ?? "");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -41,7 +48,7 @@ export default function CandidatesPage() {
     }
   }, []);
 
-  useEffect(() => { void loadCandidates(); }, [loadCandidates]);
+  useEffect(() => { void loadCandidates(true); }, [loadCandidates]);
 
   const positions = useMemo(
     () => uniqueValues(sessions.map((session) => session.targetRole)),
@@ -58,13 +65,13 @@ export default function CandidatesPage() {
     setError("");
     try {
       await apiDelete(`/sessions/${session.id}`);
-      setSessions((current) => current.filter((item) => item.id !== session.id));
+      await loadCandidates();
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Could not delete this candidate. Please try again."));
     } finally {
       setDeletingId(null);
     }
-  }, []);
+  }, [loadCandidates]);
 
   const visible = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -127,7 +134,7 @@ export default function CandidatesPage() {
       {!loading && error ? <ErrorState message={error} onRetry={() => void loadCandidates()} /> : null}
       {!loading && !error ? (
         <div className="space-y-4">
-          <CandidateStats sessions={sessions} />
+          {summary ? <CandidateStats summary={summary} /> : null}
           <section className="card overflow-hidden rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)]">
               <div className="flex flex-wrap items-center gap-3 border-b border-[var(--theme-border)] px-4 py-2.5 sm:px-5">
                 <label className="group flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-[7px] border border-[var(--color-primary-300)]/70 bg-[var(--color-primary-50)]/70 px-3 text-[var(--color-primary-700)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition focus-within:border-[var(--color-primary-500)] focus-within:bg-[var(--theme-panel)] focus-within:ring-4 focus-within:ring-[var(--theme-ring)] sm:max-w-[360px]">
@@ -222,44 +229,14 @@ export default function CandidatesPage() {
   );
 }
 
-function CandidateStats({ sessions }: { sessions: InterviewSession[] }) {
-  const totalCandidates = sessions.length;
-  const completed = sessions.filter((session) => session.status === "completed").length;
-  const inAssessment = sessions.filter((session) => session.status === "in_progress").length;
-  const withdrawn = sessions.filter((session) => session.status === "expired").length;
+function CandidateStats({ summary }: { summary: AnalyticsSummary }) {
   return (
-    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Stat detail="All time" icon="users" label="Total Candidates" progress={100} tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" value={totalCandidates} />
-      <Stat detail={`${percent(inAssessment, totalCandidates)}% of total`} icon="clock" label="In Assessment" progress={percent(inAssessment, totalCandidates)} tone="text-amber-500" accent="#f59e0b" value={inAssessment} />
-      <Stat detail={`${percent(completed, totalCandidates)}% of total`} icon="check" label="Completed" progress={percent(completed, totalCandidates)} tone="text-emerald-500" accent="#10b981" value={completed} />
-      <Stat detail={`${percent(withdrawn, totalCandidates)}% of total`} icon="shield" label="Withdrawn / Rejected" progress={percent(withdrawn, totalCandidates)} tone="text-[var(--theme-muted)]" accent="var(--theme-muted)" value={withdrawn} />
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <OverviewCard detail={`${summary.totalSessions} assessment sessions`} icon="users" label="Candidates" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" value={summary.totalCandidates.toLocaleString()} />
+      <OverviewCard detail={`${summary.pendingAssessments} awaiting start · ${summary.inProgressAssessments} in progress`} icon="clock" label="Active assessments" tone="text-amber-500" accent="#f59e0b" value={summary.activeAssessments.toLocaleString()} />
+      <OverviewCard detail={`${summary.reportReadyAssessments} completed reports ready for review`} emphasis={summary.reportsPending > 0 ? "attention" : "quiet"} icon="report" label="Reports pending" tone="text-amber-600" accent="#f59e0b" value={summary.reportsPending.toLocaleString()} />
+      <OverviewCard detail="Assessment access ended before completion" emphasis="quiet" icon="shield" label="Expired sessions" tone="text-[var(--theme-muted)]" accent="var(--theme-muted)" value={summary.expiredAssessments.toLocaleString()} />
     </section>
-  );
-}
-function Stat({ label, value, detail, progress, icon, tone, accent }: {
-  label: string; value: number; detail: string; progress: number; icon: IconName; tone: string; accent: string;
-}) {
-  const clampedProgress = Math.max(0, Math.min(100, progress));
-
-  return (
-    <article className="group rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-4 shadow-[var(--theme-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--theme-border-strong)] hover:shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
-      <div className="flex items-start gap-3">
-        <span
-          className={`flex size-10 shrink-0 items-center justify-center rounded-[9px] border ${tone}`}
-          style={{ backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`, borderColor: `color-mix(in srgb, ${accent} 35%, transparent)` }}
-        >
-          <Icon name={icon} size={20} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-bold text-[var(--theme-text)]">{label}</p>
-          <p className="mt-1 text-xl font-extrabold leading-none text-[var(--theme-heading)]">{value.toLocaleString()}</p>
-          <p className="mt-1.5 text-[10px] font-medium text-[var(--theme-muted)]">{detail}</p>
-        </div>
-      </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
-        <div className="h-full rounded-full" style={{ width: `${clampedProgress}%`, backgroundColor: accent }} />
-      </div>
-    </article>
   );
 }
 
@@ -309,7 +286,7 @@ function FiltersPanel({
           <option value="not_started">Not Started</option>
           <option value="in_progress">In Assessment</option>
           <option value="completed">Completed</option>
-          <option value="expired">Withdrawn / Rejected</option>
+          <option value="expired">Expired</option>
         </FilterSelectField>
         <FilterSelectField label="Position" onChange={setPositionFilter} value={positionFilter}>
           <option value="all">All Positions</option>
@@ -361,7 +338,7 @@ function Pagination({ total, page, pageSize, onPageChange }: { total: number; pa
 
 function StatusBadge({ status }: { status: SessionStatus }) {
   const style = { not_started: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]", in_progress: "bg-[var(--theme-active)] text-[var(--theme-active-text)]", completed: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)]", expired: "bg-[var(--theme-panel-soft)] text-[var(--theme-faint)]" }[status];
-  const label = { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Withdrawn" }[status];
+  const label = { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];
   return <span className={`rounded-[5px] px-2 py-1 text-[10px] font-semibold ${style}`}>{label}</span>;
 }
 function ScoreCircle({ score }: { score?: number }) {
@@ -390,4 +367,3 @@ function uniqueValues(values: Array<string | undefined>) {
   return [...new Set(values.filter((value): value is string => Boolean(value?.trim())).map((value) => value.trim()))].sort((a, b) => a.localeCompare(b));
 }
 function formatDate(value?: string) { return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value)) : "-"; }
-function percent(value: number, total: number) { return total ? Math.round((value / total) * 1000) / 10 : 0; }

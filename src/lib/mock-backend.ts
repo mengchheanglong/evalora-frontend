@@ -13,6 +13,7 @@ import type {
   CandidateReport,
   CandidateResponse,
   CatalogTemplateSummary,
+  CompletionDuration,
   CodeQuestion,
   CodeRunResult,
   InterviewSession,
@@ -21,7 +22,10 @@ import type {
   ModuleType,
   QuestionType,
   ReviewerNote,
+  ScoreDistributionBucket,
   SessionStatus,
+  TemplateUsageItem,
+  UpcomingAssessment,
 } from "@/lib/types";
 
 const mockUser: AuthUser = {
@@ -937,8 +941,17 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
 
   if (relativePath === "analytics/summary" && method === "GET") return json(createSummary());
   if (relativePath === "analytics/activity" && method === "GET") return json(createActivity());
-  if (relativePath === "analytics/module-performance" && method === "GET") return json(createModulePerformance());
-  if (relativePath === "analytics/score-distribution" && method === "GET") return json(createDistribution());
+  if (relativePath === "analytics/ready-reports" && method === "GET") return json(createReadyReports());
+  if (relativePath === "analytics/upcoming" && method === "GET") return json(createUpcoming());
+  if (relativePath === "analytics/template-usage" && method === "GET") return json(createTemplateUsage());
+  if (["analytics/module-performance", "analytics/score-distribution", "analytics/completion-duration"].includes(relativePath) && method === "GET") {
+    const templateIds = request.nextUrl.searchParams.getAll("templateId");
+    const templateId = templateIds.length === 1 ? templateIds[0].trim() : "";
+    if (!templateId) return json({ message: "templateId is required for comparable analytics" }, 400);
+    if (relativePath === "analytics/module-performance") return json(createModulePerformance(templateId));
+    if (relativePath === "analytics/score-distribution") return json(createDistribution(templateId));
+    return json(createCompletionDuration(templateId));
+  }
   if (relativePath === "analytics/themes" && method === "GET") return json(createThemes());
   if (relativePath === "analytics/trend" && method === "GET") return json(createTrend());
 
@@ -1098,9 +1111,14 @@ function handleCode(method: string, accessCode: string, action?: string, body?: 
 
 function createSummary(): AnalyticsSummary {
   const completed = sessions.filter((session) => session.status === "completed");
-  const averageScore = average(completed.map((session) => session.overallScore ?? 0));
+  const reportSessionIds = new Set(reports.map((report) => report.sessionId));
+  const reportReadyAssessments = completed.filter((session) => reportSessionIds.has(session.id)).length;
   const count = (status: SessionStatus) => sessions.filter((session) => session.status === status).length;
+  const closedAssessments = completed.length + count("expired");
   return {
+    asOf: new Date().toISOString(),
+    dataWindow: "all_time",
+    scope: mockUser.role === "admin" ? "platform" : "organization",
     totalCandidates: new Set(sessions.map((session) => session.candidateId ?? session.candidateEmail ?? session.id)).size,
     totalTemplates: templates.length,
     totalSessions: sessions.length,
@@ -1108,30 +1126,27 @@ function createSummary(): AnalyticsSummary {
     inProgressAssessments: count("in_progress"),
     pendingAssessments: count("not_started"),
     expiredAssessments: count("expired"),
-    averageScore,
-    completionRate: sessions.length ? completed.length / sessions.length : 0,
+    activeAssessments: count("not_started") + count("in_progress"),
+    closedAssessments,
+    reportReadyAssessments,
+    reportsPending: Math.max(0, completed.length - reportReadyAssessments),
+    closedCompletionRate: closedAssessments ? completed.length / closedAssessments : null,
+    reportCoverageRate: completed.length ? reportReadyAssessments / completed.length : null,
     statusBreakdown: (["not_started", "in_progress", "completed", "expired"] as SessionStatus[]).map((status) => ({ status, count: count(status) })),
-    modulePerformance: createModulePerformance(),
-    recentCompleted: completed.map((session) => ({
-      sessionId: session.id,
-      candidateName: session.candidateName,
-      candidateEmail: session.candidateEmail,
-      assessmentName: session.templateTitle ?? "Assessment",
-      targetRole: session.targetRole ?? "Candidate",
-      overallScore: session.overallScore,
-      completedAt: session.completedAt,
-    })),
   };
 }
 
 function createActivity(): ActivityItem[] {
+  const reportSessionIds = new Set(reports.map((report) => report.sessionId));
   return sessions.map((session, index) => ({
     id: `activity-${session.id}`,
     sessionId: session.id,
-    type: session.status,
+    type: session.status === "completed" && reportSessionIds.has(session.id) ? "report_ready" : session.status,
     message:
-      session.status === "completed"
-        ? `${session.candidateName} completed ${session.templateTitle}`
+      session.status === "completed" && reportSessionIds.has(session.id)
+        ? `${session.candidateName}'s report is ready`
+        : session.status === "completed"
+          ? `${session.candidateName} completed ${session.templateTitle}`
         : session.status === "in_progress"
           ? `${session.candidateName} is working through the assessment`
           : `Invitation sent to ${session.candidateName}`,
@@ -1142,49 +1157,156 @@ function createActivity(): ActivityItem[] {
   }));
 }
 
-function createModulePerformance(): ModulePerformance[] {
-  return [
-    { moduleId: "mod-ai", moduleType: "ai_interview", title: "AI Interview", average: 4.3, evaluationCount: 12 },
-    { moduleId: "mod-code", moduleType: "coding", title: "Coding Assessment", average: 4.1, evaluationCount: 8 },
-    { moduleId: "mod-comm", moduleType: "communication", title: "Communication", average: 4.0, evaluationCount: 10 },
-    { moduleId: "mod-lead", moduleType: "leadership", title: "Leadership", average: 3.9, evaluationCount: 7 },
-  ];
+function createReadyReports(): ActivityItem[] {
+  return reports
+    .map((report) => ({ report, session: sessions.find((session) => session.id === report.sessionId) }))
+    .filter((item): item is { report: CandidateReport; session: InterviewSession } => Boolean(item.session))
+    .sort((a, b) => new Date(b.report.generatedAt ?? b.report.completedAt ?? b.session.updatedAt ?? 0).getTime() - new Date(a.report.generatedAt ?? a.report.completedAt ?? a.session.updatedAt ?? 0).getTime())
+    .slice(0, 6)
+    .map(({ report, session }) => ({
+      id: `report-${report.sessionId}`,
+      sessionId: session.id,
+      type: "report_ready",
+      message: `${session.candidateName}'s report is ready for ${session.templateTitle ?? "Assessment"}`,
+      candidateName: session.candidateName,
+      assessmentName: session.templateTitle ?? "Assessment",
+      status: "completed",
+      createdAt: report.generatedAt ?? report.completedAt ?? session.updatedAt ?? new Date().toISOString(),
+    }));
 }
 
-function createDistribution() {
-  // Analytics UI expects a flat array of score buckets.
-  return [
-    { label: "1-2", count: 1 },
-    { label: "2-3", count: 2 },
-    { label: "3-4", count: 5 },
-    { label: "4-5", count: 9 },
+function createUpcoming(): UpcomingAssessment[] {
+  return sessions
+    .filter((session): session is InterviewSession & { status: "not_started" | "in_progress" } => session.status === "not_started" || session.status === "in_progress")
+    .sort((a, b) => new Date(a.scheduledAt ?? a.expiresAt ?? a.createdAt ?? 0).getTime() - new Date(b.scheduledAt ?? b.expiresAt ?? b.createdAt ?? 0).getTime())
+    .slice(0, 6)
+    .map((session) => ({
+      sessionId: session.id,
+      candidateName: session.candidateName,
+      targetRole: session.targetRole ?? "Candidate",
+      status: session.status,
+      scheduledAt: session.scheduledAt,
+      expiresAt: session.expiresAt,
+    }));
+}
+
+function createTemplateUsage(): TemplateUsageItem[] {
+  return templates
+    .map((template) => {
+      const assigned = sessions.filter((session) => session.templateId === template.id);
+      return {
+        templateId: template.id,
+        title: template.title,
+        assignments: assigned.length,
+        completed: assigned.filter((session) => session.status === "completed").length,
+      };
+    })
+    .filter((item) => item.assignments > 0)
+    .sort((a, b) => b.assignments - a.assignments || a.title.localeCompare(b.title));
+}
+
+function createModulePerformance(templateId?: string): ModulePerformance[] {
+  const groups = new Map<string, number[]>();
+  for (const report of reportsForTemplate(templateId)) {
+    for (const [title, score] of Object.entries(report.moduleScores ?? {})) {
+      if (typeof score !== "number") continue;
+      groups.set(title, [...(groups.get(title) ?? []), score]);
+    }
+  }
+  return [...groups.entries()]
+    .map(([title, scores]) => ({
+      moduleId: `mock-${slug(title)}`,
+      moduleType: moduleTypeFromTitle(title),
+      title,
+      average: average(scores),
+      evaluationCount: scores.length,
+    }))
+    .sort((a, b) => b.average - a.average);
+}
+
+function createDistribution(templateId?: string): ScoreDistributionBucket[] {
+  const buckets = [
+    { label: "No assessable evidence", min: 0, max: 0, count: 0, noEvidence: true },
+    { label: ">0-0.9", min: 0, max: 1, count: 0 },
+    { label: "1.0-1.9", min: 1, max: 2, count: 0 },
+    { label: "2.0-2.9", min: 2, max: 3, count: 0 },
+    { label: "3.0-3.9", min: 3, max: 4, count: 0 },
+    { label: "4.0-5.0", min: 4, max: 5.01, count: 0 },
   ];
+  for (const report of reportsForTemplate(templateId)) {
+    const bucket = report.overallScore === 0
+      ? buckets[0]
+      : buckets.slice(1).find((item) => report.overallScore > item.min && report.overallScore < item.max || report.overallScore === item.min);
+    if (bucket) bucket.count += 1;
+  }
+  return buckets.map(({ label, count, noEvidence }) => ({ label, count, ...(noEvidence ? { noEvidence } : {}) }));
+}
+
+function createCompletionDuration(templateId: string): CompletionDuration {
+  const durations = sessions
+    .filter((session) => session.templateId === templateId && session.status === "completed" && session.startedAt && session.completedAt)
+    .map((session) => Math.round((new Date(session.completedAt!).getTime() - new Date(session.startedAt!).getTime()) / 60_000))
+    .filter((minutes) => Number.isFinite(minutes) && minutes >= 0)
+    .sort((a, b) => a - b);
+  const buckets = [
+    { label: "Under 30 min", count: durations.filter((minutes) => minutes < 30).length },
+    { label: "30-59 min", count: durations.filter((minutes) => minutes >= 30 && minutes < 60).length },
+    { label: "60-89 min", count: durations.filter((minutes) => minutes >= 60 && minutes < 90).length },
+    { label: "90+ min", count: durations.filter((minutes) => minutes >= 90).length },
+  ];
+  const middle = Math.floor(durations.length / 2);
+  const medianMinutes = durations.length
+    ? durations.length % 2
+      ? durations[middle]
+      : Math.round(((durations[middle - 1] + durations[middle]) / 2) * 10) / 10
+    : null;
+  return { templateId, medianMinutes, sampleSize: durations.length, buckets };
+}
+
+function reportsForTemplate(templateId?: string) {
+  if (!templateId) return reports;
+  const sessionIds = new Set(sessions.filter((session) => session.templateId === templateId && session.status === "completed").map((session) => session.id));
+  return reports.filter((report) => sessionIds.has(report.sessionId));
+}
+
+function moduleTypeFromTitle(title: string): ModuleType {
+  const normalized = title.toLowerCase();
+  if (normalized.includes("coding")) return "coding";
+  if (normalized.includes("ai interview")) return "ai_interview";
+  if (normalized.includes("leadership")) return "leadership";
+  if (normalized.includes("communication")) return "communication";
+  if (normalized.includes("debug")) return "debugging";
+  if (normalized.includes("work style")) return "work_style";
+  if (normalized.includes("problem solving")) return "problem_solving";
+  return "behavioral";
 }
 
 function createTrend() {
-  const completed = sessions.filter((session) => session.status === "completed" && session.overallScore != null);
-  if (completed.length === 0) {
-    return [
-      { date: iso(-336), score: 72 },
-      { date: iso(-240), score: 78 },
-      { date: iso(-144), score: 81 },
-      { date: iso(-48), score: 86 },
-    ];
-  }
-
-  return completed
+  return reports
     .slice()
-    .sort((a, b) => new Date(a.completedAt ?? a.updatedAt ?? 0).getTime() - new Date(b.completedAt ?? b.updatedAt ?? 0).getTime())
-    .map((session) => ({
-      date: session.completedAt ?? session.updatedAt ?? new Date().toISOString(),
-      score: Math.round(((session.overallScore ?? 0) / 5) * 100),
+    .sort((a, b) => new Date(a.completedAt ?? a.generatedAt ?? 0).getTime() - new Date(b.completedAt ?? b.generatedAt ?? 0).getTime())
+    .map((report) => ({
+      date: report.completedAt ?? report.generatedAt ?? new Date().toISOString(),
+      score: Math.round((report.overallScore / 5) * 100),
+      completedCount: 1,
     }));
 }
 
 function createThemes() {
+  const rank = (values: string[]) => {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const value of values) {
+      const label = value.trim().replace(/\s+/g, " ");
+      const key = label.toLocaleLowerCase();
+      if (!key) continue;
+      const current = counts.get(key);
+      counts.set(key, { label: current?.label ?? label, count: (current?.count ?? 0) + 1 });
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 8);
+  };
   return {
-    strengths: [{ label: "Clear trade-offs", count: 7 }, { label: "Ownership", count: 6 }, { label: "Structured communication", count: 5 }],
-    improvementAreas: [{ label: "Testing depth", count: 4 }, { label: "Metric design", count: 3 }, { label: "Prioritization detail", count: 2 }],
+    strengths: rank(reports.flatMap((report) => report.strengths)),
+    improvementAreas: rank(reports.flatMap((report) => report.improvementAreas)),
   };
 }
 

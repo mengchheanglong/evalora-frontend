@@ -288,11 +288,11 @@ function prefetchWorkspacePage(href: string) {
 }
 
 const WORKSPACE_PREFETCH_PATHS: Record<string, string[]> = {
-  "/dashboard": ["/analytics/summary", "/analytics/activity", "/sessions", "/analytics/trend"],
+  "/dashboard": ["/analytics/summary", "/analytics/activity", "/analytics/ready-reports", "/analytics/upcoming"],
   "/templates": ["/templates/catalog", "/templates"],
-  "/assessment": ["/sessions"],
-  "/candidates": ["/sessions"],
-  "/analytics": ["/analytics/summary", "/analytics/activity", "/analytics/score-distribution", "/analytics/module-performance"],
+  "/assessment": ["/sessions", "/analytics/summary"],
+  "/candidates": ["/sessions", "/analytics/summary"],
+  "/analytics": ["/analytics/summary", "/analytics/template-usage"],
   "/users": ["/organization/members", "/organization/invites"],
   "/settings": ["/organization", "/organization/privacy"],
 };
