@@ -273,15 +273,15 @@ export default function EditTemplatePage() {
       <div className="mx-auto max-w-[1200px] space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[12px] text-neutral-500">
-              <Link className="font-semibold hover:text-neutral-900" href="/templates">
+            <div className="flex items-center gap-2 text-[12px] text-[var(--theme-muted)]">
+              <Link className="font-semibold hover:text-[var(--theme-heading)]" href="/templates">
                 Templates
               </Link>
-              <Icon className="rotate-180 text-neutral-400" name="chevron" size={12} />
-              <span className="font-bold text-neutral-900">Edit questions</span>
+              <Icon className="rotate-180 text-[var(--theme-faint)]" name="chevron" size={12} />
+              <span className="font-bold text-[var(--theme-heading)]">Edit questions</span>
             </div>
-            <h1 className="mt-1 text-[22px] font-black tracking-tight text-neutral-950">Edit assessment template</h1>
-            <p className="mt-1 text-[13px] text-neutral-600">
+            <h1 className="mt-1 text-[22px] font-black tracking-tight text-[var(--theme-heading)]">Edit assessment template</h1>
+            <p className="mt-1 text-[13px] text-[var(--theme-muted)]">
               {modules.length} modules · {questionCount} questions
               {dirty ? " · Unsaved changes" : ""}
             </p>
@@ -302,8 +302,8 @@ export default function EditTemplatePage() {
         {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
         {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
-        <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h2 className="text-[13px] font-black uppercase tracking-wide text-neutral-500">Template details</h2>
+        <section className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-sm">
+          <h2 className="text-[13px] font-black uppercase tracking-wide text-[var(--theme-muted)]">Template details</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Title" required>
               <input
@@ -353,9 +353,9 @@ export default function EditTemplatePage() {
         </section>
 
         <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-          <aside className="h-fit rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm lg:sticky lg:top-4">
+          <aside className="h-fit rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-3 shadow-sm lg:sticky lg:top-4">
             <div className="mb-2 flex items-center justify-between px-1">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">Modules</p>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--theme-faint)]">Modules</p>
               <button className="text-[11px] font-bold text-primary-700 hover:underline" onClick={addModule} type="button">
                 + Add
               </button>
@@ -365,7 +365,7 @@ export default function EditTemplatePage() {
                 <li key={module.key}>
                   <button
                     className={`w-full rounded-xl px-2.5 py-2 text-left transition ${
-                      activeModuleKey === module.key ? "bg-primary-50 ring-1 ring-primary-100" : "hover:bg-neutral-50"
+                      activeModuleKey === module.key ? "bg-primary-50 ring-1 ring-primary-100" : "hover:bg-[var(--theme-panel-soft)]"
                     }`}
                     onClick={() => {
                       setActiveModuleKey(module.key);
@@ -373,9 +373,9 @@ export default function EditTemplatePage() {
                     }}
                     type="button"
                   >
-                    <span className="text-[10px] font-bold text-neutral-400">M{index + 1}</span>
-                    <span className="mt-0.5 block truncate text-[12px] font-bold text-neutral-900">{module.title || "Untitled"}</span>
-                    <span className="text-[10px] font-medium text-neutral-500">{module.questions.length} questions</span>
+                    <span className="text-[10px] font-bold text-[var(--theme-faint)]">M{index + 1}</span>
+                    <span className="mt-0.5 block truncate text-[12px] font-bold text-[var(--theme-heading)]">{module.title || "Untitled"}</span>
+                    <span className="text-[10px] font-medium text-[var(--theme-muted)]">{module.questions.length} questions</span>
                   </button>
                 </li>
               ))}
@@ -384,21 +384,21 @@ export default function EditTemplatePage() {
 
           <div className="space-y-4">
             {modules.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center">
-                <p className="text-[14px] font-bold text-neutral-800">No modules yet</p>
-                <p className="mt-1 text-[12px] text-neutral-500">Add a module to start editing questions.</p>
+              <div className="rounded-2xl border border-dashed border-[var(--theme-border-strong)] bg-[var(--theme-panel-soft)] p-8 text-center">
+                <p className="text-[14px] font-bold text-[var(--theme-text)]">No modules yet</p>
+                <p className="mt-1 text-[12px] text-[var(--theme-muted)]">Add a module to start editing questions.</p>
                 <button className="button-primary mt-4 h-10 rounded-xl px-4 text-[12px]" onClick={addModule} type="button">
                   Add first module
                 </button>
               </div>
             ) : (
               modules.map((module, moduleIndex) => (
-                <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm" id={`edit-module-${module.key}`} key={module.key}>
-                  <header className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 bg-neutral-50/80 px-4 py-3">
+                <section className="overflow-hidden rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-sm" id={`edit-module-${module.key}`} key={module.key}>
+                  <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">Module {moduleIndex + 1}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--theme-faint)]">Module {moduleIndex + 1}</p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <label className="block text-[11px] font-semibold text-neutral-500">
+                        <label className="block text-[11px] font-semibold text-[var(--theme-muted)]">
                           Module title
                           <input
                             className="control mt-1 h-10 rounded-xl text-[13px] font-bold"
@@ -407,8 +407,8 @@ export default function EditTemplatePage() {
                             value={module.title}
                           />
                         </label>
-                        <label className="block text-[11px] font-semibold text-neutral-500">
-                          Category <span className="font-normal text-neutral-400">— sets scoring</span>
+                        <label className="block text-[11px] font-semibold text-[var(--theme-muted)]">
+                          Category <span className="font-normal text-[var(--theme-faint)]">— sets scoring</span>
                           <select
                             className="control mt-1 h-10 rounded-xl text-[13px]"
                             onChange={(event) => updateModule(module.key, { type: event.target.value as ModuleType })}
@@ -428,7 +428,7 @@ export default function EditTemplatePage() {
                           rows={2}
                           value={module.description}
                         />
-                        <label className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
+                        <label className="flex items-center gap-2 text-[12px] font-semibold text-[var(--theme-muted)]">
                           Weight
                           <input
                             className="control h-9 w-24 rounded-xl text-[13px]"
@@ -449,7 +449,7 @@ export default function EditTemplatePage() {
                       >
                         {module.collapsed ? "Expand" : "Collapse"}
                       </button>
-                      <button className="h-9 rounded-lg border border-rose-200 px-3 text-[11px] font-bold text-rose-600 hover:bg-rose-50" onClick={() => setPendingModuleRemoval(module.key)} type="button">
+                      <button className="h-9 rounded-lg border border-[var(--color-status-critical)]/40 px-3 text-[11px] font-bold text-[var(--color-status-critical)] hover:bg-[var(--color-status-critical)]/10" onClick={() => setPendingModuleRemoval(module.key)} type="button">
                         Remove module
                       </button>
                     </div>
@@ -458,25 +458,32 @@ export default function EditTemplatePage() {
                   {!module.collapsed ? (
                     <div className="space-y-3 p-4">
                       {module.questions.map((question, questionIndex) => (
-                        <article className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-4" key={question.key}>
+                        <article className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] p-4" key={question.key}>
+                          {/* No type badge here — the "Question type" select sits
+                              directly below and already says the same thing. */}
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-[12px] font-black text-neutral-800">
-                              Question {questionIndex + 1}
-                              <span className="ml-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-700">
-                                {question.questionType.replaceAll("_", " ")}
-                              </span>
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              <button className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-[11px] font-bold text-neutral-600 hover:bg-neutral-50" disabled={questionIndex === 0} onClick={() => moveQuestion(module.key, question.key, -1)} type="button">
+                            <p className="text-[12px] font-black text-[var(--theme-text)]">Question {questionIndex + 1}</p>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <IconButton
+                                disabled={questionIndex === 0}
+                                label="Move question up"
+                                onClick={() => moveQuestion(module.key, question.key, -1)}
+                              >
                                 ↑
-                              </button>
-                              <button className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-[11px] font-bold text-neutral-600 hover:bg-neutral-50" disabled={questionIndex === module.questions.length - 1} onClick={() => moveQuestion(module.key, question.key, 1)} type="button">
+                              </IconButton>
+                              <IconButton
+                                disabled={questionIndex === module.questions.length - 1}
+                                label="Move question down"
+                                onClick={() => moveQuestion(module.key, question.key, 1)}
+                              >
                                 ↓
-                              </button>
+                              </IconButton>
                               <button
-                                className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50"
+                                aria-label={`Delete question ${questionIndex + 1}`}
+                                className="ml-1 rounded-lg px-2 py-1 text-[11px] font-bold text-[var(--theme-muted)] transition-colors hover:bg-[var(--color-status-critical)]/12 hover:text-[var(--color-status-critical)] disabled:pointer-events-none disabled:opacity-40"
                                 disabled={module.questions.length <= 1}
                                 onClick={() => removeQuestion(module.key, question.key)}
+                                title={module.questions.length <= 1 ? "A module needs at least one question" : "Delete this question"}
                                 type="button"
                               >
                                 Delete
@@ -507,7 +514,7 @@ export default function EditTemplatePage() {
                                   ))}
                                 </select>
                               </Field>
-                              <Field label="Rubric cues (comma-separated)">
+                              <Field hint="separate with commas" label="What to look for">
                                 <input
                                   className="control h-10 w-full rounded-xl text-[13px]"
                                   onChange={(event) => updateQuestion(module.key, question.key, { rubricText: event.target.value })}
@@ -535,7 +542,7 @@ export default function EditTemplatePage() {
                       </button>
                     </div>
                   ) : (
-                    <p className="px-4 py-3 text-[12px] text-neutral-500">{module.questions.length} questions collapsed</p>
+                    <p className="px-4 py-3 text-[12px] text-[var(--theme-muted)]">{module.questions.length} questions collapsed</p>
                   )}
                 </section>
               ))
@@ -547,8 +554,8 @@ export default function EditTemplatePage() {
           </div>
         </div>
 
-        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-lg backdrop-blur">
-          <p className="px-2 text-[12px] font-medium text-neutral-600">
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-3 shadow-lg backdrop-blur">
+          <p className="px-2 text-[12px] font-medium text-[var(--theme-muted)]">
             {dirty ? "You have unsaved edits." : "All changes saved."}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -585,15 +592,43 @@ export default function EditTemplatePage() {
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+/** Sentence case, not uppercase: these are ordinary field labels, and every one
+ *  of them shouting made the form harder to skim than the inputs themselves. */
+function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+      <span className="mb-1.5 block text-[11px] font-semibold text-[var(--theme-text)]">
         {label}
-        {required ? <span className="text-rose-500"> *</span> : null}
+        {required ? <span className="text-[var(--color-status-critical)]"> *</span> : null}
+        {hint ? <span className="ml-1.5 font-normal text-[var(--theme-faint)]">{hint}</span> : null}
       </span>
       {children}
     </label>
+  );
+}
+
+function IconButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="inline-flex size-7 items-center justify-center rounded-lg text-[13px] font-bold text-[var(--theme-text)] transition-colors hover:bg-[var(--theme-panel)] hover:text-[var(--theme-heading)] disabled:pointer-events-none disabled:opacity-25"
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
 
