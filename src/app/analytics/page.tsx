@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { BarBreakdown, DataTable, Histogram, PipelineBar, TrendChart, type TrendPoint } from "@/components/charts";
 import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, getErrorMessage } from "@/lib/api";
@@ -14,6 +15,16 @@ import type {
   TemplateUsageItem,
 } from "@/lib/types";
 
+/** One validated hue per lifecycle state — see --color-state-* in globals.css. */
+const STATUS_META: Record<SessionStatus, { label: string; color: string }> = {
+  not_started: { label: "Not started", color: "var(--color-state-not-started)" },
+  in_progress: { label: "In progress", color: "var(--color-state-in-progress)" },
+  completed: { label: "Completed", color: "var(--color-state-completed)" },
+  expired: { label: "Expired", color: "var(--color-state-expired)" },
+};
+
+const STATUS_ORDER: SessionStatus[] = ["not_started", "in_progress", "completed", "expired"];
+
 export default function AnalyticsPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [usage, setUsage] = useState<TemplateUsageItem[]>([]);
@@ -21,6 +32,7 @@ export default function AnalyticsPage() {
   const [scoreDistribution, setScoreDistribution] = useState<ScoreDistributionBucket[]>([]);
   const [modulePerformance, setModulePerformance] = useState<ModulePerformance[]>([]);
   const [duration, setDuration] = useState<CompletionDuration | null>(null);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,12 +42,14 @@ export default function AnalyticsPage() {
     setLoading(true);
     setError("");
     try {
-      const [nextSummary, nextUsage] = await Promise.all([
+      const [nextSummary, nextUsage, nextTrend] = await Promise.all([
         apiGet<AnalyticsSummary>("/analytics/summary"),
         apiGet<TemplateUsageItem[]>("/analytics/template-usage"),
+        apiGet<TrendPoint[]>("/analytics/trend").catch(() => [] as TrendPoint[]),
       ]);
       setSummary(nextSummary);
       setUsage(nextUsage);
+      setTrend(nextTrend);
       setSelectedTemplateId((current) => (
         current && nextUsage.some((item) => item.templateId === current)
           ? current
@@ -99,6 +113,7 @@ export default function AnalyticsPage() {
           scoreDistribution={scoreDistribution}
           selectedTemplateId={selectedTemplateId}
           summary={summary}
+          trend={trend}
           usage={usage}
         />
       ) : null}
@@ -116,6 +131,7 @@ function AnalyticsContent({
   duration,
   evidenceLoading,
   evidenceError,
+  trend,
 }: {
   summary: AnalyticsSummary;
   usage: TemplateUsageItem[];
@@ -126,6 +142,7 @@ function AnalyticsContent({
   duration: CompletionDuration | null;
   evidenceLoading: boolean;
   evidenceError: string;
+  trend: TrendPoint[];
 }) {
   const selectedTemplate = usage.find((item) => item.templateId === selectedTemplateId);
   const reportCount = scoreDistribution.reduce((total, item) => total + item.count, 0);
@@ -134,8 +151,8 @@ function AnalyticsContent({
 
   return (
     <div className="space-y-6">
-      <section>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <OverviewCard
             accent="var(--color-chart-1)"
             detail={`${summary.completedAssessments} completed of ${summary.closedAssessments} completed + expired sessions`}
@@ -155,14 +172,25 @@ function AnalyticsContent({
             value={coveragePercent === null ? "—" : `${Math.round(coveragePercent)}%`}
           />
         </div>
-        <div className="mt-5">
-          <ChartCard
-            caption={`${summary.totalSessions} authorized sessions · current status snapshot`}
-            title={`${summary.completedAssessments} of ${summary.totalSessions} sessions are completed`}
-          >
-            <StatusBars summary={summary} />
-          </ChartCard>
-        </div>
+        <ChartCard caption="Average overall score of reports persisted that day" title={trendTitle(trend)}>
+          {trend.length > 1 ? (
+            <TrendChart points={trend} />
+          ) : (
+            <EmptyState
+              description="A trend needs completed assessments on more than one day."
+              title="Not enough history yet"
+            />
+          )}
+        </ChartCard>
+      </section>
+
+      <section>
+        <ChartCard
+          caption={`${summary.totalSessions} authorized sessions · current status snapshot`}
+          title={`${summary.completedAssessments} of ${summary.totalSessions} sessions are completed`}
+        >
+          <StatusBars summary={summary} />
+        </ChartCard>
       </section>
 
       <section>
@@ -243,86 +271,71 @@ function ChartCard({ title, caption, className = "", children }: { title: string
 }
 
 function StatusBars({ summary }: { summary: AnalyticsSummary }) {
-  const colors: Record<SessionStatus, string> = {
-    completed: "var(--color-chart-1)",
-    in_progress: "var(--color-chart-2)",
-    not_started: "#f59e0b",
-    expired: "var(--theme-faint)",
-  };
-  const labels: Record<SessionStatus, string> = { completed: "Completed", in_progress: "In progress", not_started: "Not started", expired: "Expired" };
+  const counts = new Map(summary.statusBreakdown.map((row) => [row.status, row.count]));
+  const segments = STATUS_ORDER.map((status) => ({
+    label: STATUS_META[status].label,
+    value: counts.get(status) ?? 0,
+    color: STATUS_META[status].color,
+  }));
+  if (!summary.totalSessions) return <EmptyState description="Authorize a session to populate this snapshot." title="No sessions yet" />;
   return (
-    <div className="space-y-3">
-      {summary.statusBreakdown.map((row) => {
-        const percent = summary.totalSessions ? (row.count / summary.totalSessions) * 100 : 0;
-        return (
-          <div className="grid grid-cols-[92px_1fr_64px] items-center gap-3 text-[11px]" key={row.status}>
-            <span className="font-semibold text-[var(--theme-text)]">{labels[row.status]}</span>
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full" style={{ backgroundColor: colors[row.status], width: `${percent}%` }} /></div>
-            <span className="text-right font-bold text-[var(--theme-heading)]">{row.count} · {Math.round(percent)}%</span>
-          </div>
-        );
-      })}
-    </div>
+    <>
+      <PipelineBar segments={segments} />
+      <DataTable caption="Sessions by status" rows={segments.map((segment) => ({ label: segment.label, value: segment.value }))} />
+    </>
   );
 }
 
+/** Score bins are ordered, so they read as columns left-to-right, not as rows. */
 function ScoreBars({ buckets }: { buckets: ScoreDistributionBucket[] }) {
   if (!buckets.some((item) => item.count > 0)) return <EmptyState description="Scores appear after reports are persisted for this template." title="No score evidence yet" />;
-  const max = Math.max(1, ...buckets.map((item) => item.count));
-  return <HorizontalBars items={buckets.map((item) => ({ ...item, color: item.noEvidence ? "var(--theme-faint)" : "var(--color-chart-1)" }))} max={max} />;
+  return (
+    <>
+      <Histogram bins={buckets.map((item) => ({ label: item.label, count: item.count, muted: item.noEvidence }))} />
+      <DataTable caption="Reports per score band" rows={buckets.map((item) => ({ label: item.label, value: item.count }))} />
+    </>
+  );
 }
 
 function ModuleBars({ modules }: { modules: ModulePerformance[] }) {
   if (!modules.length) return <EmptyState description="Module comparisons appear after evaluations are persisted for this template." title="No module evidence yet" />;
   return (
-    <div className="space-y-3">
-      {modules.map((module) => (
-        <div key={module.moduleType}>
-          <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px]">
-            <span className="font-semibold text-[var(--theme-text)]">{module.title}</span>
-            <span className="font-bold text-[var(--theme-heading)]">{module.average.toFixed(1)}/5 · n={module.evaluationCount}</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full bg-[var(--color-chart-1)]" style={{ width: `${Math.max(0, Math.min(100, module.average * 20))}%` }} /></div>
-        </div>
-      ))}
-    </div>
+    <BarBreakdown
+      data={modules.map((module) => ({
+        label: `${module.title} · n=${module.evaluationCount}`,
+        value: Number(module.average.toFixed(1)),
+        color: "var(--color-chart-1)",
+        hint: `${module.title}: ${module.average.toFixed(1)} of 5 across ${module.evaluationCount} evaluation(s)`,
+      }))}
+      showPercent={false}
+      total={5}
+      valueSuffix="/5"
+    />
   );
 }
 
+/** Duration buckets are ordered ranges — another histogram, in the second hue. */
 function CountBars({ items }: { items: Array<{ label: string; count: number }> }) {
   if (!items.some((item) => item.count > 0)) return <EmptyState description="Duration needs completed sessions with valid start and completion timestamps." title="No duration evidence yet" />;
-  return <HorizontalBars items={items.map((item) => ({ ...item, color: "var(--color-chart-2)" }))} max={Math.max(1, ...items.map((item) => item.count))} />;
-}
-
-function HorizontalBars({ items, max }: { items: Array<{ label: string; count: number; color: string }>; max: number }) {
   return (
-    <div className="space-y-3">
-      {items.map((item) => (
-        <div className="grid grid-cols-[minmax(110px,1fr)_2fr_32px] items-center gap-3 text-[11px]" key={item.label}>
-          <span className="font-semibold text-[var(--theme-text)]">{item.label}</span>
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full" style={{ backgroundColor: item.color, width: `${item.count ? (item.count / max) * 100 : 0}%` }} /></div>
-          <span className="text-right font-bold text-[var(--theme-heading)]">{item.count}</span>
-        </div>
-      ))}
-    </div>
+    <>
+      <Histogram bins={items} color="var(--color-chart-2)" height={120} />
+      <DataTable caption="Completed sessions per duration band" rows={items.map((item) => ({ label: item.label, value: item.count }))} />
+    </>
   );
 }
 
 function UsageList({ usage }: { usage: TemplateUsageItem[] }) {
   if (!usage.length) return <EmptyState description="Template assignments will appear here." title="No template usage yet" />;
-  const max = Math.max(1, ...usage.map((item) => item.assignments));
   return (
-    <div className="space-y-3">
-      {usage.map((item) => (
-        <div key={item.templateId}>
-          <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px]">
-            <span className="truncate font-semibold text-[var(--theme-text)]">{item.title}</span>
-            <span className="shrink-0 font-bold text-[var(--theme-heading)]">{item.assignments} assigned · {item.completed} completed</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full bg-[var(--color-chart-1)]" style={{ width: `${(item.assignments / max) * 100}%` }} /></div>
-        </div>
-      ))}
-    </div>
+    <BarBreakdown
+      data={usage.map((item) => ({
+        label: item.title,
+        value: item.assignments,
+        color: "var(--color-chart-1)",
+        hint: `${item.title}: ${item.assignments} assigned, ${item.completed} completed`,
+      }))}
+    />
   );
 }
 
@@ -344,6 +357,15 @@ function durationTitle(duration: CompletionDuration | null) {
   return duration?.medianMinutes == null
     ? "No valid completion-duration evidence yet"
     : `Median completion is ${duration.medianMinutes} minutes (n=${duration.sampleSize})`;
+}
+
+function trendTitle(trend: TrendPoint[]) {
+  if (trend.length < 2) return "Score trend needs more completed assessments";
+  const first = trend[0].score;
+  const last = trend[trend.length - 1].score;
+  const delta = Math.round(last - first);
+  if (delta === 0) return `Average score is flat at ${last} across ${trend.length} days`;
+  return `Average score ${delta > 0 ? "rose" : "fell"} ${Math.abs(delta)} points to ${last} over ${trend.length} days`;
 }
 
 function usageTitle(usage: TemplateUsageItem[]) {

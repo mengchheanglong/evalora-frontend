@@ -3,17 +3,32 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { DataTable, HeroStat, PipelineBar, TrendChart, type TrendPoint } from "@/components/charts";
 import { Icon } from "@/components/icons";
-import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, getErrorMessage } from "@/lib/api";
-import type { ActivityItem, AnalyticsSummary, UpcomingAssessment } from "@/lib/types";
+import type { ActivityItem, AnalyticsSummary, SessionStatus, UpcomingAssessment } from "@/lib/types";
+
+/**
+ * One validated hue per lifecycle state. A single-hue sequential ramp was tried
+ * first and rejected: its light steps fall below 3:1 on white, so "awaiting
+ * start" was effectively invisible. See --color-state-* in globals.css.
+ */
+const STATUS_META: Record<SessionStatus, { label: string; color: string }> = {
+  not_started: { label: "Awaiting start", color: "var(--color-state-not-started)" },
+  in_progress: { label: "In progress", color: "var(--color-state-in-progress)" },
+  completed: { label: "Completed", color: "var(--color-state-completed)" },
+  expired: { label: "Expired", color: "var(--color-state-expired)" },
+};
+
+const STATUS_ORDER: SessionStatus[] = ["not_started", "in_progress", "completed", "expired"];
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [readyReports, setReadyReports] = useState<ActivityItem[]>([]);
   const [upcoming, setUpcoming] = useState<UpcomingAssessment[]>([]);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -21,16 +36,18 @@ export default function DashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [nextSummary, nextActivity, nextReadyReports, nextUpcoming] = await Promise.all([
+      const [nextSummary, nextActivity, nextReadyReports, nextUpcoming, nextTrend] = await Promise.all([
         apiGet<AnalyticsSummary>("/analytics/summary"),
         apiGet<ActivityItem[]>("/analytics/activity"),
         apiGet<ActivityItem[]>("/analytics/ready-reports"),
         apiGet<UpcomingAssessment[]>("/analytics/upcoming"),
+        apiGet<TrendPoint[]>("/analytics/trend").catch(() => [] as TrendPoint[]),
       ]);
       setSummary(nextSummary);
       setActivity(nextActivity);
       setReadyReports(nextReadyReports);
       setUpcoming(nextUpcoming);
+      setTrend(nextTrend);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -57,7 +74,7 @@ export default function DashboardPage() {
       {loading ? <PageLoader label="Loading assessment work" /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={() => void loadDashboard()} /> : null}
       {!loading && !error && summary ? (
-        <OverviewContent activity={activity} readyReports={readyReports} summary={summary} upcoming={upcoming} />
+        <OverviewContent activity={activity} readyReports={readyReports} summary={summary} trend={trend} upcoming={upcoming} />
       ) : null}
     </AppShell>
   );
@@ -67,42 +84,99 @@ function OverviewContent({
   activity,
   readyReports,
   summary,
+  trend,
   upcoming,
 }: {
   activity: ActivityItem[];
   readyReports: ActivityItem[];
   summary: AnalyticsSummary;
+  trend: TrendPoint[];
   upcoming: UpcomingAssessment[];
 }) {
+  const counts = new Map(summary.statusBreakdown.map((entry) => [entry.status, entry.count]));
+  const segments = STATUS_ORDER.map((status) => ({
+    label: STATUS_META[status].label,
+    value: counts.get(status) ?? 0,
+    color: STATUS_META[status].color,
+  }));
+  const inFlight = summary.pendingAssessments + summary.inProgressAssessments;
+
   return (
-    <div className="space-y-6">
-      <section>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <OverviewCard
-            accent="var(--color-chart-1)"
-            detail="Candidates actively completing an assessment"
-            icon="clock"
-            label="In progress"
-            tone="text-[var(--color-chart-1)]"
-            value={summary.inProgressAssessments.toLocaleString()}
-          />
-          <OverviewCard
-            accent="#f59e0b"
-            detail="Invitation sent; candidate has not started"
-            icon="calendar"
-            label="Awaiting start"
-            tone="text-amber-600"
-            value={summary.pendingAssessments.toLocaleString()}
-          />
-          <OverviewCard
-            accent="var(--color-primary-500)"
-            detail="Completed sessions without a persisted report"
-            icon="report"
-            label="Reports pending"
-            tone="text-[var(--color-primary-700)]"
-            value={summary.reportsPending.toLocaleString()}
-          />
+    <div className="space-y-5">
+      {/* The pipeline is the headline: one shape that answers "where is everyone?" */}
+      <section className="card rounded-[10px] p-4 sm:p-5">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,200px)_minmax(0,1fr)] lg:gap-8">
+          <div className="lg:border-r lg:border-[var(--theme-border)] lg:pr-8">
+            <HeroStat
+              detail={`of ${summary.totalSessions.toLocaleString()} total sessions`}
+              label="In flight"
+              value={inFlight.toLocaleString()}
+            />
+            {summary.closedCompletionRate !== null ? (
+              <p className="mt-3 border-t border-[var(--theme-border)] pt-3 text-[11px] text-[var(--theme-muted)]">
+                <span className="font-bold text-[var(--theme-heading)]">{summary.closedCompletionRate}%</span> of finished
+                sessions were completed
+              </p>
+            ) : null}
+          </div>
+          <div className="min-w-0">
+            <h2 className="mb-3 text-[14px] font-extrabold text-[var(--theme-heading)]">Assessment pipeline</h2>
+            {summary.totalSessions ? (
+              <>
+                <PipelineBar segments={segments} />
+                <DataTable
+                  caption="Sessions by status"
+                  rows={segments.map((segment) => ({ label: segment.label, value: segment.value }))}
+                />
+              </>
+            ) : (
+              <EmptyState description="Invite a candidate to start building your pipeline." title="No sessions yet" />
+            )}
+          </div>
         </div>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <Panel>
+          <PanelHeader
+            action={<Link className="text-[11px] font-bold text-[var(--color-primary-700)]" href="/analytics">Full analytics</Link>}
+            title="Average score by day"
+          />
+          {trend.length > 1 ? (
+            <TrendChart points={trend} />
+          ) : (
+            <EmptyState
+              description="Scores appear here once candidates finish assessments on more than one day."
+              title="Not enough completed assessments yet"
+            />
+          )}
+        </Panel>
+        <Panel>
+          <PanelHeader title="Needs attention" />
+          <div className="space-y-1">
+            <AttentionRow
+              count={summary.reportsPending}
+              href="/candidates"
+              icon="report"
+              label="Reports pending"
+              note="Completed, no report generated"
+            />
+            <AttentionRow
+              count={summary.pendingAssessments}
+              href="/assessment"
+              icon="calendar"
+              label="Awaiting start"
+              note="Invited, not yet opened"
+            />
+            <AttentionRow
+              count={summary.expiredAssessments}
+              href="/assessment"
+              icon="clock"
+              label="Expired"
+              note="Window closed before completion"
+            />
+          </div>
+        </Panel>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-2">
@@ -134,6 +208,48 @@ function PanelHeader({ title, action }: { title: string; action?: React.ReactNod
       <h2 className="text-[14px] font-extrabold text-[var(--theme-heading)]">{title}</h2>
       {action}
     </div>
+  );
+}
+
+/** A queue with a count. Zero is deliberately quiet so non-zero reads as work. */
+function AttentionRow({
+  label,
+  note,
+  count,
+  href,
+  icon,
+}: {
+  label: string;
+  note: string;
+  count: number;
+  href: string;
+  icon: "report" | "calendar" | "clock";
+}) {
+  const active = count > 0;
+  return (
+    <Link
+      className="flex items-center gap-3 rounded-[8px] px-2 py-2.5 transition-colors hover:bg-[var(--theme-panel-soft)]"
+      href={href}
+    >
+      <span
+        className={`flex size-8 shrink-0 items-center justify-center rounded-[8px] ${
+          active ? "bg-[var(--theme-panel-soft)] text-[var(--color-primary-700)]" : "bg-[var(--theme-panel-soft)] text-[var(--theme-faint)]"
+        }`}
+      >
+        <Icon name={icon} size={15} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[12px] font-bold text-[var(--theme-heading)]">{label}</span>
+        <span className="mt-0.5 block truncate text-[10px] text-[var(--theme-muted)]">{note}</span>
+      </span>
+      <span
+        className={`shrink-0 text-[20px] font-bold tabular-nums leading-none ${
+          active ? "text-[var(--theme-heading)]" : "text-[var(--theme-faint)]"
+        }`}
+      >
+        {count}
+      </span>
+    </Link>
   );
 }
 

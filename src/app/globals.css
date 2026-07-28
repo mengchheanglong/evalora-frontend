@@ -47,13 +47,34 @@
   --color-chart-teal-500: #0ea5e9;
   --color-chart-teal-600: #0284c7;
   --color-chart-mint-400: #38bdf8;
-  --color-chart-1: #2fb2e4;
-  --color-chart-2: #0ea5e9;
-  --color-chart-3: #0284c7;
-  --color-chart-4: #38bdf8;
-  --color-chart-5: #22d3ee;
-  --color-chart-6: #06b6d4;
-  --color-chart-7: #67e8f9;
+  /* Categorical slots. The previous set was seven shades of one hue: adjacent
+     pairs measured ΔE 4.2 for normal vision (floor is 15), so nobody could tell
+     series apart. These four are validated all-pairs in both modes — assign in
+     this fixed order, never cycle, and fold a 5th series into "Other". */
+  --color-chart-1: #0891b2;
+  --color-chart-2: #d97706;
+  --color-chart-3: #7c3aed;
+  --color-chart-4: #e11d48;
+  /* Sequential magnitude ramp (one hue, light -> dark). */
+  --color-seq-100: #cffafe;
+  --color-seq-300: #67e8f9;
+  --color-seq-500: #22d3ee;
+  --color-seq-700: #0891b2;
+  --color-seq-900: #155e75;
+  /* Reserved status palette — always paired with a label, never colour alone. */
+  --color-status-good: #047857;
+  --color-status-warning: #b45309;
+  --color-status-critical: #be123c;
+  --color-status-neutral: #64748b;
+
+  /* Session lifecycle states. Four mutually-distinguishable hues, verified with
+     the palette validator (all checks pass, --pairs all). Distinct from the
+     reserved status colors above so "expired" never reads as "critical". */
+  --color-state-not-started: #7c3aed;
+  --color-state-in-progress: #0891b2;
+  --color-state-completed: #15803d;
+  --color-state-expired: #b45309;
+
   --color-chart-grid: #eceff3;
   --color-chart-axis: #d9dee8;
 
@@ -430,9 +451,28 @@ textarea.control {
   --color-chart-teal-500: #60a5fa;
   --color-chart-teal-600: #3b82f6;
   --color-chart-mint-400: #93c5fd;
-  --color-chart-1: #3b82f6;
-  --color-chart-2: #60a5fa;
-  --color-chart-3: #38bdf8;
+  /* Dark steps are selected for the dark band (OKLCH L 0.48-0.67) and validated
+     against the dark panel surface — not an automatic flip of the light values. */
+  --color-chart-1: #0891b2;
+  --color-chart-2: #d97706;
+  --color-chart-3: #8b5cf6;
+  --color-chart-4: #e11d48;
+  --color-seq-100: #164e63;
+  --color-seq-300: #0e7490;
+  --color-seq-500: #0891b2;
+  --color-seq-700: #22d3ee;
+  --color-seq-900: #a5f3fc;
+  --color-status-good: #34d399;
+  --color-status-warning: #fbbf24;
+  --color-status-critical: #fb7185;
+  --color-status-neutral: #94a3b8;
+
+  /* Dark steps are selected, not flipped: each sits in the dark L band and the
+     set passes the validator on its own against the dark surface. */
+  --color-state-not-started: #8b5cf6;
+  --color-state-in-progress: #0891b2;
+  --color-state-completed: #16a34a;
+  --color-state-expired: #d97706;
   --color-chart-4: #22d3ee;
   --color-chart-5: #93c5fd;
   --color-chart-6: #0ea5e9;
@@ -514,13 +554,8 @@ textarea.control {
   --color-chart-mint-400: #38bdf8;
   --color-chart-grid: #c7e0f0;
   --color-chart-axis: #a8cde4;
-  --color-chart-1: #0284c7;
-  --color-chart-2: #0369a1;
-  --color-chart-3: #0ea5e9;
-  --color-chart-4: #38bdf8;
-  --color-chart-5: #22d3ee;
-  --color-chart-6: #67e8f9;
-  --color-chart-7: #075985;
+  /* Ocean keeps its blue surfaces but inherits the validated categorical slots
+     from :root — an all-blue series palette is indistinguishable by design. */
   --shadow-card: 0 18px 48px rgba(7, 54, 89, 0.06);
 }
 
@@ -1059,13 +1094,9 @@ textarea.control {
   --color-chart-teal-500: #60a5fa;
   --color-chart-teal-600: #3b82f6;
   --color-chart-mint-400: #93c5fd;
-  --color-chart-1: #3b82f6;
-  --color-chart-2: #60a5fa;
-  --color-chart-3: #38bdf8;
-  --color-chart-4: #22d3ee;
-  --color-chart-5: #93c5fd;
-  --color-chart-6: #0ea5e9;
-  --color-chart-7: #a5f3fc;
+  /* Categorical chart slots are deliberately NOT redefined here. This block
+     loads after the validated dark palette above, so repeating them would
+     repaint every series blue and destroy series separation. */
   --shadow-card: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 

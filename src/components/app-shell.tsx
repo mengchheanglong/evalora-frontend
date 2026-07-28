@@ -35,7 +35,6 @@ const navigation: NavigationItem[] = [
 
 const workspaceNavigation: NavigationItem[] = [
   { label: "Team", href: "/users", key: "users", icon: "users" },
-  { label: "System Activity", href: "/system", key: "system", icon: "trend" },
 ];
 
 const sharedSecondaryNavigation: NavigationItem[] = [
