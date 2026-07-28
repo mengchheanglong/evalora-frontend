@@ -28,9 +28,9 @@ export function EvaloraLogo({ className = "", href, compact = false, size = "def
       <LogoMark className={compact ? "size-[36px]" : isAuth ? "size-[48px]" : ""} />
       {!compact && (
         <span className="leading-tight">
-          <span className={`block font-bold tracking-[-0.02em] text-neutral-950 ${isAuth ? "text-[18px] leading-none" : "text-[20px] leading-none"}`}>Evalora</span>
-          <span className={`block text-neutral-400 font-medium mt-0.5 ${isAuth ? "text-[11px] leading-tight" : "text-[12px] leading-tight"}`}>AI Candidate</span>
-          <span className={`block text-neutral-400 font-medium ${isAuth ? "text-[11px] leading-tight" : "text-[12px] leading-tight"}`}>Assessment Platform</span>
+          <span className={`block font-bold tracking-[-0.02em] text-neutral-950 ${isAuth ? "text-lg leading-none" : "text-xl leading-none"}`}>Evalora</span>
+          <span className={`block text-neutral-400 font-medium mt-0.5 ${isAuth ? "text-xs leading-tight" : "text-xs leading-tight"}`}>AI Candidate</span>
+          <span className={`block text-neutral-400 font-medium ${isAuth ? "text-xs leading-tight" : "text-xs leading-tight"}`}>Assessment Platform</span>
         </span>
       )}
     </>

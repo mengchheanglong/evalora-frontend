@@ -126,16 +126,16 @@ export function TrendChart({
 
         {active ? (
           <div
-            className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-2.5 py-1.5 text-[11px] shadow-lg"
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-2.5 py-1.5 text-xs shadow-lg"
             style={{ left: `${(x(hover!) / width) * 100}%`, top: `${(y(active.score) / height) * 100}%` }}
           >
             <span className="block font-bold text-[var(--theme-heading)]">{active.score}{valueSuffix}</span>
-            <span className="block text-[10px] text-[var(--theme-muted)]">{formatDay(active.date)}</span>
+            <span className="block text-xs text-[var(--theme-muted)]">{formatDay(active.date)}</span>
           </div>
         ) : null}
       </div>
 
-      <figcaption className="mt-1 flex justify-between text-[10px] text-[var(--theme-faint)]">
+      <figcaption className="mt-1 flex justify-between text-xs text-[var(--theme-faint)]">
         <span>{formatDay(points[0].date)}</span>
         <span>{formatDay(points[points.length - 1].date)}</span>
       </figcaption>
@@ -182,7 +182,7 @@ export function BarBreakdown({
           // Stacked full-width tracks turned a 1.0/5 into a sliver adrift in
           // 1000px of empty rail on wide cards.
           <div
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-[11px] sm:grid-cols-[minmax(0,1fr)_minmax(120px,280px)_auto]"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-xs sm:grid-cols-[minmax(0,1fr)_minmax(120px,280px)_auto]"
             key={row.label}
             onMouseEnter={() => setHover(row.label)}
             onMouseLeave={() => setHover(null)}
@@ -243,7 +243,7 @@ export function Histogram({
               onMouseLeave={() => setHover(null)}
             >
               <span
-                className={`mb-1 block text-center text-[11px] font-bold tabular-nums transition-opacity ${
+                className={`mb-1 block text-center text-xs font-bold tabular-nums transition-opacity ${
                   hover === index || bin.count === max ? "opacity-100" : "opacity-0"
                 } text-[var(--theme-heading)]`}
               >
@@ -265,7 +265,7 @@ export function Histogram({
       </div>
       <div className="mt-2 flex gap-0.5 border-t border-[var(--color-chart-axis)] pt-2">
         {bins.map((bin) => (
-          <span className="min-w-0 flex-1 truncate text-center text-[10px] text-[var(--theme-muted)]" key={bin.label} title={bin.label}>
+          <span className="min-w-0 flex-1 truncate text-center text-xs text-[var(--theme-muted)]" key={bin.label} title={bin.label}>
             {bin.label}
           </span>
         ))}
@@ -303,8 +303,8 @@ export function PipelineBar({ segments }: { segments: BarDatum[] }) {
           <li className="flex items-center gap-2" key={segment.label}>
             <span className="size-2 shrink-0 rounded-full" style={{ background: segment.color ?? "var(--color-chart-1)" }} />
             <span className="min-w-0">
-              <span className="block truncate text-[10px] font-semibold text-[var(--theme-muted)]">{segment.label}</span>
-              <span className="block text-[13px] font-bold tabular-nums leading-tight text-[var(--theme-heading)]">{segment.value}</span>
+              <span className="block truncate text-xs font-semibold text-[var(--theme-muted)]">{segment.label}</span>
+              <span className="block text-sm font-bold tabular-nums leading-tight text-[var(--theme-heading)]">{segment.value}</span>
             </span>
           </li>
         ))}
@@ -334,10 +334,10 @@ export function HeroStat({
         : "text-[var(--theme-muted)]";
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--theme-muted)]">{label}</p>
-      <p className="mt-1 text-[40px] font-bold leading-none tabular-nums text-[var(--theme-heading)]">{value}</p>
-      {detail ? <p className="mt-2 text-[11px] leading-4 text-[var(--theme-faint)]">{detail}</p> : null}
-      {trend ? <p className={`mt-1 text-[11px] font-semibold ${trendTone}`}>{trend.text}</p> : null}
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--theme-muted)]">{label}</p>
+      <p className="mt-1 text-4xl font-bold leading-none tabular-nums text-[var(--theme-heading)]">{value}</p>
+      {detail ? <p className="mt-2 text-xs leading-4 text-[var(--theme-faint)]">{detail}</p> : null}
+      {trend ? <p className={`mt-1 text-xs font-semibold ${trendTone}`}>{trend.text}</p> : null}
     </div>
   );
 }
@@ -346,10 +346,10 @@ export function HeroStat({
 export function DataTable({ caption, rows }: { caption: string; rows: Array<{ label: string; value: string | number }> }) {
   return (
     <details className="mt-3">
-      <summary className="cursor-pointer text-[10px] font-semibold text-[var(--theme-faint)] hover:text-[var(--theme-muted)]">
+      <summary className="cursor-pointer text-xs font-semibold text-[var(--theme-faint)] hover:text-[var(--theme-muted)]">
         View as table
       </summary>
-      <table className="mt-2 w-full text-[11px]">
+      <table className="mt-2 w-full text-xs">
         <caption className="sr-only">{caption}</caption>
         <tbody>
           {rows.map((row) => (

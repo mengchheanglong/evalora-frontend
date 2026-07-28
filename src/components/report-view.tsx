@@ -34,7 +34,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
               <div className="min-w-0">
                 <h2 className="text-lg font-bold leading-tight text-[var(--theme-heading)]">{report.candidateName}</h2>
                 <p className="mt-0.5 text-xs font-semibold text-[var(--theme-muted)]">{role ?? "Candidate"} · {report.assessmentName}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-medium">
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary-50)] px-2.5 py-1 text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-100)]"><Icon name="check" size={12} /> Completed</span>
                   {report.completedAt ? <span className="text-[var(--theme-faint)]">Submitted {formatDate(report.completedAt)}</span> : null}
                 </div>
@@ -44,7 +44,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
             <div>
               <p className="text-[var(--text-micro)] font-semibold uppercase tracking-[0.1em] text-[var(--color-primary-600)]">Assessment Report</p>
               <h2 className="mt-1 text-lg font-bold leading-tight text-[var(--theme-heading)]">{report.assessmentName}</h2>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-medium">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary-50)] px-2.5 py-1 text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-100)]"><Icon name="check" size={12} /> Completed</span>
                 {report.completedAt ? <span className="text-[var(--theme-faint)]">Submitted {formatDate(report.completedAt)}</span> : null}
               </div>
@@ -53,11 +53,11 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
           <div className="flex items-center gap-4 lg:border-l lg:border-[var(--theme-border)] lg:pl-4">
             <ScoreRing score={score} />
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Recommendation</p>
-              <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${meta.badge}`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Recommendation</p>
+              <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
                 <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
               </span>
-              <p className="mt-1.5 max-w-[210px] text-[10px] leading-3.5 text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
+              <p className="mt-1.5 max-w-[210px] text-xs text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
             </div>
           </div>
         </div>
@@ -73,14 +73,14 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
           </SectionCard>
 
           <SectionCard icon="report" title="Assessment summary">
-            <p className="text-[13px] leading-5 text-[var(--theme-muted)]">{report.summary || "No summary was generated."}</p>
+            <p className="text-sm text-[var(--theme-muted)]">{report.summary || "No summary was generated."}</p>
           </SectionCard>
 
           <SectionCard icon="message" title="Evidence from responses">
             {report.evidence.length ? (
               <div className="space-y-2.5">
                 {report.evidence.slice(0, 6).map((item, index) => (
-                  <blockquote className="rounded-[7px] border-l-[3px] border-[var(--color-primary-300)] bg-[var(--theme-panel-soft)] px-3.5 py-3 text-xs leading-5 text-[var(--theme-muted)]" key={index}>
+                  <blockquote className="rounded-[7px] border-l-[3px] border-[var(--color-primary-300)] bg-[var(--theme-panel-soft)] px-3.5 py-3 text-sm text-[var(--theme-muted)]" key={index}>
                     {item}
                   </blockquote>
                 ))}
@@ -107,7 +107,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
         </div>
       </div>
 
-      <p className="flex items-start gap-2 rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-3.5 py-2.5 text-[11px] leading-4 text-[var(--theme-muted)]">
+      <p className="flex items-start gap-2 rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-3.5 py-2.5 text-xs text-[var(--theme-muted)]">
         <Icon className="mt-0.5 shrink-0 text-[var(--theme-faint)]" name="shield" size={14} />
         {report.advisoryNotice || "AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions."}
       </p>
@@ -121,7 +121,7 @@ export function ReportGeneratePrompt({ completed, generating, onGenerate }: { co
     <section className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-6 text-center sm:p-8">
       <span className="mx-auto flex size-10 items-center justify-center rounded-[9px] bg-primary-50 text-primary-600"><Icon name="report" size={20} /></span>
       <h2 className="mt-4 text-lg font-bold text-[var(--theme-heading)]">Report not ready</h2>
-      <p className="mx-auto mt-1.5 max-w-[480px] text-xs leading-5 text-[var(--theme-muted)]">
+      <p className="mx-auto mt-1.5 max-w-[480px] text-sm text-[var(--theme-muted)]">
         {completed
           ? "Generate an advisory report from the candidate's saved responses and coding evidence."
           : "The report becomes available once the candidate submits the assessment."}
@@ -146,12 +146,12 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary }: { notes
   return (
     <SectionCard accent="primary" icon="user" title="Reviewer notes">
       {reviewerSummary ? (
-        <p className="mb-3 rounded-[8px] bg-[var(--color-primary-50)] px-3 py-2.5 text-xs leading-5 text-[var(--color-primary-700)]">{reviewerSummary}</p>
+        <p className="mb-3 rounded-[8px] bg-[var(--color-primary-50)] px-3 py-2.5 text-sm text-[var(--color-primary-700)]">{reviewerSummary}</p>
       ) : null}
 
       <form onSubmit={submit}>
         <textarea
-          className="control min-h-[84px] rounded-[8px] text-xs"
+          className="control min-h-[84px] rounded-[8px] text-sm"
           maxLength={1000}
           name="note"
           onChange={(event) => setText(event.target.value)}
@@ -170,7 +170,7 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary }: { notes
       {notes.length ? (
         <ul className="mt-3 space-y-2.5 border-t border-[var(--theme-border)] pt-3">
           {notes.map((note) => (
-            <li className="text-xs" key={note.id}>
+            <li className="text-sm" key={note.id}>
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="font-semibold text-[var(--theme-text)]">{note.reviewer?.name ?? "Reviewer"}</span>
                 {note.createdAt ? <span className="text-[var(--text-micro)] text-[var(--theme-faint)]">{formatDate(note.createdAt)}</span> : null}
@@ -196,7 +196,7 @@ function SectionCard({ icon, title, accent = "primary", children }: { icon: Icon
     <section className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
       <div className="mb-3 flex items-center gap-2.5">
         <span className={`grid size-7 place-items-center rounded-[7px] ${ACCENT_TONE[accent] ?? ACCENT_TONE.primary}`}><Icon name={icon} size={14} /></span>
-        <h3 className="text-[13px] font-bold text-[var(--theme-heading)]">{title}</h3>
+        <h3 className="text-sm font-bold text-[var(--theme-heading)]">{title}</h3>
       </div>
       {children}
     </section>
@@ -221,7 +221,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 function SignalItem({ children, icon, accent }: { children: ReactNode; icon: IconName; accent: "primary" | "muted" }) {
   const tone = accent === "primary" ? "text-[var(--color-primary-500)]" : "text-[var(--theme-muted)]";
   return (
-    <li className="flex gap-2.5 text-xs leading-5 text-[var(--theme-text)]">
+    <li className="flex gap-2.5 text-sm text-[var(--theme-text)]">
       <span className={`mt-0.5 shrink-0 ${tone}`}><Icon name={icon} size={14} /></span>
       <span>{children}</span>
     </li>
@@ -253,8 +253,8 @@ function ScoreRing({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute text-center">
-        <span className="block text-base font-extrabold leading-none text-[var(--theme-heading)]">{score}%</span>
-        <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Overall</span>
+        <span className="block text-lg font-extrabold leading-none text-[var(--theme-heading)]">{score}%</span>
+        <span className="mt-0.5 block text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Overall</span>
       </div>
     </div>
   );

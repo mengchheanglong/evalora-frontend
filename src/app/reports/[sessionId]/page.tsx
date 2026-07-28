@@ -85,7 +85,7 @@ export default function ReportPage() {
         <div className="mx-auto max-w-[1180px] space-y-4">
           <header className="flex flex-wrap items-center justify-between gap-3 print:hidden">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-primary-600)]">Candidate Report</p>
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--color-primary-600)]">Candidate Report</p>
               <h1 className="mt-1 text-2xl font-extrabold leading-tight text-[var(--theme-heading)]">Assessment Summary</h1>
             </div>
             <div className="flex items-center gap-2">

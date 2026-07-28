@@ -166,7 +166,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
               Each entry is labelled with the origin of its question.
             </p>
           </div>
-          <dl className="grid gap-1 text-[11px] text-[var(--theme-muted)]">
+          <dl className="grid gap-1 text-xs text-[var(--theme-muted)]">
             <TranscriptMeta label="Template" value={transcript.templateTitle ?? "—"} />
             <TranscriptMeta label="Started" value={formatDateTime(transcript.startedAt)} />
             <TranscriptMeta label="Completed" value={formatDateTime(transcript.completedAt)} />
@@ -178,7 +178,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
             const meta = ORIGIN_META[origin];
             return (
               <li key={origin}>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${meta.badge}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${meta.badge}`}>
                   <Icon name={meta.icon} size={12} />
                   {meta.label}
                   <span className="tabular-nums opacity-80">{transcript.counts[meta.countKey]}</span>
@@ -187,7 +187,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
             );
           })}
           <li>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--theme-muted)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--theme-muted)]">
               {transcript.entries.length} entries {truncation.truncated ? "shown" : "total"}
             </span>
           </li>
@@ -205,7 +205,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
           </div>
         ) : null}
 
-        <p className="mt-3 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2 text-[11px] leading-5 text-[var(--theme-muted)]">
+        <p className="mt-3 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2 text-xs leading-5 text-[var(--theme-muted)]">
           <Icon className="mr-1.5 inline align-[-2px] text-[var(--theme-faint)]" name="shield" size={12} />
           {unscored
             ? `${unscored} of these answers are marked “Not scored as evidence” — they are shown for context but the report was not allowed to score them.`
@@ -218,12 +218,12 @@ export function SessionTranscriptView({ sessionId }: Props) {
           <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]" key={group.key}>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {group.moduleType ? (
-                <span className="rounded-md bg-[var(--color-primary-50)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-primary-700)]">
+                <span className="rounded-md bg-[var(--color-primary-50)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--color-primary-700)]">
                   {group.moduleType.replaceAll("_", " ")}
                 </span>
               ) : null}
               <h3 className="text-sm font-bold text-[var(--theme-heading)]">{group.title}</h3>
-              <span className="text-[11px] text-[var(--theme-faint)]">{group.entries.length} entries</span>
+              <span className="text-xs text-[var(--theme-faint)]">{group.entries.length} entries</span>
             </div>
             <ol className="space-y-3">
               {group.entries.map((entry) => (
@@ -253,23 +253,23 @@ function TranscriptEntryCard({ entry }: { entry: TranscriptEntry }) {
   return (
     <article className={`rounded-lg border border-l-4 border-[var(--theme-border)] p-3 ${meta.rail}`} id={`transcript-entry-${entry.sequence}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-bold tabular-nums text-[var(--theme-faint)]">
+        <span className="text-xs font-bold tabular-nums text-[var(--theme-faint)]">
           <span className="sr-only">Transcript line </span>#{entry.sequence}
         </span>
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.badge}`}>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
           <Icon name={meta.icon} size={11} /> {meta.label}
         </span>
-        {entry.askedBy ? <span className="text-[10px] text-[var(--theme-faint)]">asked by {entry.askedBy.name}</span> : null}
+        {entry.askedBy ? <span className="text-xs text-[var(--theme-faint)]">asked by {entry.askedBy.name}</span> : null}
         {entry.status ? (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--theme-muted)]">{entry.status}</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-[var(--theme-muted)]">{entry.status}</span>
         ) : null}
-        {timestamp !== "—" ? <span className="ml-auto text-[10px] text-[var(--theme-faint)]">{timestamp}</span> : null}
+        {timestamp !== "—" ? <span className="ml-auto text-xs text-[var(--theme-faint)]">{timestamp}</span> : null}
       </div>
 
-      <h4 className="mt-1.5 whitespace-pre-wrap text-[13px] font-semibold leading-5 text-[var(--theme-heading)]">{entry.questionText}</h4>
+      <h4 className="mt-1.5 whitespace-pre-wrap text-sm font-semibold leading-5 text-[var(--theme-heading)]">{entry.questionText}</h4>
 
       <div className="mt-2 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--theme-faint)]">
+        <p className="text-xs font-bold uppercase tracking-wide text-[var(--theme-faint)]">
           {entry.origin === "code_submission" ? "Candidate submission" : "Candidate answer"}
         </p>
         {answer ? (
@@ -283,7 +283,7 @@ function TranscriptEntryCard({ entry }: { entry: TranscriptEntry }) {
       </div>
 
       {entry.isEvidence ? null : (
-        <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-dashed border-[var(--theme-border-strong)] px-2 py-1 text-[10px] font-bold leading-4 text-[var(--theme-muted)]">
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-dashed border-[var(--theme-border-strong)] px-2 py-1 text-xs font-bold leading-4 text-[var(--theme-muted)]">
           <Icon name="shield" size={11} /> Not scored as evidence — shown for context only
         </p>
       )}
@@ -299,10 +299,10 @@ function CodeArtifact({ code, sequence }: { code: TranscriptCodeArtifact; sequen
   return (
     <div className="mt-2 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--theme-panel)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--theme-muted)]">
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--theme-panel)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--theme-muted)]">
           <Icon name="code" size={11} /> {code.language || "Unknown language"}
         </span>
-        {tests ? <span className="text-[10px] font-semibold text-[var(--theme-muted)]">{tests}</span> : null}
+        {tests ? <span className="text-xs font-semibold text-[var(--theme-muted)]">{tests}</span> : null}
       </div>
       <CodeBlock label={`Line ${sequence} source code`} text={code.sourceCode} />
       {stdout ? <CodeBlock label={`Line ${sequence} program output`} text={stdout} title="stdout" /> : null}
@@ -315,14 +315,14 @@ function CodeArtifact({ code, sequence }: { code: TranscriptCodeArtifact; sequen
 function CodeBlock({ label, text, title }: { label: string; text: string; title?: string }) {
   return (
     <div>
-      {title ? <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-[var(--theme-faint)]">{title}</p> : null}
+      {title ? <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[var(--theme-faint)]">{title}</p> : null}
       <div
         aria-label={label}
         className="max-h-[320px] overflow-auto rounded-[6px] bg-neutral-950 p-2.5"
         role="region"
         tabIndex={0}
       >
-        <pre className="font-mono text-[11px] leading-5 text-slate-200"><code>{text}</code></pre>
+        <pre className="font-mono text-xs leading-5 text-slate-200"><code>{text}</code></pre>
       </div>
     </div>
   );

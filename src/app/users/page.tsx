@@ -137,7 +137,7 @@ export default function UsersAndRolesPage() {
     return (
       <AppShell active="users" title="Team" description="Workspace members and invitations.">
         <InlineAlert tone="error">{error}</InlineAlert>
-        <button className="button-secondary mt-4 h-10 px-4 text-[12px]" onClick={() => void load()} type="button">
+        <button className="button-secondary mt-4 h-10 px-4 text-sm" onClick={() => void load()} type="button">
           Retry
         </button>
       </AppShell>
@@ -165,29 +165,29 @@ export default function UsersAndRolesPage() {
 
         {isOwner ? (
           <section className="card rounded-[10px] p-5">
-            <h2 className="text-[15px] font-black text-neutral-900">Invite interviewer</h2>
-            <p className="mt-1 text-[12px] text-neutral-600">
+            <h2 className="text-lg font-black text-neutral-900">Invite interviewer</h2>
+            <p className="mt-1 text-sm text-neutral-600">
               We email a private invite when Resend is configured. They set their own password and join this organization — not a new company workspace. You can always copy the link if email is skipped.
             </p>
             <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={handleInvite}>
               <input
-                className="control h-11 flex-1 rounded-[8px] px-4 text-[13px]"
+                className="control h-11 flex-1 rounded-[8px] px-4 text-sm"
                 onChange={(event) => setInviteEmail(event.target.value)}
                 placeholder="colleague@company.com"
                 required
                 type="email"
                 value={inviteEmail}
               />
-              <button className="session-blue-button h-11 shrink-0 px-5 text-[12px]" disabled={inviting} type="submit">
+              <button className="session-blue-button h-11 shrink-0 px-5 text-sm" disabled={inviting} type="submit">
                 {inviting ? "Creating…" : "Create invite"}
               </button>
             </form>
             {lastInviteLink ? (
               <div className="mt-4 rounded-[8px] border border-primary-100 bg-primary-50/50 p-3">
-                <p className="text-[11px] font-bold text-primary-800">Invite link (share securely)</p>
+                <p className="text-sm font-bold text-primary-800">Invite link (share securely)</p>
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <code className="block flex-1 break-all text-[12px] text-neutral-800">{lastInviteLink}</code>
-                  <button className="button-secondary h-9 shrink-0 rounded-[7px] px-3 text-[11px]" onClick={() => void copyLink(lastInviteLink)} type="button">
+                  <code className="block flex-1 break-all text-sm text-neutral-800">{lastInviteLink}</code>
+                  <button className="button-secondary h-9 shrink-0 rounded-[7px] px-3 text-sm" onClick={() => void copyLink(lastInviteLink)} type="button">
                     Copy link
                   </button>
                 </div>
@@ -199,10 +199,10 @@ export default function UsersAndRolesPage() {
         <section className="card overflow-hidden rounded-[10px]">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
             <div>
-              <h2 className="text-[15px] font-black text-neutral-900">Members</h2>
-              <p className="mt-1 text-[11px] text-neutral-500">Everyone listed here shares the same templates, candidates, and reports.</p>
+              <h2 className="text-lg font-black text-neutral-900">Members</h2>
+              <p className="mt-1 text-sm text-neutral-500">Everyone listed here shares the same templates, candidates, and reports.</p>
             </div>
-            {!isOwner ? <span className="rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--theme-muted)]">View only</span> : null}
+            {!isOwner ? <span className="rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-bold text-[var(--theme-muted)]">View only</span> : null}
           </div>
           {members.length === 0 ? (
             <div className="p-6">
@@ -210,8 +210,8 @@ export default function UsersAndRolesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-[12px]">
-                <thead className="bg-white text-[11px] font-bold text-neutral-500">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="bg-white text-xs font-bold text-neutral-500">
                   <tr className="border-b border-neutral-100">
                     <th className="px-5 py-3">Person</th>
                     <th className="px-3 py-3">Email</th>
@@ -227,7 +227,7 @@ export default function UsersAndRolesPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-neutral-900">{member.name}</span>
                           {member.isCurrentUser ? (
-                            <span className="rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700">You</span>
+                            <span className="rounded bg-primary-50 px-1.5 py-0.5 text-xs font-bold text-primary-700">You</span>
                           ) : null}
                         </div>
                       </td>
@@ -242,7 +242,7 @@ export default function UsersAndRolesPage() {
                         <td className="px-3 py-3 text-right">
                           {member.role === "interviewer" && !member.isCurrentUser ? (
                             <button
-                              className="rounded-[7px] border border-neutral-200 px-3 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50"
+                              className="rounded-[7px] border border-neutral-200 px-3 py-1.5 text-sm font-bold text-red-600 transition hover:bg-red-50"
                               disabled={busyId === member.id}
                               onClick={() => void handleRemoveMember(member.id)}
                               type="button"
@@ -250,7 +250,7 @@ export default function UsersAndRolesPage() {
                               {busyId === member.id ? "Removing…" : "Remove"}
                             </button>
                           ) : (
-                            <span className="text-[11px] text-neutral-400">—</span>
+                            <span className="text-sm text-neutral-400">—</span>
                           )}
                         </td>
                       ) : null}
@@ -265,15 +265,15 @@ export default function UsersAndRolesPage() {
         {isOwner ? (
           <section className="card overflow-hidden rounded-[10px]">
             <div className="border-b border-neutral-100 px-5 py-4">
-              <h2 className="text-[15px] font-black text-neutral-900">Pending invitations</h2>
-              <p className="mt-1 text-[11px] text-neutral-500">Share the invite link with your colleague. Links expire after 7 days.</p>
+              <h2 className="text-lg font-black text-neutral-900">Pending invitations</h2>
+              <p className="mt-1 text-sm text-neutral-500">Share the invite link with your colleague. Links expire after 7 days.</p>
             </div>
             {pendingInvites.length === 0 ? (
-              <div className="p-6 text-[13px] text-neutral-500">No pending invitations.</div>
+              <div className="p-6 text-sm text-neutral-500">No pending invitations.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-[12px]">
-                  <thead className="text-[11px] font-bold text-neutral-500">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="text-xs font-bold text-neutral-500">
                     <tr className="border-b border-neutral-100">
                       <th className="px-5 py-3">Email</th>
                       <th className="px-3 py-3">Expires</th>
@@ -295,7 +295,7 @@ export default function UsersAndRolesPage() {
                           </td>
                           <td className="px-3 py-3 text-right">
                             <button
-                              className="rounded-[7px] border border-neutral-200 px-3 py-1.5 text-[11px] font-bold text-neutral-700 hover:bg-neutral-50"
+                              className="rounded-[7px] border border-neutral-200 px-3 py-1.5 text-sm font-bold text-neutral-700 hover:bg-neutral-50"
                               disabled={busyId === invite.id}
                               onClick={() => void handleCancelInvite(invite.id)}
                               type="button"
@@ -314,28 +314,28 @@ export default function UsersAndRolesPage() {
         ) : null}
 
         {isOwner ? <section className="card rounded-[10px] p-5">
-          <h2 className="text-[15px] font-black text-neutral-900">Roles in this product</h2>
+          <h2 className="text-lg font-black text-neutral-900">Roles in this product</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <article className="rounded-[10px] border border-neutral-200 p-4">
               <div className="flex items-center gap-2">
                 <Icon name="shield" size={18} />
-                <h3 className="text-[13px] font-black text-neutral-900">Owner</h3>
+                <h3 className="text-base font-black text-neutral-900">Owner</h3>
               </div>
-              <p className="mt-2 text-[12px] leading-5 text-neutral-600">
+              <p className="mt-2 text-sm text-neutral-600">
                 Created at signup. Invites interviewers, manages the team, and has full access to templates, sessions, reports, and analytics.
               </p>
             </article>
             <article className="rounded-[10px] border border-neutral-200 p-4">
               <div className="flex items-center gap-2">
                 <Icon className="text-[#D504FF]" name="user" size={18} />
-                <h3 className="text-[13px] font-black text-neutral-900">Interviewer</h3>
+                <h3 className="text-base font-black text-neutral-900">Interviewer</h3>
               </div>
-              <p className="mt-2 text-[12px] leading-5 text-neutral-600">
+              <p className="mt-2 text-sm text-neutral-600">
                 Joins via invite. Runs assessments and reviews candidates in the same organization. Cannot invite or remove teammates.
               </p>
             </article>
           </div>
-          <p className="mt-4 text-[11px] text-neutral-500">
+          <p className="mt-4 text-xs text-neutral-500">
             Candidates never join the workspace — they use a private assessment link only.
           </p>
         </section> : null}
@@ -351,5 +351,5 @@ function RoleBadge({ role, label }: { role: string; label: string }) {
       : role === "interviewer"
         ? "bg-sky-50 text-sky-700 border-sky-100"
         : "bg-neutral-50 text-neutral-700 border-neutral-200";
-  return <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-bold ${tone}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-bold ${tone}`}>{label}</span>;
 }

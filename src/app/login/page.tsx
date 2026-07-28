@@ -59,29 +59,29 @@ export default function LoginPage() {
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div className="mb-7 text-center">
-          <h1 className="text-[30px] font-black leading-tight text-[#151922]">Welcome back!</h1>
-          <p className="mt-4 text-[17px] leading-6 text-neutral-500">Sign in to continue to your account.</p>
+          <h1 className="text-3xl font-black leading-tight text-[#151922]">Welcome back!</h1>
+          <p className="mt-4 text-base leading-6 text-neutral-500">Sign in to continue to your account.</p>
         </div>
 
         {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
 
         <label className="block">
-          <span className="text-[13px] font-bold text-neutral-800">Email</span>
+          <span className="text-sm font-bold text-neutral-800">Email</span>
           <span className="relative mt-2 block">
             <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center text-neutral-400">
               <Icon name="mail" size={16} />
             </span>
-            <input autoComplete="email" autoFocus className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-[13px] focus:border-primary-400 focus:bg-white" onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email" required suppressHydrationWarning type="email" value={email} />
+            <input autoComplete="email" autoFocus className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-sm focus:border-primary-400 focus:bg-white" onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email" required suppressHydrationWarning type="email" value={email} />
           </span>
         </label>
 
         <label className="block">
-          <span className="text-[13px] font-bold text-neutral-800">Password</span>
+          <span className="text-sm font-bold text-neutral-800">Password</span>
           <span className="relative mt-2 block">
             <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center text-neutral-400">
               <Icon name="lock" size={16} />
             </span>
-            <input autoComplete="current-password" className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 !pr-12 text-[13px] focus:border-primary-400 focus:bg-white" minLength={8} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required suppressHydrationWarning type={showPassword ? "text" : "password"} value={password} />
+            <input autoComplete="current-password" className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 !pr-12 text-sm focus:border-primary-400 focus:bg-white" minLength={8} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required suppressHydrationWarning type={showPassword ? "text" : "password"} value={password} />
             <button
               aria-label={showPassword ? "Hide password" : "Show password"}
               className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-neutral-400 transition hover:text-neutral-800"
@@ -94,7 +94,7 @@ export default function LoginPage() {
           </span>
         </label>
 
-        <div className="flex items-center justify-between gap-4 pt-3 text-[12px]">
+        <div className="flex items-center justify-between gap-4 pt-3 text-sm">
           <label className="flex items-center gap-2 text-neutral-500">
             <input
               checked={rememberMe}
@@ -109,14 +109,14 @@ export default function LoginPage() {
           <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/forgot-password">Forgot password?</Link>
         </div>
 
-        <button className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-[13px] font-bold hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} suppressHydrationWarning type="submit">
+        <button className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-sm font-bold hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} suppressHydrationWarning type="submit">
           {submitting ? <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : null}
           {submitting ? "Signing in" : "Sign in"}
         </button>
 
         <GoogleSignInButton disabled={submitting} mode="signin" onCredential={finishGoogleSignIn} onError={setError} />
 
-        <p className="pt-3 text-center text-[12px] text-neutral-500">
+        <p className="pt-3 text-center text-sm text-neutral-500">
           Don&apos;t have an account? <a className="font-bold !text-primary-700 hover:!text-primary-600" href="/register">Sign up</a>
         </p>
       </form>

@@ -409,14 +409,14 @@ export default function TemplatesPage() {
               <span className="sr-only">Search templates</span>
               <Icon className="pointer-events-none shrink-0 text-[var(--theme-muted)] transition group-focus-within:text-[var(--color-primary-600)]" name="search" size={16} />
               <input
-                className="h-full min-w-0 flex-1 border-0 !bg-transparent text-[12px] font-medium leading-none text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
+                className="h-full min-w-0 flex-1 border-0 !bg-transparent text-xs font-medium text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search templates..."
                 type="search"
                 value={searchQuery}
               />
             </label>
-            <Link href="/templates/create" className="session-blue-button h-10 px-4 text-[12px]">
+            <Link href="/templates/create" className="session-blue-button h-10 px-4 text-xs">
               <Icon name="plus" size={16} /> New Template
             </Link>
           </div>
@@ -467,13 +467,13 @@ export default function TemplatesPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                            <span className="tpl-chip tpl-chip-sky rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">Prebuilt</span>
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${theme.badge}`}>{item.roleType}</span>
+                            <span className="tpl-chip tpl-chip-sky rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide">Prebuilt</span>
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${theme.badge}`}>{item.roleType}</span>
                           </div>
-                          <h3 className="line-clamp-1 text-[14px] font-extrabold text-[var(--theme-heading)] transition-colors group-hover:text-[var(--color-primary-700)]">{item.title}</h3>
+                          <h3 className="line-clamp-1 text-sm font-extrabold text-[var(--theme-heading)] transition-colors group-hover:text-[var(--color-primary-700)]">{item.title}</h3>
                         </div>
                       </div>
-                      <p className="mt-3 line-clamp-2 flex-1 text-[11px] leading-[18px] text-[var(--theme-muted)]">{item.description}</p>
+                      <p className="mt-3 line-clamp-2 flex-1 text-xs leading-[18px] text-[var(--theme-muted)]">{item.description}</p>
                       <dl className="mt-4 grid grid-cols-3 gap-2">
                         <Stat label="Modules" value={item.moduleCount} />
                         <Stat label="Questions" value={item.questionCount} />
@@ -482,14 +482,14 @@ export default function TemplatesPage() {
                     </button>
                     <div className="grid grid-cols-2 gap-2 border-t border-[var(--theme-border)] bg-[var(--theme-panel-tint)] p-3">
                       <button
-                        className="button-secondary h-9 text-[11px]"
+                        className="button-secondary h-9 text-xs"
                         disabled={previewLoading || busyId === item.id}
                         onClick={() => void openCatalogPreview(item.id)}
                       >
                         <Icon name="eye" size={14} /> Review
                       </button>
                       <button
-                        className="button-primary template-use-button h-9 w-full px-3 text-[11px] disabled:cursor-not-allowed disabled:opacity-70"
+                        className="button-primary template-use-button h-9 w-full px-3 text-xs disabled:cursor-not-allowed disabled:opacity-70"
                         disabled={busyId === item.id}
                         onClick={() => void useCatalogTemplate(item.id, "mine")}
                       >
@@ -635,7 +635,7 @@ export default function TemplatesPage() {
               }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">
+                    <p className="text-xs font-bold uppercase tracking-widest text-sky-600">
                       {previewSource === "catalog" ? "Prebuilt Catalog" : "Workspace Template"}
                     </p>
                     <h3 className="mt-1 text-xl font-bold text-gray-900" style={{
@@ -645,7 +645,7 @@ export default function TemplatesPage() {
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600" style={{
                         color: 'var(--theme-text)',
                       }}>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${roleTheme(preview.roleType).badge}`}>{preview.roleType}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${roleTheme(preview.roleType).badge}`}>{preview.roleType}</span>
                         <span>{preview.timeLimitMin ? `${preview.timeLimitMin} min` : "Flexible time"}</span>
                         <span style={{
                           color: 'var(--theme-faint)',
@@ -696,7 +696,7 @@ export default function TemplatesPage() {
                       backgroundColor: 'var(--theme-panel-soft)',
                       borderColor: 'var(--theme-border)',
                     }}>
-                      <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400" style={{
+                      <p className="px-2 pb-2 text-xs font-bold uppercase tracking-widest text-gray-400" style={{
                         color: 'var(--theme-faint)',
                       }}>Modules</p>
                       <ul className="space-y-1">
@@ -711,14 +711,14 @@ export default function TemplatesPage() {
                                   document.getElementById(`module-${module.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
                                 }}
                               >
-                                <span className="text-[10px] font-bold" style={{ color: "var(--theme-faint)" }}>M{index + 1}</span>
+                                <span className="text-xs font-bold" style={{ color: "var(--theme-faint)" }}>M{index + 1}</span>
                                 <span
                                   className="mt-0.5 block text-xs font-bold leading-4"
                                   style={{ color: active ? "var(--theme-active-text)" : "var(--theme-heading)" }}
                                 >
                                   {module.title}
                                 </span>
-                                <span className="mt-0.5 block text-[10px] font-medium" style={{ color: "var(--theme-muted)" }}>
+                                <span className="mt-0.5 block text-xs font-medium" style={{ color: "var(--theme-muted)" }}>
                                   {module.questions?.length ?? 0} questions
                                 </span>
                               </button>
@@ -756,7 +756,7 @@ export default function TemplatesPage() {
                                   borderColor: 'var(--theme-border)',
                                 }}>
                                   <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400" style={{
+                                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400" style={{
                                       color: 'var(--theme-faint)',
                                     }}>Module {(originalIndex >= 0 ? originalIndex : moduleIndex) + 1}</p>
                                     <h4 className="mt-0.5 text-sm font-bold text-gray-900" style={{
@@ -767,10 +767,10 @@ export default function TemplatesPage() {
                                     }}>{module.description}</p>}
                                   </div>
                                   <div className="flex flex-wrap gap-1.5">
-                                    <span className="tpl-chip tpl-chip-neutral rounded-full px-2.5 py-1 text-[10px] font-bold uppercase">
+                                    <span className="tpl-chip tpl-chip-neutral rounded-full px-2.5 py-1 text-xs font-bold uppercase">
                                       {module.type.replaceAll("_", " ")}
                                     </span>
-                                    <span className="tpl-chip tpl-chip-sky rounded-full px-2.5 py-1 text-[10px] font-bold">
+                                    <span className="tpl-chip tpl-chip-sky rounded-full px-2.5 py-1 text-xs font-bold">
                                       {questions.length} Q · weight {module.weight}
                                     </span>
                                   </div>
@@ -788,11 +788,11 @@ export default function TemplatesPage() {
                                         borderColor: 'var(--theme-border)',
                                       }}>
                                         <div className="flex items-start gap-3">
-                                          <span className="tpl-q-index mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-black">
+                                          <span className="tpl-q-index mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-black">
                                             {questionIndex + 1}
                                           </span>
                                           <div className="min-w-0 flex-1">
-                                            <span className="tpl-chip tpl-chip-indigo inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                                            <span className="tpl-chip tpl-chip-indigo inline-flex rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide">
                                               {formatQuestionType(question.questionType)}
                                             </span>
                                             <p className="mt-2 text-sm font-semibold leading-6" style={{
@@ -882,8 +882,8 @@ export default function TemplatesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-bold uppercase text-[#087aa4]">My templates</p>
-                          <h3 className="mt-1 text-[18px] font-extrabold leading-6 text-[#151922]" id="delete-template-title">
+                          <p className="text-xs font-bold uppercase text-[#087aa4]">My templates</p>
+                          <h3 className="mt-1 text-lg font-extrabold leading-6 text-[#151922]" id="delete-template-title">
                             Delete template?
                           </h3>
                         </div>
@@ -897,18 +897,18 @@ export default function TemplatesPage() {
                           <Icon name="x" size={14} />
                         </button>
                       </div>
-                      <p className="mt-2 text-[13px] leading-5 text-neutral-600" id="delete-template-description">
+                      <p className="mt-2 text-sm text-neutral-600" id="delete-template-description">
                         This removes the template and its modules from your workspace. This cannot be undone.
                       </p>
                     </div>
                   </div>
 
                   <div className="soft-card mt-4 border border-neutral-200 px-3.5 py-3">
-                    <p className="text-[10px] font-bold uppercase text-neutral-400">Template</p>
-                    <p className="mt-1 truncate text-[13px] font-bold text-neutral-900">{deleteTarget.title}</p>
+                    <p className="text-xs font-bold uppercase text-neutral-400">Template</p>
+                    <p className="mt-1 truncate text-sm font-bold text-neutral-900">{deleteTarget.title}</p>
                   </div>
 
-                  <div className="status-alert status-alert--warning mt-3 rounded-[6px] border px-3.5 py-3 text-[12px] leading-5">
+                  <div className="status-alert status-alert--warning mt-3 rounded-[6px] border px-3.5 py-3 text-xs leading-5">
                     Templates linked to interview sessions cannot be deleted until those sessions are removed.
                   </div>
 
@@ -920,7 +920,7 @@ export default function TemplatesPage() {
 
                   <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     <button
-                      className="button-secondary h-10 rounded-[6px] px-4 text-[12px] font-bold disabled:opacity-50"
+                      className="button-secondary h-10 rounded-[6px] px-4 text-xs font-bold disabled:opacity-50"
                       disabled={deleting}
                       onClick={closeDeleteModal}
                       type="button"
@@ -928,7 +928,7 @@ export default function TemplatesPage() {
                       Cancel
                     </button>
                     <button
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-red-600 px-4 text-[12px] font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-red-600 px-4 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
                       disabled={deleting}
                       onClick={() => void confirmDeleteMine()}
                       type="button"
@@ -959,7 +959,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
         boxShadow: "inset 0 0 0 1px var(--theme-border)",
       }}
     >
-      <dt className="text-[10px] font-semibold" style={{ color: "var(--theme-muted)" }}>{label}</dt>
+      <dt className="text-xs font-semibold" style={{ color: "var(--theme-muted)" }}>{label}</dt>
       <dd className="mt-0.5 text-sm font-bold" style={{ color: "var(--theme-heading)" }}>{value}</dd>
     </div>
   );
@@ -1028,7 +1028,7 @@ function QuestionExtras({ question }: { question: Question }) {
           {options.map((option, index) => (
             <li key={`${question.id}-opt-${index}`} className="flex items-start gap-2 text-xs leading-5">
               <span
-                className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-black"
+                className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded text-xs font-black"
                 style={{
                   backgroundColor: "var(--theme-panel)",
                   color: "var(--theme-muted)",
@@ -1045,7 +1045,7 @@ function QuestionExtras({ question }: { question: Question }) {
       {rubric.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {rubric.map((cue) => (
-            <span key={cue} className="tpl-chip tpl-chip-amber rounded-md px-2 py-1 text-[10px] font-bold">
+            <span key={cue} className="tpl-chip tpl-chip-amber rounded-md px-2 py-1 text-xs font-bold">
               {cue}
             </span>
           ))}

@@ -50,15 +50,15 @@ export function OverviewCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[11px] font-bold leading-4 text-[var(--theme-text)]">{label}</p>
+            <p className="text-xs font-bold text-[var(--theme-text)]">{label}</p>
             {status ? (
-              <span className="rounded-full bg-[var(--theme-panel-soft)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--theme-muted)]">
+              <span className="rounded-full bg-[var(--theme-panel-soft)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--theme-muted)]">
                 {status}
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-[24px] font-extrabold leading-none text-[var(--theme-heading)]">{value}</p>
-          <p className="mt-1.5 text-[10px] font-medium leading-4 text-[var(--theme-muted)]">{detail}</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{value}</p>
+          <p className="mt-1.5 text-xs font-medium text-[var(--theme-muted)]">{detail}</p>
         </div>
       </div>
       {safeProgress !== null ? (

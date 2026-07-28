@@ -62,16 +62,16 @@ export function ConfirmDialog({
             <Icon name={resolvedIcon} size={20} />
           </span>
           <div className="min-w-0 pt-0.5">
-            <h2 className="text-[17px] font-black leading-snug text-neutral-900" id="confirm-dialog-title">{title}</h2>
-            {message ? <p className="mt-1.5 text-[13.5px] leading-6 text-neutral-500">{message}</p> : null}
+            <h2 className="text-lg font-black leading-snug text-neutral-900" id="confirm-dialog-title">{title}</h2>
+            {message ? <p className="mt-1.5 text-sm leading-6 text-neutral-500">{message}</p> : null}
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-2.5">
-          <button className="button-secondary h-10 rounded-[9px] px-4 text-[13px]" onClick={onCancel} type="button">
+          <button className="button-secondary h-10 rounded-[9px] px-4 text-sm" onClick={onCancel} type="button">
             {cancelLabel}
           </button>
           <button
-            className={`inline-flex h-10 items-center rounded-[9px] px-4 text-[13px] font-bold text-white transition ${danger ? "bg-rose-600 hover:bg-rose-700" : "bg-primary-600 hover:bg-primary-700"}`}
+            className={`inline-flex h-10 items-center rounded-[9px] px-4 text-sm font-bold text-white transition ${danger ? "bg-rose-600 hover:bg-rose-700" : "bg-primary-600 hover:bg-primary-700"}`}
             onClick={onConfirm}
             ref={confirmRef}
             type="button"

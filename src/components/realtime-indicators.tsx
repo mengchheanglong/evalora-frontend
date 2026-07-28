@@ -15,7 +15,7 @@ export function ConnectionPill({ state, latencyMs }: { state: ConnectionState; l
   const style = CONNECTION_STYLE[state];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-[11px] font-bold ${style.text}`}
+      className={`inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-bold ${style.text}`}
       title={state === "live" ? "Updates arrive instantly over the live connection" : "Your work is saved either way"}
     >
       <span className={`size-1.5 rounded-full ${style.dot}`} />
@@ -33,7 +33,7 @@ export function PresenceChips({ participants }: { participants: InterviewPartici
     <span className="inline-flex items-center gap-1.5">
       {participants.map((participant) => (
         <span
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--theme-muted)]"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--theme-muted)]"
           key={`${participant.role}-${participant.userId}`}
           title={`${participant.name} is in this session`}
         >

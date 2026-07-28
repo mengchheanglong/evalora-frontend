@@ -349,7 +349,7 @@ export default function SettingsPage() {
     return (
       <AppShell active="settings" title="Settings" description="Workspace details and device preferences.">
         <InlineAlert tone="error">{error}</InlineAlert>
-        <button className="button-secondary mt-4 h-10 px-4 text-[12px]" onClick={() => void load()} type="button">
+        <button className="button-secondary mt-4 h-10 px-4 text-xs" onClick={() => void load()} type="button">
           Retry
         </button>
       </AppShell>
@@ -378,10 +378,10 @@ export default function SettingsPage() {
                   />
                   <div className="mt-6 grid gap-4 border-t border-neutral-100 pt-6 sm:grid-cols-2">
                     <label className="block sm:col-span-2">
-                      <span className="mb-2 block text-[12px] font-bold text-neutral-800">Full name</span>
+                      <span className="mb-2 block text-xs font-bold text-neutral-800">Full name</span>
                       <input
                         autoComplete="name"
-                        className="control h-11 rounded-[6px] px-3 text-[13px]"
+                        className="control h-11 rounded-[6px] px-3 text-sm"
                         disabled={savingProfile}
                         maxLength={200}
                         onChange={(event) => setProfileName(event.target.value)}
@@ -394,8 +394,8 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-5 py-3.5 sm:px-6">
-                  <p className="text-[11px] text-neutral-500">Your name appears in team activity and reviewer notes.</p>
-                  <button className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-[12px] hover:!bg-primary-600" disabled={savingProfile || !profileName.trim()} type="submit">
+                  <p className="text-xs text-neutral-500">Your name appears in team activity and reviewer notes.</p>
+                  <button className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-xs hover:!bg-primary-600" disabled={savingProfile || !profileName.trim()} type="submit">
                     {savingProfile ? "Saving…" : "Save profile"}
                   </button>
                 </footer>
@@ -409,7 +409,7 @@ export default function SettingsPage() {
               <div className="p-5 sm:p-6">
                 <SectionHeader
                   action={
-                    <Link className="button-secondary h-9 rounded-[6px] px-3 text-[11px]" href="/users">
+                    <Link className="button-secondary h-9 rounded-[6px] px-3 text-xs" href="/users">
                       Open team
                     </Link>
                   }
@@ -427,13 +427,13 @@ export default function SettingsPage() {
                     {orgLogo ? (
                       <img alt={`${orgName || "Organization"} logo`} className="size-full object-cover" src={orgLogo} />
                     ) : (
-                      <span className="text-[18px] font-black text-neutral-700">{orgInitials(orgName || workspace?.name || "E")}</span>
+                      <span className="text-lg font-black text-neutral-700">{orgInitials(orgName || workspace?.name || "E")}</span>
                     )}
                   </div>
                   <div>
                     {isOwner ? (
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className="button-secondary h-8 cursor-pointer rounded-[6px] px-3 text-[11px]">
+                        <label className="button-secondary h-8 cursor-pointer rounded-[6px] px-3 text-xs">
                           Upload logo
                           <input
                             accept="image/png,image/jpeg,image/webp,image/gif"
@@ -444,7 +444,7 @@ export default function SettingsPage() {
                         </label>
                         {orgLogo ? (
                           <button
-                            className="h-8 rounded-[6px] border border-red-200 px-3 text-[11px] font-bold text-red-600 hover:bg-red-50"
+                            className="h-8 rounded-[6px] border border-red-200 px-3 text-xs font-bold text-red-600 hover:bg-red-50"
                             onClick={handleOrgLogoRemove}
                             type="button"
                           >
@@ -453,7 +453,7 @@ export default function SettingsPage() {
                         ) : null}
                       </div>
                     ) : null}
-                    <p className="mt-1.5 text-[11px] leading-4 text-neutral-500">
+                    <p className="mt-1.5 text-xs leading-4 text-neutral-500">
                       {isOwner
                         ? "JPG, PNG, or WebP · max 2MB · shown in the header for this workspace on this device."
                         : "Shown in the workspace header. Ask the owner to change it."}
@@ -463,9 +463,9 @@ export default function SettingsPage() {
 
                 <div className="mt-6 grid gap-4 border-t border-neutral-100 pt-6 sm:grid-cols-2">
                   <label className="block sm:col-span-2">
-                    <span className="mb-2 block text-[12px] font-bold text-neutral-800">Organization name</span>
+                    <span className="mb-2 block text-xs font-bold text-neutral-800">Organization name</span>
                     <input
-                      className="control h-11 rounded-[6px] px-3 text-[13px]"
+                      className="control h-11 rounded-[6px] px-3 text-sm"
                       disabled={!isOwner || savingOrg}
                       onChange={(event) => setOrgName(event.target.value)}
                       required
@@ -483,9 +483,9 @@ export default function SettingsPage() {
 
               {isOwner ? (
                 <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-5 py-3.5 sm:px-6">
-                  <p className="text-[11px] text-neutral-500">Name changes apply to everyone in this workspace.</p>
+                  <p className="text-xs text-neutral-500">Name changes apply to everyone in this workspace.</p>
                   <button
-                    className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-[12px] hover:!bg-primary-600"
+                    className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-xs hover:!bg-primary-600"
                     disabled={savingOrg || !orgName.trim()}
                     type="submit"
                   >
@@ -505,7 +505,7 @@ export default function SettingsPage() {
                 title="Preferences"
               />
 
-              <p className="mt-6 mb-2 text-[12px] font-bold text-neutral-800">Theme</p>
+              <p className="mt-6 mb-2 text-xs font-bold text-neutral-800">Theme</p>
               <div className="grid gap-3 sm:grid-cols-3">
                 {THEME_OPTIONS.map((option) => (
                   <ThemeCard
@@ -553,14 +553,14 @@ export default function SettingsPage() {
 
             <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-5 py-3.5 sm:px-6">
               {prefNotice ? (
-                <p className="text-[11px] font-semibold text-emerald-700">{prefNotice}</p>
+                <p className="text-xs font-semibold text-emerald-700">{prefNotice}</p>
               ) : (
-                <p className="text-[11px] text-neutral-500">
+                <p className="text-xs text-neutral-500">
                   Preview: <span className="font-semibold text-neutral-700">{previewStamp}</span>
                 </p>
               )}
               <button
-                className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-[12px] hover:!bg-primary-600"
+                className="button-primary h-10 rounded-[6px] !bg-primary-500 px-4 text-xs hover:!bg-primary-600"
                 onClick={savePreferences}
                 type="button"
               >
@@ -613,13 +613,13 @@ export default function SettingsPage() {
             </div>
 
             <footer className="space-y-3 border-t border-neutral-200 bg-neutral-50 px-5 py-4 sm:px-6">
-              <p className="text-[11px] font-semibold leading-5 text-neutral-600">
+              <p className="text-xs font-semibold leading-5 text-neutral-600">
                 {privacy?.advisoryNotice ??
                   "AI feedback in Evalora is advisory and must be reviewed by a human interviewer. Behavioral results are not medical or mental-health diagnoses."}
               </p>
               <div className="flex flex-wrap gap-5">
-                <span className="text-[12px] font-bold text-neutral-700">Privacy Policy</span>
-                <span className="text-[12px] font-bold text-neutral-700">Terms of Service</span>
+                <span className="text-xs font-bold text-neutral-700">Privacy Policy</span>
+                <span className="text-xs font-bold text-neutral-700">Terms of Service</span>
               </div>
             </footer>
           </section>
@@ -638,13 +638,13 @@ export default function SettingsPage() {
               />
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[#FF0000]/18 bg-[#FF0000]/10 px-4 py-3.5">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-bold text-neutral-900">Delete organization data</p>
-                  <p className="mt-0.5 text-[11px] leading-4 text-neutral-600">
+                  <p className="text-xs font-bold text-neutral-900">Delete organization data</p>
+                  <p className="mt-0.5 text-xs leading-4 text-neutral-600">
                     Permanently removes templates, sessions, and invites. Your account and workspace name stay.
                   </p>
                 </div>
                 <button
-                  className="h-9 shrink-0 rounded-[6px] border border-[#FF0000]/35 bg-white px-3.5 text-[12px] font-bold text-[#FF0000] transition hover:bg-[#FF0000] hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-9 shrink-0 rounded-[6px] border border-[#FF0000]/35 bg-white px-3.5 text-xs font-bold text-[#FF0000] transition hover:bg-[#FF0000] hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => {
                     setPrivacyError("");
                     setDeleteConfirmName("");
@@ -665,16 +665,16 @@ export default function SettingsPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <button aria-label="Close" className="absolute inset-0 bg-neutral-950/35 backdrop-blur-[2px]" onClick={() => setPrivacyPanel("none")} type="button" />
           <div className="card relative z-10 w-full max-w-[440px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="dialog">
-            <p className="text-[10px] font-bold uppercase text-[#087aa4]">Data retention</p>
-            <h3 className="mt-1 text-[17px] font-extrabold text-[#151922]">{privacy.organizationName}</h3>
-            <p className="mt-3 text-[13px] leading-5 text-neutral-600">{privacy.retentionPolicy}</p>
+            <p className="text-xs font-bold uppercase text-[#087aa4]">Data retention</p>
+            <h3 className="mt-1 text-lg font-extrabold text-[#151922]">{privacy.organizationName}</h3>
+            <p className="mt-3 text-sm leading-5 text-neutral-600">{privacy.retentionPolicy}</p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <PrivacyStat label="Templates" value={privacy.templateCount} />
               <PrivacyStat label="Sessions" value={privacy.sessionCount} />
               <PrivacyStat label="Completed" value={privacy.completedSessionCount} />
               <PrivacyStat label="Reports" value={privacy.reportCount} />
             </div>
-            <div className="mt-4 space-y-2 rounded-[6px] border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-[12px] text-neutral-700">
+            <div className="mt-4 space-y-2 rounded-[6px] border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-xs text-neutral-700">
               <p>
                 <span className="font-bold text-neutral-900">Oldest session:</span>{" "}
                 {formatDate(privacy.oldestSessionAt, preferences)}
@@ -688,7 +688,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="mt-5 flex justify-end">
-              <button className="button-secondary h-10 rounded-[6px] px-4 text-[12px]" onClick={() => setPrivacyPanel("none")} type="button">
+              <button className="button-secondary h-10 rounded-[6px] px-4 text-xs" onClick={() => setPrivacyPanel("none")} type="button">
                 Close
               </button>
             </div>
@@ -706,18 +706,18 @@ export default function SettingsPage() {
             type="button"
           />
           <div className="card relative z-10 w-full max-w-[440px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.16)]" role="dialog">
-            <p className="text-[10px] font-bold uppercase text-[#FF0000]">Danger zone</p>
-            <h3 className="mt-1 text-[17px] font-extrabold text-[#151922]">Delete organization data?</h3>
-            <p className="mt-3 text-[13px] leading-5 text-neutral-600">
+            <p className="text-xs font-bold uppercase text-[#FF0000]">Danger zone</p>
+            <h3 className="mt-1 text-lg font-extrabold text-[#151922]">Delete organization data?</h3>
+            <p className="mt-3 text-sm leading-5 text-neutral-600">
               This permanently removes <strong>templates</strong>, <strong>interview sessions</strong> (including responses, code, and reports), and{" "}
               <strong>invites</strong>. Your owner account and workspace name stay so you can continue using Evalora.
             </p>
             <label className="mt-4 block">
-              <span className="mb-2 block text-[12px] font-bold text-neutral-800">
+              <span className="mb-2 block text-xs font-bold text-neutral-800">
                 Type <span className="text-[#FF0000]">{workspace.name}</span> to confirm
               </span>
               <input
-                className="control h-11 rounded-[6px] px-3 text-[13px]"
+                className="control h-11 rounded-[6px] px-3 text-sm"
                 disabled={deletingData}
                 onChange={(event) => setDeleteConfirmName(event.target.value)}
                 placeholder={workspace.name}
@@ -731,7 +731,7 @@ export default function SettingsPage() {
             ) : null}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
-                className="button-secondary h-10 rounded-[6px] px-4 text-[12px]"
+                className="button-secondary h-10 rounded-[6px] px-4 text-xs"
                 disabled={deletingData}
                 onClick={() => setPrivacyPanel("none")}
                 type="button"
@@ -739,7 +739,7 @@ export default function SettingsPage() {
                 Cancel
               </button>
               <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-[#FF0000] px-4 text-[12px] font-bold text-white hover:bg-[#D90000] disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-[#FF0000] px-4 text-xs font-bold text-white hover:bg-[#D90000] disabled:opacity-60"
                 disabled={deletingData || deleteConfirmName.trim() !== workspace.name}
                 onClick={() => void confirmDeleteWorkspaceData()}
                 type="button"
@@ -778,8 +778,8 @@ function SectionHeader({
           <Icon name={icon} size={18} />
         </span>
         <div>
-          <h2 className={`text-[15px] font-extrabold ${danger ? "text-[#FF0000]" : "text-[#151922]"}`}>{title}</h2>
-          <p className="mt-1 text-[12px] leading-5 text-neutral-500">{description}</p>
+          <h2 className={`text-base font-extrabold ${danger ? "text-[#FF0000]" : "text-[#151922]"}`}>{title}</h2>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
         </div>
       </div>
       {action}
@@ -814,7 +814,7 @@ function ThemeCard({
         <span className="absolute right-2 top-1/2 size-2.5 -translate-y-1/2 rounded-full" style={{ backgroundColor: option.swatch.accent }} />
       </span>
       <span className="mt-2.5 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-[12px] font-bold text-neutral-800">
+        <span className="flex items-center gap-1.5 text-xs font-bold text-neutral-800">
           <Icon className="text-neutral-500" name={option.icon} size={13} />
           {option.label}
         </span>
@@ -823,7 +823,7 @@ function ThemeCard({
             <Icon name="check" size={10} />
           </span>
         ) : (
-          <span className="text-[10px] font-semibold text-neutral-400">{option.hint}</span>
+          <span className="text-xs font-semibold text-neutral-400">{option.hint}</span>
         )}
       </span>
     </button>
@@ -833,8 +833,8 @@ function ThemeCard({
 function ReadOnlyField({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[12px] font-bold text-neutral-800">{label}</span>
-      <div className={`control flex h-11 items-center rounded-[6px] bg-neutral-50 px-3 text-[13px] text-neutral-700 ${mono ? "font-mono text-[11px]" : ""}`}>
+      <span className="mb-2 block text-xs font-bold text-neutral-800">{label}</span>
+      <div className={`control flex h-11 items-center rounded-[6px] bg-neutral-50 px-3 text-sm text-neutral-700 ${mono ? "font-mono text-xs" : ""}`}>
         <span className="truncate">{value}</span>
       </div>
     </label>
@@ -854,10 +854,10 @@ function SelectField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[12px] font-bold text-neutral-800">{label}</span>
+      <span className="mb-2 block text-xs font-bold text-neutral-800">{label}</span>
       <span className="relative block">
         <select
-          className="control h-10 appearance-none rounded-[6px] bg-white pr-9 text-[12px]"
+          className="control h-10 appearance-none rounded-[6px] bg-white pr-9 text-xs"
           onChange={(event) => onChange(event.target.value)}
           value={value}
         >
@@ -876,8 +876,8 @@ function SelectField({
 function PrivacyStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-[6px] border border-neutral-200 bg-neutral-50 px-2.5 py-2">
-      <p className="text-[10px] font-bold uppercase text-neutral-400">{label}</p>
-      <p className="mt-0.5 text-[15px] font-extrabold text-neutral-900">{value}</p>
+      <p className="text-xs font-bold uppercase text-neutral-400">{label}</p>
+      <p className="mt-0.5 text-base font-extrabold text-neutral-900">{value}</p>
     </div>
   );
 }
@@ -903,8 +903,8 @@ function PrivacyRow({
       type="button"
     >
       <span>
-        <span className={`block text-[12px] font-bold ${danger ? "text-[#FF0000]" : "text-neutral-800"}`}>{title}</span>
-        <span className="mt-1 block text-[11px] text-neutral-500">{body}</span>
+        <span className={`block text-xs font-bold ${danger ? "text-[#FF0000]" : "text-neutral-800"}`}>{title}</span>
+        <span className="mt-1 block text-xs text-neutral-500">{body}</span>
       </span>
       <Icon className={`-rotate-90 ${danger ? "text-[#FF0000]" : "text-neutral-400"}`} name="chevron" size={14} />
     </button>

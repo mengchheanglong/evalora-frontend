@@ -381,10 +381,10 @@ export default function CreateTemplatePage() {
                               type="button"
                             >
                               <div className="flex items-center gap-2">
-                                <span className="flex size-6 items-center justify-center rounded bg-[var(--theme-panel-soft)] text-[10px] font-bold text-[var(--theme-muted)]">M{index + 1}</span>
+                                <span className="flex size-6 items-center justify-center rounded bg-[var(--theme-panel-soft)] text-xs font-bold text-[var(--theme-muted)]">M{index + 1}</span>
                                 <span className="flex-1 truncate text-sm font-semibold text-[var(--theme-heading)]">{module.title || "Untitled"}</span>
                               </div>
-                              <p className="mt-1 text-[10px] text-[var(--theme-muted)]">{module.questions.length} questions</p>
+                              <p className="mt-1 text-xs text-[var(--theme-muted)]">{module.questions.length} questions</p>
                             </button>
                           </li>
                         ))}
@@ -461,7 +461,7 @@ export default function CreateTemplatePage() {
                       {module.questions.map((question, qIndex) => (
                         <li className="px-6 py-4" key={question.key}>
                           <div className="mb-2 flex items-center gap-2">
-                            <span className="flex size-6 items-center justify-center rounded bg-[var(--color-primary-600)] text-[10px] font-bold text-white">{qIndex + 1}</span>
+                            <span className="flex size-6 items-center justify-center rounded bg-[var(--color-primary-600)] text-xs font-bold text-white">{qIndex + 1}</span>
                             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">{question.questionType.replaceAll("_", " ")}</span>
                           </div>
                           <p className="text-sm font-semibold leading-6 text-[var(--theme-heading)]">{question.questionText}</p>
@@ -551,7 +551,7 @@ function SectionCard({ title, description, children }: { title: string; descript
 function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-semibold text-[var(--theme-text)]">
+      <span className="mb-1.5 block text-xs font-semibold text-[var(--theme-text)]">
         {label}{required && <span className="text-[var(--color-status-critical)]"> *</span>}
         {hint ? <span className="ml-1.5 font-normal text-[var(--theme-faint)]">{hint}</span> : null}
       </span>
@@ -564,7 +564,7 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
   return (
     <button
       aria-label={label}
-      className="inline-flex size-7 items-center justify-center rounded-lg text-[13px] font-bold text-[var(--theme-text)] transition-colors hover:bg-[var(--theme-panel)] hover:text-[var(--theme-heading)] disabled:pointer-events-none disabled:opacity-25"
+      className="inline-flex size-7 items-center justify-center rounded-lg text-sm font-bold text-[var(--theme-text)] transition-colors hover:bg-[var(--theme-panel)] hover:text-[var(--theme-heading)] disabled:pointer-events-none disabled:opacity-25"
       disabled={disabled}
       onClick={onClick}
       title={label}
@@ -633,13 +633,13 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
             <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] p-4" key={question.key}>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="flex size-6 items-center justify-center rounded bg-[var(--color-primary-600)] text-[10px] font-bold text-white">{qIndex + 1}</span>
+                  <span className="flex size-6 items-center justify-center rounded bg-[var(--color-primary-600)] text-xs font-bold text-white">{qIndex + 1}</span>
                   <p className="text-sm font-semibold text-[var(--theme-text)]">Question</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <IconButton disabled={qIndex === 0} label="Move question up" onClick={() => onMove(question.key, -1)}>↑</IconButton>
                   <IconButton disabled={qIndex === module.questions.length - 1} label="Move question down" onClick={() => onMove(question.key, 1)}>↓</IconButton>
-                  <button aria-label={`Delete question ${qIndex + 1}`} className="ml-1 rounded-lg px-2 py-1 text-[11px] font-bold text-[var(--theme-muted)] transition-colors hover:bg-[var(--color-status-critical)]/12 hover:text-[var(--color-status-critical)] disabled:pointer-events-none disabled:opacity-40" disabled={module.questions.length <= 1} onClick={() => onRemoveQuestion(question.key)} title={module.questions.length <= 1 ? "A module needs at least one question" : "Delete this question"} type="button">Delete</button>
+                  <button aria-label={`Delete question ${qIndex + 1}`} className="ml-1 rounded-lg px-2 py-1 text-xs font-bold text-[var(--theme-muted)] transition-colors hover:bg-[var(--color-status-critical)]/12 hover:text-[var(--color-status-critical)] disabled:pointer-events-none disabled:opacity-40" disabled={module.questions.length <= 1} onClick={() => onRemoveQuestion(question.key)} title={module.questions.length <= 1 ? "A module needs at least one question" : "Delete this question"} type="button">Delete</button>
                 </div>
               </div>
               <div className="space-y-4">
