@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
+import { CodeEditor, LanguagePicker, STARTER_BY_LANGUAGE, languageFileName, type CodeLanguage } from "@/components/code-editor";
 import { ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import type { CandidateCodeSubmission, CandidateCodeSubmitResult, CodeQuestion, CodeRunResult } from "@/lib/types";
@@ -17,6 +18,8 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
   const [questions, setQuestions] = useState<CodeQuestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [codeByQuestion, setCodeByQuestion] = useState<Record<string, string>>({});
+  // Language is tracked per question so switching challenges keeps each choice.
+  const [languageByQuestion, setLanguageByQuestion] = useState<Record<string, CodeLanguage>>({});
   const [results, setResults] = useState<Record<string, CandidateCodeSubmitResult>>({});
   const [terminal, setTerminal] = useState<CodeRunResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +64,19 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
 
   const activeQuestion = questions[activeIndex];
   const activeCode = activeQuestion ? codeByQuestion[activeQuestion.id] ?? activeQuestion.starterCode : "";
+  const activeLanguage: CodeLanguage = (activeQuestion && languageByQuestion[activeQuestion.id]) || "javascript";
+
+  // Switching language swaps in that language's starter unless the candidate
+  // already wrote something they'd lose.
+  function changeLanguage(next: CodeLanguage) {
+    if (!activeQuestion) return;
+    setLanguageByQuestion((current) => ({ ...current, [activeQuestion.id]: next }));
+    setCodeByQuestion((current) => {
+      const existing = (current[activeQuestion.id] ?? activeQuestion.starterCode ?? "").trim();
+      const untouched = !existing || existing === (activeQuestion.starterCode ?? "").trim() || Object.values(STARTER_BY_LANGUAGE).some((starter) => starter.trim() === existing);
+      return untouched ? { ...current, [activeQuestion.id]: STARTER_BY_LANGUAGE[next] } : current;
+    });
+  }
   const completedCount = Object.keys(results).length;
   const allSubmitted = questions.length > 0 && questions.every((question) => results[question.id]);
 
@@ -79,7 +95,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
     setRunning(true);
     setError("");
     try {
-      setTerminal(await apiPost<CodeRunResult>(`/code/access/${encodeURIComponent(accessCode)}/run`, { language: "javascript", sourceCode: activeCode, stdin: activeQuestion.sampleInput }));
+      setTerminal(await apiPost<CodeRunResult>(`/code/access/${encodeURIComponent(accessCode)}/run`, { language: activeLanguage, sourceCode: activeCode, stdin: activeQuestion.sampleInput }));
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Code execution failed. Your source is still in the editor."));
     } finally {
@@ -92,7 +108,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
     setSubmitting(true);
     setError("");
     try {
-      const result = await apiPost<CandidateCodeSubmitResult>(`/code/access/${encodeURIComponent(accessCode)}/submit`, { questionId: activeQuestion.id, language: "javascript", sourceCode: activeCode });
+      const result = await apiPost<CandidateCodeSubmitResult>(`/code/access/${encodeURIComponent(accessCode)}/submit`, { questionId: activeQuestion.id, language: activeLanguage, sourceCode: activeCode });
       setResults((current) => ({ ...current, [activeQuestion.id]: result }));
       const nextIndex = activeIndex + 1;
       if (nextIndex < questions.length) {
@@ -147,8 +163,13 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
           </article>
 
           <div className="flex min-w-0 flex-col bg-[#0e1117]">
-            <div className="flex h-11 items-center justify-between border-b border-white/10 px-4"><span className="flex items-center gap-2 text-[10px] font-bold text-white"><Icon name="code" size={13} /> solution.js</span><span className="text-[9px] font-semibold text-slate-400">JavaScript (Node.js)</span></div>
-            <textarea aria-label="Code editor" className="min-h-[360px] flex-1 resize-none bg-[#0e1117] p-4 font-mono text-[11px] leading-5 text-slate-100 outline-none selection:bg-sky-500/30" onChange={(event) => setCodeByQuestion((current) => ({ ...current, [activeQuestion.id]: event.target.value }))} readOnly={locked} spellCheck={false} value={activeCode} />
+            <div className="flex h-11 items-center justify-between gap-3 border-b border-white/10 px-4">
+              <span className="flex items-center gap-2 text-[10px] font-bold text-white"><Icon name="code" size={13} /> {languageFileName(activeLanguage)}</span>
+              <LanguagePicker disabled={locked} language={activeLanguage} onChange={changeLanguage} />
+            </div>
+            <div className="min-h-[360px] flex-1 overflow-auto bg-[#0e1117] text-[12px]">
+              <CodeEditor language={activeLanguage} onChange={(next) => setCodeByQuestion((current) => ({ ...current, [activeQuestion.id]: next }))} readOnly={locked} value={activeCode} />
+            </div>
             <div className="border-t border-white/10 bg-[#090c11]">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-2"><span className={`text-[9px] font-bold ${output.tone}`}>{output.title}</span>{terminal ? <span className="text-[9px] text-slate-500">{Math.round(terminal.executionTime * 1000)} ms</span> : null}</div>
               <pre className="min-h-[96px] max-h-[150px] overflow-auto whitespace-pre-wrap p-4 text-[10px] leading-4 text-slate-300">{output.body}</pre>

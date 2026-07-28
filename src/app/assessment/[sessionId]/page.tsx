@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { CandidateInterviewerQuestions, useInterviewerFollowUps } from "@/components/candidate-interviewer-questions";
+import { ConnectionPill } from "@/components/realtime-indicators";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
 import { EvaloraLogo } from "@/components/logo";
 import { apiGet, apiPost, apiPut, getErrorMessage } from "@/lib/api";
 import type { AssessmentModule, CandidateAccessSession, CandidateCodeSubmission, CandidateResponse, JsonValue, Question } from "@/lib/types";
 
-type View = "loading" | "welcome" | "assessment" | "review" | "complete" | "error";
+type View = "loading" | "welcome" | "assessment" | "review" | "interviewer" | "complete" | "error";
 type SaveState = "saved" | "saving" | "error";
 type Answer = { text: string; json?: JsonValue };
 type FollowUp = { question: string; answer: string };
@@ -21,6 +23,8 @@ export default function CandidateAssessmentPage() {
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [followUps, setFollowUps] = useState<Record<string, FollowUp>>({});
   const [view, setView] = useState<View>("loading");
+  // Human interviewer questions delivered mid-session (polled; REST is authoritative).
+  const interviewer = useInterviewerFollowUps(accessCode, view === "assessment" || view === "review" || view === "interviewer");
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [codingComplete, setCodingComplete] = useState(false);
@@ -431,7 +435,17 @@ export default function CandidateAssessmentPage() {
       setReportStatus(completed.reportStatus ?? "pending");
       setView("complete");
     } catch (requestError) {
-      setActionError(getErrorMessage(requestError, "Unable to submit. Your saved responses are still available."));
+      // The server blocks submission while a required interviewer question is
+      // unanswered (it can arrive after this screen opened) — send the candidate
+      // straight to it instead of showing a dead-end error.
+      const message = getErrorMessage(requestError, "Unable to submit. Your saved responses are still available.");
+      if (/interviewer question/i.test(message)) {
+        await interviewer.reload();
+        setActionError("Answer the required interviewer questions before submitting.");
+        setView("interviewer");
+      } else {
+        setActionError(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -455,6 +469,7 @@ export default function CandidateAssessmentPage() {
           <div className="ml-auto flex items-center gap-4">
             <div className="hidden items-center gap-2 md:flex"><div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100"><div className="h-full rounded-full bg-[#29b7e5] transition-all" style={{ width: `${completion}%` }} /></div><span className="text-[10px] font-bold text-neutral-500">{completion}%</span></div>
             <span className={`inline-flex min-w-[92px] items-center justify-center gap-2 rounded-[5px] border px-3 py-2 text-[11px] font-bold ${timeLeft === 0 ? "border-red-200 bg-red-50 text-red-700" : "border-neutral-200 bg-white text-neutral-700"}`}><Icon name="clock" size={14} />{timeLeft === null ? "Untimed" : formatTimer(timeLeft)}</span>
+            <span className="hidden sm:inline-flex"><ConnectionPill latencyMs={interviewer.latencyMs} state={interviewer.connection} /></span>
             <span className={`hidden items-center gap-1.5 text-[10px] font-semibold sm:flex ${saveState === "error" ? "text-red-600" : saveState === "saving" ? "text-amber-600" : "text-emerald-600"}`}><span className={`size-1.5 rounded-full ${saveState === "error" ? "bg-red-500" : saveState === "saving" ? "animate-pulse bg-amber-500" : "bg-emerald-500"}`} />{saveState === "error" ? "Save failed" : saveState === "saving" ? "Saving" : "Saved"}</span>
           </div>
         </div>
@@ -464,11 +479,20 @@ export default function CandidateAssessmentPage() {
         <aside className="hidden min-h-[calc(100vh-64px)] border-r border-neutral-200 bg-white p-4 lg:block">
           <p className="px-2 pb-3 text-[10px] font-bold uppercase text-neutral-400">Assessment modules</p>
           <nav className="space-y-1">{modules.map((module, index) => { const complete = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); const active = index === activeModuleIndex && view === "assessment"; return <button className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left transition ${active ? "bg-sky-50 text-sky-900" : "text-neutral-600 hover:bg-neutral-50"}`} disabled={index > activeModuleIndex && !moduleComplete(modules[index - 1], answers, followUps, codingComplete, adaptiveReady)} key={module.id} onClick={() => { setActiveModuleIndex(index); setActiveQuestionIndex(0); setCodingSandboxActive(module.type === "coding" && questionResponsesComplete(module, answers, followUps)); setView("assessment"); }} type="button"><span className={`flex size-7 shrink-0 items-center justify-center rounded-[5px] ${complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-sky-100 text-sky-700" : "bg-neutral-100 text-neutral-500"}`}>{complete ? <Icon name="check" size={13} /> : <Icon name={moduleIcon(module.type)} size={13} />}</span><span className="min-w-0"><span className="block truncate text-[11px] font-bold">{module.title}</span><span className="mt-0.5 block text-[9px] text-neutral-400">{module.type === "coding" ? `${module.questions?.length ?? 0} questions + sandbox` : `${module.questions?.length ?? 0} questions`}</span></span></button>; })}</nav>
+          {interviewer.followUps.length ? (
+            <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-[11px] font-bold ${view === "interviewer" ? "bg-violet-600 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("interviewer")} type="button">
+              <span className="flex size-7 items-center justify-center rounded-[5px] bg-violet-100 text-violet-700"><Icon name="user" size={13} /></span>
+              Interviewer questions
+              {interviewer.pending.length ? <span className="ml-auto grid size-5 place-items-center rounded-full bg-violet-600 text-[9px] font-black text-white">{interviewer.pending.length}</span> : null}
+            </button>
+          ) : null}
           <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-[11px] font-bold ${view === "review" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("review")} type="button"><span className="flex size-7 items-center justify-center rounded-[5px] bg-white/10"><Icon name="report" size={13} /></span>Review and submit</button>
         </aside>
 
         <section className="min-w-0 p-4 sm:p-6 lg:p-8">
-          {view === "review" ? (
+          {view === "interviewer" ? (
+            <CandidateInterviewerQuestions accessCode={accessCode} disabled={timeUp} followUps={interviewer.followUps} onChanged={interviewer.reload} />
+          ) : view === "review" ? (
             <ReviewPanel adaptiveReady={adaptiveReady} answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} submitting={submitting} />
           ) : activeModule?.type === "coding" && (codingSandboxActive || !(activeModule.questions?.length ?? 0)) ? (
             <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={() => { setCodingSandboxActive(false); setActiveQuestionIndex(Math.max(0, (activeModule.questions?.length ?? 1) - 1)); }} onContinue={() => { setCodingComplete(true); setCodingSandboxActive(false); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />

@@ -252,6 +252,30 @@ export interface CandidateResponse {
   createdAt?: string;
 }
 
+export type InterviewerFollowUpStatus = "sent" | "answered" | "cancelled";
+
+/**
+ * A question a human interviewer sent to one candidate mid-session. Distinct
+ * from AI follow-ups / adaptive questions — reviewers must be able to tell
+ * human-authored evidence from AI-generated evidence.
+ */
+export interface InterviewerFollowUp {
+  id: string;
+  sessionId: string;
+  moduleId?: string;
+  parentQuestionId?: string;
+  questionText: string;
+  answerText?: string;
+  required: boolean;
+  sequence: number;
+  status: InterviewerFollowUpStatus;
+  askedBy: { id?: string; name: string };
+  sentAt: string;
+  answerSavedAt?: string;
+  answeredAt?: string;
+  cancelledAt?: string;
+}
+
 export interface CandidateReport {
   sessionId: string;
   candidateName: string;

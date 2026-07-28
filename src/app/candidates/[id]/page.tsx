@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
+import { InterviewerFollowUps } from "@/components/interviewer-follow-ups";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
@@ -23,7 +24,7 @@ export default function CandidateDetailPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "report">("overview");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   const loadCandidate = useCallback(async () => {
     setLoading(true);
@@ -113,6 +114,8 @@ export default function CandidateDetailPage() {
                 <QuickActions copied={copied} copyInvite={copyInvite} generateReport={generateReport} generating={generating} onOpenReport={() => setActiveTab("report")} report={report} session={session} />
               </aside>
             </div>
+          ) : activeTab === "responses" ? (
+            <InterviewerFollowUps responses={responses} sessionId={session.id} sessionStatus={session.status} template={template} />
           ) : report ? (
             <ReportView notes={notes} onAddNote={addNote} report={report} role={session.targetRole ?? template.roleType} savingNote={savingNote} showIdentity={false} />
           ) : (
@@ -152,9 +155,12 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
   );
 }
 
-function Tabs({ active, onChange, reportReady }: { active: "overview" | "report"; onChange: (tab: "overview" | "report") => void; reportReady: boolean }) {
+type TabId = "overview" | "responses" | "report";
+
+function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab: TabId) => void; reportReady: boolean }) {
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: "clipboard" as const },
+    { id: "responses" as const, label: "Responses", icon: "message" as const },
     { id: "report" as const, label: "Report", icon: "file" as const },
   ];
   return (
