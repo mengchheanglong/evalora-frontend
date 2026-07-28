@@ -87,7 +87,7 @@ export default function AnalyticsPage() {
         setDuration(nextDuration);
       })
       .catch((requestError) => {
-        if (!cancelled) setEvidenceError(getErrorMessage(requestError, "Unable to load comparable assessment evidence."));
+        if (!cancelled) setEvidenceError(getErrorMessage(requestError, "Unable to load results for this assessment."));
       })
       .finally(() => {
         if (!cancelled) setEvidenceLoading(false);
@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
   return (
     <AppShell
       active="analytics"
-      description="Aggregate outcomes and comparable assessment evidence. Operational work remains on Overview."
+      description="How candidates are performing overall. Day-to-day work lives on Overview."
       title="Analytics"
     >
       {loading ? <PageLoader label="Loading analytics" /> : null}
@@ -144,7 +144,6 @@ function AnalyticsContent({
   evidenceError: string;
   trend: TrendPoint[];
 }) {
-  const selectedTemplate = usage.find((item) => item.templateId === selectedTemplateId);
   const reportCount = scoreDistribution.reduce((total, item) => total + item.count, 0);
   const completionPercent = ratePercent(summary.closedCompletionRate);
   const coveragePercent = ratePercent(summary.reportCoverageRate);
@@ -155,24 +154,24 @@ function AnalyticsContent({
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <OverviewCard
             accent="var(--color-chart-1)"
-            detail={`${summary.completedAssessments} completed of ${summary.closedAssessments} completed + expired sessions`}
+            detail={`${summary.completedAssessments} of ${summary.closedAssessments} candidates finished before their window closed`}
             icon="check"
-            label="Closed-session completion"
+            label="Candidates who finished"
             progress={completionPercent}
             tone="text-[var(--color-chart-1)]"
             value={completionPercent === null ? "—" : `${Math.round(completionPercent)}%`}
           />
           <OverviewCard
             accent="var(--color-chart-2)"
-            detail={`${summary.reportReadyAssessments} reports across ${summary.completedAssessments} completed sessions`}
+            detail={`${summary.reportReadyAssessments} of ${summary.completedAssessments} completed assessments have a report`}
             icon="report"
-            label="Report coverage"
+            label="Reports ready"
             progress={coveragePercent}
             tone="text-[var(--color-chart-2)]"
             value={coveragePercent === null ? "—" : `${Math.round(coveragePercent)}%`}
           />
         </div>
-        <ChartCard caption="Average overall score of reports persisted that day" title={trendTitle(trend)}>
+        <ChartCard caption="Average score of assessments completed each day" title={trendTitle(trend)}>
           {trend.length > 1 ? (
             <TrendChart points={trend} />
           ) : (
@@ -186,8 +185,8 @@ function AnalyticsContent({
 
       <section>
         <ChartCard
-          caption={`${summary.totalSessions} authorized sessions · current status snapshot`}
-          title={`${summary.completedAssessments} of ${summary.totalSessions} sessions are completed`}
+          caption="Every assessment you have sent, by where it stands right now"
+          title={`${summary.completedAssessments} of ${summary.totalSessions} assessments are complete`}
         >
           <StatusBars summary={summary} />
         </ChartCard>
@@ -196,9 +195,8 @@ function AnalyticsContent({
       <section>
         <div className="flex flex-col gap-3 rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--color-primary-700)]">Comparable evidence</p>
-            <h2 className="mt-1 text-[15px] font-extrabold text-[var(--theme-heading)]">Compare one exact assessment template</h2>
-            <p className="mt-1 text-[11px] leading-4 text-[var(--theme-muted)]">Different template IDs are never mixed. Historical template edits are not versioned yet, so interpret edited templates cautiously.</p>
+            <h2 className="text-[15px] font-extrabold text-[var(--theme-heading)]">Results by assessment</h2>
+            <p className="mt-1 text-[11px] leading-4 text-[var(--theme-muted)]">Candidates are only compared against others who took the same assessment.</p>
           </div>
           <label className="min-w-0 sm:w-[320px]">
             <span className="mb-1 block text-[10px] font-bold text-[var(--theme-muted)]">Assessment template</span>
@@ -209,27 +207,27 @@ function AnalyticsContent({
         </div>
 
         {!usage.length ? (
-          <div className="mt-5"><EmptyState description="Assign an assessment template to begin building comparable evidence." title="No template usage yet" /></div>
+          <div className="mt-5"><EmptyState description="Assign an assessment to a candidate to start seeing results here." title="No results yet" /></div>
         ) : evidenceLoading ? (
-          <PageLoader label="Loading comparable evidence" />
+          <PageLoader label="Loading results" />
         ) : evidenceError ? (
           <div className="mt-5"><ErrorState message={evidenceError} /></div>
         ) : (
           <div className="mt-5 grid gap-5 xl:grid-cols-2">
             <ChartCard
-              caption={`${selectedTemplate?.title ?? "Selected template"} · all time · n=${reportCount} reports${reportCount > 0 && reportCount < 5 ? " · small sample" : ""}`}
+              caption={sampleNote(reportCount, "completed assessment")}
               title={scoreTitle(scoreDistribution, reportCount)}
             >
               <ScoreBars buckets={scoreDistribution} />
             </ChartCard>
             <ChartCard
-              caption="Persisted evaluations only; each row shows its evidence count"
+              caption={sampleNote(moduleSampleSize(modulePerformance), "completed assessment")}
               title={moduleTitle(modulePerformance)}
             >
               <ModuleBars modules={modulePerformance} />
             </ChartCard>
             <ChartCard
-              caption="Completed sessions with valid start and completion timestamps"
+              caption={sampleNote(duration?.sampleSize ?? 0, "completed assessment")}
               className="xl:col-span-2"
               title={durationTitle(duration)}
             >
@@ -240,9 +238,9 @@ function AnalyticsContent({
       </section>
 
       <section>
-        <SectionHeading description="All authorized assignments" title="Usage context" />
+        <SectionHeading description="How often each assessment is used" title="Assessments in use" />
         <div className="mt-3">
-          <ChartCard caption="Assignment volume is context, not candidate performance" title={usageTitle(usage)}>
+          <ChartCard caption="How often each assessment is sent — not how candidates performed" title={usageTitle(usage)}>
             <UsageList usage={usage} />
           </ChartCard>
         </div>
@@ -298,14 +296,17 @@ function ScoreBars({ buckets }: { buckets: ScoreDistributionBucket[] }) {
 }
 
 function ModuleBars({ modules }: { modules: ModulePerformance[] }) {
-  if (!modules.length) return <EmptyState description="Module comparisons appear after evaluations are persisted for this template." title="No module evidence yet" />;
+  if (!modules.length) return <EmptyState description="Module scores appear once candidates finish this assessment." title="No module scores yet" />;
+  // The evaluation count lives on the card's caption and in each row's tooltip,
+  // not stamped onto every label — it is the same number six times over.
   return (
     <BarBreakdown
       data={modules.map((module) => ({
-        label: `${module.title} · n=${module.evaluationCount}`,
-        value: Number(module.average.toFixed(1)),
+        label: module.title,
+        value: module.average,
+        display: fmtScore(module.average),
         color: "var(--color-chart-1)",
-        hint: `${module.title}: ${module.average.toFixed(1)} of 5 across ${module.evaluationCount} evaluation(s)`,
+        hint: `${module.title}: ${fmtScore(module.average)} of 5, from ${module.evaluationCount} assessment(s)`,
       }))}
       showPercent={false}
       total={5}
@@ -325,17 +326,45 @@ function CountBars({ items }: { items: Array<{ label: string; count: number }> }
   );
 }
 
+/**
+ * Assignment counts here are small (often 1–2), and templates frequently share
+ * a title. Full-width bars made every row look identical, so this is a compact
+ * table: the numbers do the work and a short bar carries the relative volume.
+ */
 function UsageList({ usage }: { usage: TemplateUsageItem[] }) {
-  if (!usage.length) return <EmptyState description="Template assignments will appear here." title="No template usage yet" />;
+  if (!usage.length) return <EmptyState description="Assign a template to a candidate to see it here." title="No templates assigned yet" />;
+  const max = Math.max(1, ...usage.map((item) => item.assignments));
+  const duplicateTitles = new Set(
+    usage.map((item) => item.title).filter((title, index, all) => all.indexOf(title) !== index),
+  );
+  const seen = new Map<string, number>();
+
   return (
-    <BarBreakdown
-      data={usage.map((item) => ({
-        label: item.title,
-        value: item.assignments,
-        color: "var(--color-chart-1)",
-        hint: `${item.title}: ${item.assignments} assigned, ${item.completed} completed`,
-      }))}
-    />
+    <ul className="divide-y divide-[var(--theme-border)]">
+      {usage.map((item) => {
+        // Same-named templates are indistinguishable otherwise; number them.
+        const ordinal = (seen.get(item.title) ?? 0) + 1;
+        seen.set(item.title, ordinal);
+        const label = duplicateTitles.has(item.title) ? `${item.title} (${ordinal})` : item.title;
+        return (
+          <li className="flex items-center gap-4 py-2.5 first:pt-0 last:pb-0" key={item.templateId}>
+            <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-[var(--theme-text)]" title={item.title}>
+              {label}
+            </span>
+            <span className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[var(--theme-panel-soft)] sm:w-24">
+              <span
+                className="block h-full rounded-full"
+                style={{ width: `${(item.assignments / max) * 100}%`, background: "var(--color-chart-1)" }}
+              />
+            </span>
+            <span className="w-28 shrink-0 text-right text-[11px] tabular-nums text-[var(--theme-muted)]">
+              <span className="font-bold text-[var(--theme-heading)]">{item.assignments}</span> sent ·{" "}
+              <span className="font-bold text-[var(--theme-heading)]">{item.completed}</span> done
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -348,15 +377,39 @@ function scoreTitle(buckets: ScoreDistributionBucket[], count: number) {
 }
 
 function moduleTitle(modules: ModulePerformance[]) {
-  if (!modules.length) return "No persisted module evidence for this template yet";
-  const highest = [...modules].sort((a, b) => b.average - a.average)[0];
-  return `${highest.title} is highest at ${highest.average.toFixed(1)}/5 (n=${highest.evaluationCount})`;
+  if (!modules.length) return "No module scores yet";
+  const sorted = [...modules].sort((a, b) => b.average - a.average);
+  const best = sorted[0];
+  const worst = sorted[sorted.length - 1];
+  // Naming a "highest" when every module scored the same is a false finding —
+  // it reads as a real difference that the numbers do not support.
+  if (best.average === worst.average) {
+    return modules.length === 1
+      ? `${best.title} scored ${fmtScore(best.average)} out of 5`
+      : `All ${modules.length} modules scored ${fmtScore(best.average)} out of 5`;
+  }
+  return `${best.title} scored highest at ${fmtScore(best.average)} out of 5`;
 }
 
 function durationTitle(duration: CompletionDuration | null) {
   return duration?.medianMinutes == null
-    ? "No valid completion-duration evidence yet"
-    : `Median completion is ${duration.medianMinutes} minutes (n=${duration.sampleSize})`;
+    ? "No completion times recorded yet"
+    : `Candidates take ${duration.medianMinutes} minutes on average`;
+}
+
+function moduleSampleSize(modules: ModulePerformance[]) {
+  return modules.length ? Math.max(...modules.map((module) => module.evaluationCount)) : 0;
+}
+
+function fmtScore(value: number) {
+  return value.toFixed(1);
+}
+
+/** One plain-language sample note per card, instead of "n=" on every row. */
+function sampleNote(count: number, noun: string) {
+  if (count === 0) return `No ${noun}s yet`;
+  const base = `Based on ${count} ${noun}${count === 1 ? "" : "s"}`;
+  return count < 5 ? `${base} — too few to draw firm conclusions` : base;
 }
 
 function trendTitle(trend: TrendPoint[]) {

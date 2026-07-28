@@ -294,19 +294,47 @@ function ReadyReportList({ items }: { items: ActivityItem[] }) {
   );
 }
 
+const ACTIVITY_ICON: Record<SessionStatus, "check" | "clock" | "calendar"> = {
+  completed: "check",
+  expired: "clock",
+  in_progress: "clock",
+  not_started: "calendar",
+};
+
+/**
+ * A feed, so the timestamp sits on the same line as the message rather than
+ * stacked beneath it — that filled the dead horizontal space at wide widths and
+ * lets the eye scan the times down a single edge. Dots reuse the pipeline's
+ * state colours so "green" means the same thing on every screen.
+ */
 function ActivityList({ items }: { items: ActivityItem[] }) {
   return (
-    <div className="grid gap-x-5 sm:grid-cols-2">
+    <div className="grid gap-x-8 sm:grid-cols-2">
       {items.map((item) => (
-        <div className="flex items-start gap-3 border-b border-[var(--theme-border)] py-3" key={item.id}>
-          <span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-[8px] ${item.status === "completed" ? "bg-emerald-50 text-emerald-600" : "bg-[var(--theme-panel-soft)] text-[var(--color-primary-700)]"}`}>
-            <Icon name={item.status === "completed" ? "check" : "clock"} size={14} />
+        <Link
+          className="flex items-center gap-2.5 border-b border-[var(--theme-border)] py-2.5 last:border-0"
+          href={`/candidates/${item.sessionId}`}
+          key={item.id}
+        >
+          <span
+            className="flex size-6 shrink-0 items-center justify-center rounded-full"
+            style={{ background: `color-mix(in srgb, ${STATUS_META[item.status].color} 18%, transparent)`, color: STATUS_META[item.status].color }}
+          >
+            <Icon name={ACTIVITY_ICON[item.status]} size={12} />
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold leading-4 text-[var(--theme-heading)]">{item.message}</p>
-            <p className="mt-1 text-[9px] text-[var(--theme-faint)]">{formatRelative(item.createdAt)}</p>
-          </div>
-        </div>
+          {/* Composed from the parts rather than the server's sentence, which
+              repeats "<name> reached the expiry date for <assessment>" on every
+              row and pushes the useful words off the end. */}
+          <p className="min-w-0 flex-1 truncate text-[11.5px]" title={item.message}>
+            <span className="font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
+            <span className="text-[var(--theme-muted)]"> · {item.assessmentName}</span>
+          </p>
+          {/* Text stays in text tokens; the dot carries the colour. */}
+          <span className="shrink-0 text-[10px] tabular-nums text-[var(--theme-muted)]">
+            {STATUS_META[item.status].label}
+            <span className="text-[var(--theme-faint)]"> · {formatRelative(item.createdAt)}</span>
+          </span>
+        </Link>
       ))}
     </div>
   );

@@ -150,6 +150,8 @@ export interface BarDatum {
   value: number;
   color?: string;
   hint?: string;
+  /** Shown instead of `value` — keeps trailing zeros ("1.0", not "1"). */
+  display?: string;
 }
 
 /**
@@ -172,24 +174,22 @@ export function BarBreakdown({
   const max = total ?? Math.max(1, ...data.map((d) => d.value));
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {data.map((row) => {
         const pct = max ? Math.round((row.value / max) * 100) : 0;
         return (
+          // Label, bar and value share one line, and the bar column is capped.
+          // Stacked full-width tracks turned a 1.0/5 into a sliver adrift in
+          // 1000px of empty rail on wide cards.
           <div
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-[11px] sm:grid-cols-[minmax(0,1fr)_minmax(120px,280px)_auto]"
             key={row.label}
             onMouseEnter={() => setHover(row.label)}
             onMouseLeave={() => setHover(null)}
-            title={row.hint ?? `${row.label}: ${row.value}${valueSuffix}`}
+            title={row.hint ?? `${row.label}: ${row.display ?? row.value}${valueSuffix}`}
           >
-            <div className="mb-1 flex items-baseline justify-between gap-3 text-[11px]">
-              <span className="truncate font-semibold text-[var(--theme-text)]">{row.label}</span>
-              <span className="shrink-0 font-bold tabular-nums text-[var(--theme-heading)]">
-                {row.value}{valueSuffix}
-                {total && showPercent ? <span className="ml-1 font-semibold text-[var(--theme-faint)]">{pct}%</span> : null}
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
+            <span className="truncate font-semibold text-[var(--theme-text)]">{row.label}</span>
+            <div className="order-last col-span-2 h-2 overflow-hidden rounded-full bg-[var(--theme-panel-soft)] sm:order-none sm:col-span-1">
               <div
                 className="h-full rounded-full transition-[width,opacity] duration-300"
                 style={{
@@ -199,6 +199,10 @@ export function BarBreakdown({
                 }}
               />
             </div>
+            <span className="shrink-0 text-right font-bold tabular-nums text-[var(--theme-heading)]">
+              {row.display ?? row.value}{valueSuffix}
+              {total && showPercent ? <span className="ml-1 font-semibold text-[var(--theme-faint)]">{pct}%</span> : null}
+            </span>
           </div>
         );
       })}
