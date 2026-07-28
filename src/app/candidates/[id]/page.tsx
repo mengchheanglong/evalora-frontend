@@ -323,8 +323,8 @@ function ScoreDonut({ score, meta }: { score: number | null; meta: ScoreMeta }) 
   const clamped = Math.max(0, Math.min(100, score ?? 0));
   const circumference = 2 * Math.PI * 15.5;
   return (
-    <div className="relative grid size-20 place-items-center">
-      <svg className="size-20 -rotate-90" viewBox="0 0 36 36">
+    <div className="relative grid size-18 place-items-center">
+      <svg className="size-18 -rotate-90" viewBox="0 0 36 36">
         <circle className="text-[var(--theme-panel-soft)]" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" strokeWidth="3" />
         {score != null ? (
           <circle
@@ -341,8 +341,8 @@ function ScoreDonut({ score, meta }: { score: number | null; meta: ScoreMeta }) 
         ) : null}
       </svg>
       <div className="absolute text-center">
-        <span className="block text-lg font-extrabold leading-none text-[var(--theme-heading)]">{score == null ? "—" : `${score}%`}</span>
-        <span className="mt-1 block text-[var(--text-micro)] font-semibold uppercase tracking-[0.08em] text-[var(--theme-faint)]">Overall</span>
+        <span className="block text-base font-extrabold leading-none text-[var(--theme-heading)]">{score == null ? "—" : `${score}%`}</span>
+        <span className="mt-0.5 block text-[var(--text-micro)] font-semibold text-[var(--theme-faint)]">Overall</span>
       </div>
     </div>
   );

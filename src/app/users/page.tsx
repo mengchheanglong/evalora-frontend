@@ -7,7 +7,9 @@ import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import { readOrgLogo } from "@/lib/org-logo";
 import type { WorkspaceInvite, WorkspaceMember } from "@/lib/types";
+import { readUserProfilePhoto, userInitials } from "@/lib/user-profile-photo";
 
 export default function UsersAndRolesPage() {
   const { user, status } = useAuth();
@@ -23,6 +25,7 @@ export default function UsersAndRolesPage() {
   const [inviting, setInviting] = useState(false);
   const [lastInviteLink, setLastInviteLink] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [currentUserPhoto, setCurrentUserPhoto] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,6 +49,15 @@ export default function UsersAndRolesPage() {
   useEffect(() => {
     if (status === "authenticated") void load();
   }, [status, load]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setCurrentUserPhoto(
+      isOwner
+        ? readOrgLogo(user.organizationId)
+        : readUserProfilePhoto(user.id),
+    );
+  }, [isOwner, user?.id, user?.organizationId]);
 
   const pendingInvites = useMemo(() => invites.filter((invite) => invite.status === "pending"), [invites]);
   const ownerCount = members.filter((member) => member.role === "organization").length;
@@ -221,41 +233,53 @@ export default function UsersAndRolesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
-                  {members.map((member) => (
-                    <tr className="h-[60px]" key={member.id}>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-neutral-900">{member.name}</span>
-                          {member.isCurrentUser ? (
-                            <span className="rounded bg-primary-50 px-1.5 py-0.5 text-xs font-bold text-primary-700">You</span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 font-medium text-neutral-600">{member.email}</td>
-                      <td className="px-3 py-3">
-                        <RoleBadge label={member.roleLabel} role={member.role} />
-                      </td>
-                      <td className="px-3 py-3 text-neutral-500">
-                        {member.createdAt ? new Date(member.createdAt).toLocaleDateString() : "—"}
-                      </td>
-                      {isOwner ? (
-                        <td className="px-3 py-3 text-right">
-                          {member.role === "interviewer" && !member.isCurrentUser ? (
-                            <button
-                              className="rounded-[7px] border border-neutral-200 px-3 py-1.5 text-sm font-bold text-red-600 transition hover:bg-red-50"
-                              disabled={busyId === member.id}
-                              onClick={() => void handleRemoveMember(member.id)}
-                              type="button"
-                            >
-                              {busyId === member.id ? "Removing…" : "Remove"}
-                            </button>
-                          ) : (
-                            <span className="text-sm text-neutral-400">—</span>
-                          )}
+                  {members.map((member) => {
+                    const isCurrentUser = member.isCurrentUser || member.id === user?.id;
+                    return (
+                      <tr className="h-[60px]" key={member.id}>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-primary-50 text-xs font-black text-primary-700">
+                              {isCurrentUser && currentUserPhoto ? (
+                                <img alt="" className="size-full object-cover" src={currentUserPhoto} />
+                              ) : (
+                                userInitials(member.name)
+                              )}
+                            </span>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="truncate font-bold text-neutral-900">{member.name}</span>
+                              {isCurrentUser ? (
+                                <span className="shrink-0 rounded bg-primary-50 px-1.5 py-0.5 text-xs font-bold text-primary-700">You</span>
+                              ) : null}
+                            </div>
+                          </div>
                         </td>
-                      ) : null}
-                    </tr>
-                  ))}
+                        <td className="px-3 py-3 font-medium text-neutral-600">{member.email}</td>
+                        <td className="px-3 py-3">
+                          <RoleBadge label={member.roleLabel} role={member.role} />
+                        </td>
+                        <td className="px-3 py-3 text-neutral-500">
+                          {member.createdAt ? new Date(member.createdAt).toLocaleDateString() : "—"}
+                        </td>
+                        {isOwner ? (
+                          <td className="px-3 py-3 text-right">
+                            {member.role === "interviewer" && !isCurrentUser ? (
+                              <button
+                                className="rounded-[7px] border border-neutral-200 px-3 py-1.5 text-sm font-bold text-red-600 transition hover:bg-red-50"
+                                disabled={busyId === member.id}
+                                onClick={() => void handleRemoveMember(member.id)}
+                                type="button"
+                              >
+                                {busyId === member.id ? "Removing…" : "Remove"}
+                              </button>
+                            ) : (
+                              <span className="text-sm text-neutral-400">—</span>
+                            )}
+                          </td>
+                        ) : null}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

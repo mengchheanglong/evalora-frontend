@@ -10,6 +10,11 @@ import { PageLoader } from "@/components/ui-states";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { apiGet } from "@/lib/api";
 import { ORG_LOGO_CHANGED_EVENT, orgInitials, readOrgLogo } from "@/lib/org-logo";
+import {
+  readUserProfilePhoto,
+  USER_PROFILE_PHOTO_CHANGED_EVENT,
+  userInitials,
+} from "@/lib/user-profile-photo";
 import type { WorkspaceProfile } from "@/lib/types";
 
 type AppShellProps = {
@@ -26,7 +31,7 @@ type AppShellProps = {
 type NavigationItem = { label: string; href: string; key: string; icon: IconName };
 
 const navigation: NavigationItem[] = [
-  { label: "Dashboard", href: "/dashboard", key: "dashboard", icon: "home" },
+  { label: "Overview", href: "/dashboard", key: "dashboard", icon: "home" },
   { label: "Assessment Templates", href: "/templates", key: "templates", icon: "clipboard" },
   { label: "Interview Session", href: "/assessment", key: "session", icon: "message" },
   { label: "Candidates", href: "/candidates", key: "candidates", icon: "user" },
@@ -58,6 +63,7 @@ export function AppShell({
   const [accountOpen, setAccountOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [orgLogo, setOrgLogo] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState("");
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,6 +89,11 @@ export function AppShell({
   }, [status, user?.organizationId]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    setProfilePhoto(readUserProfilePhoto(user.id));
+  }, [user?.id]);
+
+  useEffect(() => {
     function onLogoChange(event: Event) {
       const detail = (event as CustomEvent<{ organizationId?: string; logo?: string }>).detail;
       if (!user?.organizationId || detail?.organizationId !== user.organizationId) return;
@@ -91,6 +102,16 @@ export function AppShell({
     window.addEventListener(ORG_LOGO_CHANGED_EVENT, onLogoChange);
     return () => window.removeEventListener(ORG_LOGO_CHANGED_EVENT, onLogoChange);
   }, [user?.organizationId]);
+
+  useEffect(() => {
+    function onProfilePhotoChange(event: Event) {
+      const detail = (event as CustomEvent<{ userId?: string; photo?: string }>).detail;
+      if (!user?.id || detail?.userId !== user.id) return;
+      setProfilePhoto(detail.photo ?? readUserProfilePhoto(user.id));
+    }
+    window.addEventListener(USER_PROFILE_PHOTO_CHANGED_EVENT, onProfilePhotoChange);
+    return () => window.removeEventListener(USER_PROFILE_PHOTO_CHANGED_EVENT, onProfilePhotoChange);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -120,7 +141,10 @@ export function AppShell({
   }
 
   const displayOrgName = workspaceName || "Workspace";
-  const avatarLabel = orgInitials(displayOrgName);
+  const isOwner = user.role === "organization" || user.role === "admin";
+  const accountImage = isOwner ? orgLogo : profilePhoto;
+  const accountLabel = isOwner ? orgInitials(displayOrgName) : userInitials(user.name);
+  const accountName = isOwner ? displayOrgName : user.name;
 
   return (
     <main className={`min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_1fr]"}`}>
@@ -160,16 +184,16 @@ export function AppShell({
                 <button
                   aria-expanded={accountOpen}
                   aria-haspopup="menu"
-                  aria-label="Organization account menu"
+                  aria-label="Account menu"
                   className="flex size-10 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-sm transition hover:ring-2 hover:ring-primary-200"
                   onClick={() => setAccountOpen((open) => !open)}
                   type="button"
                 >
-                  {orgLogo ? (
-                    <img alt="" className="size-full object-cover" src={orgLogo} />
+                  {accountImage ? (
+                    <img alt="" className="size-full object-cover" src={accountImage} />
                   ) : (
                     <span className="flex size-full items-center justify-center bg-[var(--theme-heading)] text-xs font-black text-white">
-                      {avatarLabel}
+                      {accountLabel}
                     </span>
                   )}
                 </button>
@@ -182,16 +206,16 @@ export function AppShell({
                     <div className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-4 py-4">
                       <div className="flex items-center gap-3">
                         <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)]">
-                          {orgLogo ? (
-                            <img alt="" className="size-full object-cover" src={orgLogo} />
+                          {accountImage ? (
+                            <img alt="" className="size-full object-cover" src={accountImage} />
                           ) : (
                             <span className="flex size-full items-center justify-center bg-[var(--theme-heading)] text-sm font-black text-white">
-                              {avatarLabel}
+                              {accountLabel}
                             </span>
                           )}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{displayOrgName}</p>
+                          <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{accountName}</p>
                           <p className="mt-0.5 truncate text-xs text-[var(--theme-muted)]">{user.email}</p>
                           <p className="mt-0.5 text-xs font-semibold capitalize text-[var(--theme-faint)]">{user.role === "organization" ? "Workspace owner" : user.role}</p>
                         </div>

@@ -5,6 +5,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Evalora | AI Candidate Assessment Platform",
   description: "AI-powered candidate assessment platform for technical, behavioral, and leadership evaluation.",
+  icons: {
+    icon: [{ url: "/evalora-mark.png", type: "image/png" }],
+    shortcut: "/evalora-mark.png",
+    apple: "/evalora-mark.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

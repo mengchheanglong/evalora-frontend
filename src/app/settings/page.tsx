@@ -8,6 +8,12 @@ import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, apiPut, getErrorMessage } from "@/lib/api";
 import { clearOrgLogo, orgInitials, readOrgLogo, writeOrgLogo } from "@/lib/org-logo";
+import {
+  clearUserProfilePhoto,
+  readUserProfilePhoto,
+  userInitials,
+  writeUserProfilePhoto,
+} from "@/lib/user-profile-photo";
 import type {
   DeleteWorkspaceDataResult,
   WorkspaceExportPayload,
@@ -17,6 +23,7 @@ import type {
 
 const THEME_KEY = "evalora-theme";
 const MAX_ORG_LOGO_BYTES = 2 * 1024 * 1024;
+const MAX_PROFILE_PHOTO_BYTES = 2 * 1024 * 1024;
 
 type ThemeName = "light" | "dark" | "ocean";
 
@@ -159,6 +166,7 @@ export default function SettingsPage() {
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [privacyError, setPrivacyError] = useState("");
   const [orgLogo, setOrgLogo] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState("");
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -174,6 +182,7 @@ export default function SettingsPage() {
       setProfileName(user.name);
       setPrivacy(nextPrivacy);
       setOrgLogo(readOrgLogo(nextWorkspace.id));
+      setProfilePhoto(readUserProfilePhoto(user.id));
       setPreferences(readPreferences(user.id));
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to load workspace settings."));
@@ -261,6 +270,35 @@ export default function SettingsPage() {
     clearOrgLogo(workspace.id);
     setOrgLogo("");
     setNotice("Organization logo removed.");
+  }
+
+  function handleProfilePhotoUpload(file?: File) {
+    if (!file || !user) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Please choose a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
+      setError("Profile photo must be 2MB or smaller.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUrl) return;
+      writeUserProfilePhoto(user.id, dataUrl);
+      setProfilePhoto(dataUrl);
+      setError("");
+      setNotice("Profile photo updated.");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleProfilePhotoRemove() {
+    if (!user) return;
+    clearUserProfilePhoto(user.id);
+    setProfilePhoto("");
+    setNotice("Profile photo removed.");
   }
 
   function savePreferences() {
@@ -376,6 +414,43 @@ export default function SettingsPage() {
                     icon="user"
                     title="Your profile"
                   />
+                  <div className="mt-6 flex flex-wrap items-center gap-4">
+                    <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-50 shadow-sm">
+                      {profilePhoto ? (
+                        <img alt={`${profileName || user.name} profile`} className="size-full object-cover" src={profilePhoto} />
+                      ) : (
+                        <span className="text-lg font-black text-neutral-700">{userInitials(profileName || user.name)}</span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="button-secondary h-8 cursor-pointer rounded-[6px] px-3 text-xs">
+                          Upload photo
+                          <input
+                            accept="image/png,image/jpeg,image/webp"
+                            className="sr-only"
+                            onChange={(event) => {
+                              handleProfilePhotoUpload(event.target.files?.[0]);
+                              event.currentTarget.value = "";
+                            }}
+                            type="file"
+                          />
+                        </label>
+                        {profilePhoto ? (
+                          <button
+                            className="h-8 rounded-[6px] border border-red-200 px-3 text-xs font-bold text-red-600 hover:bg-red-50"
+                            onClick={handleProfilePhotoRemove}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                      <p className="mt-1.5 text-xs leading-4 text-neutral-500">
+                        JPG, PNG, or WebP · max 2MB · shown in your account menu on this device.
+                      </p>
+                    </div>
+                  </div>
                   <div className="mt-6 grid gap-4 border-t border-neutral-100 pt-6 sm:grid-cols-2">
                     <label className="block sm:col-span-2">
                       <span className="mb-2 block text-xs font-bold text-neutral-800">Full name</span>

@@ -235,8 +235,8 @@ function ScoreRing({ score }: { score: number }) {
   const clamped = Math.max(0, Math.min(100, score));
   const circumference = 2 * Math.PI * 15.5;
   return (
-    <div className="relative grid size-16 shrink-0 place-items-center">
-      <svg className="size-16 -rotate-90" viewBox="0 0 36 36">
+    <div className="relative grid size-18 shrink-0 place-items-center">
+      <svg className="size-18 -rotate-90" viewBox="0 0 36 36">
         <circle className="text-[var(--theme-panel-soft)]" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" strokeWidth="3.2" />
         <circle
           className={`${meta.ring} transition-all duration-700`}
@@ -251,8 +251,8 @@ function ScoreRing({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute text-center">
-        <span className="block text-lg font-extrabold leading-none text-[var(--theme-heading)]">{score}%</span>
-        <span className="mt-0.5 block text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Overall</span>
+        <span className="block text-base font-extrabold leading-none text-[var(--theme-heading)]">{score}%</span>
+        <span className="mt-0.5 block text-[var(--text-micro)] font-semibold text-[var(--theme-faint)]">Overall</span>
       </div>
     </div>
   );
