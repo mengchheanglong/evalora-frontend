@@ -970,16 +970,18 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   if (relativePath === "analytics/themes" && method === "GET") return json(createThemes());
   if (relativePath === "analytics/trend" && method === "GET") return json(createTrend());
 
-  if (segments[0] === "ai" && segments[1] === "access" && segments[2] && segments[3] === "follow-up" && method === "POST") {
+  // Must be registered before /ai/access/:code/follow-up, and that route must stay
+  // scoped to its own depth: a plain JSON body on the stream path is not something
+  // the candidate's reader can render token by token.
+  if (segments[0] === "ai" && segments[1] === "access" && segments[2] && segments[3] === "follow-up" && segments[4] === "stream" && !segments[5] && method === "POST") {
     const session = findSessionByAccessCode(decodeURIComponent(segments[2]));
     if (!session) return json({ message: "Invitation not found." }, 404);
-    const input = asRecord(body);
-    const prior = String(input.answer ?? input.responseText ?? input.previousAnswer ?? "").trim();
-    return json({
-      question: prior
-        ? "Can you walk through one concrete trade-off you made, including the alternatives you rejected and how you measured the outcome?"
-        : "Tell us about a specific decision you owned recently and what evidence told you it was the right call.",
-    });
+    return followUpStream(followUpQuestion(asRecord(body)));
+  }
+  if (segments[0] === "ai" && segments[1] === "access" && segments[2] && segments[3] === "follow-up" && !segments[4] && method === "POST") {
+    const session = findSessionByAccessCode(decodeURIComponent(segments[2]));
+    if (!session) return json({ message: "Invitation not found." }, 404);
+    return json({ question: followUpQuestion(asRecord(body)) });
   }
   if (segments[0] === "ai" && segments[1] === "access" && segments[2] && segments[3] === "adaptive-questions") {
     const session = findSessionByAccessCode(decodeURIComponent(segments[2]));
@@ -1122,6 +1124,63 @@ function handleCode(method: string, accessCode: string, action?: string, body?: 
     return json(result);
   }
   return json({ message: "Unsupported code action." }, 404);
+}
+
+/** One follow-up wording, shared so the stream and its plain twin never disagree. */
+function followUpQuestion(input: Record<string, unknown>): string {
+  const prior = String(input.answer ?? input.responseText ?? input.previousAnswer ?? "").trim();
+  return prior
+    ? "Can you walk through one concrete trade-off you made, including the alternatives you rejected and how you measured the outcome?"
+    : "Tell us about a specific decision you owned recently and what evidence told you it was the right call.";
+}
+
+/** Slow enough to read as typing, short enough that the question never feels stuck. */
+const MOCK_STREAM_DELTA_MS = 45;
+
+/**
+ * Emits the same `data: {...}` frames as the Nest endpoint instead of one JSON body,
+ * so a demo without a backend still shows the follow-up arriving word by word and
+ * still exercises the candidate's frame reader.
+ */
+function followUpStream(question: string): NextResponse {
+  const encoder = new TextEncoder();
+  const deltas = question.match(/\S+\s*/g) ?? [question];
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for (const delta of deltas) {
+          controller.enqueue(encoder.encode(streamFrame({ delta })));
+          await wait(MOCK_STREAM_DELTA_MS);
+        }
+        // The done frame repeats the whole question: the client treats it as the
+        // commit point and shows it in place of the accumulated deltas.
+        controller.enqueue(encoder.encode(streamFrame({ done: true, question, provider: "fallback" })));
+        controller.close();
+      } catch {
+        // A candidate who navigates away cancels the stream mid-write. There is
+        // nobody left to tell, so the remaining frames are simply dropped.
+      }
+    },
+  });
+
+  return new NextResponse(stream, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      // Matches the live proxy: buffering proxies otherwise hold every token back
+      // until the answer is finished, which defeats the whole feature.
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
+function streamFrame(payload: Record<string, unknown>): string {
+  return `data: ${JSON.stringify(payload)}\n\n`;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createSummary(): AnalyticsSummary {
