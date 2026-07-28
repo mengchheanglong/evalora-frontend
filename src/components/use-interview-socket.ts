@@ -82,7 +82,13 @@ export function useInterviewSocket({ sessionId, accessCode, enabled = true, disp
         setParticipants(payload?.participants ?? []);
       });
 
-      for (const event of [INTERVIEW_EVENTS.questionSent, INTERVIEW_EVENTS.questionAnswered, INTERVIEW_EVENTS.questionCancelled, INTERVIEW_EVENTS.sessionUpdated]) {
+      for (const event of [
+        INTERVIEW_EVENTS.responseSaved,
+        INTERVIEW_EVENTS.questionSent,
+        INTERVIEW_EVENTS.questionAnswered,
+        INTERVIEW_EVENTS.questionCancelled,
+        INTERVIEW_EVENTS.sessionUpdated,
+      ]) {
         socket.on(event, (payload: unknown) => handlerRef.current?.(event, payload));
       }
     })();

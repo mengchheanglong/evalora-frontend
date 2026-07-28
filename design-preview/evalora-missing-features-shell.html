@@ -1,0 +1,2137 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evalora - Live interview feature shell</title>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f7f8fa;
+      --panel: #ffffff;
+      --panel-soft: #f3f5f8;
+      --panel-tint: #f8fafc;
+      --field: #ffffff;
+      --line: #e2e6ec;
+      --line-strong: #d1d5db;
+      --ink: #141a24;
+      --heading: #0f172a;
+      --muted: #5f6b7a;
+      --faint: #98a2b3;
+      --primary: #2fb2e4;
+      --primary-dark: #087aa4;
+      --primary-strong: #005cff;
+      --active: #bfeeff;
+      --active-ink: #0b5f78;
+      --success: #0f9f6e;
+      --success-soft: #eaf8f2;
+      --warning: #b76e00;
+      --warning-soft: #fff7e8;
+      --danger: #b4234d;
+      --danger-soft: #fff0f3;
+      --editor: #0e1117;
+      --editor-soft: #090c11;
+      --shadow: 0 1px 2px rgba(15, 23, 42, .02), 0 10px 30px rgba(15, 23, 42, .045);
+      --shadow-raised: 0 18px 50px rgba(15, 23, 42, .12);
+    }
+
+    html[data-theme="ocean"] {
+      color-scheme: light;
+      --canvas: #eaf4fa;
+      --panel: #f5fafd;
+      --panel-soft: #edf6fc;
+      --panel-tint: #f0f7fb;
+      --field: #f0f7fb;
+      --line: #c7e0f0;
+      --line-strong: #a8cde4;
+      --ink: #1a3a52;
+      --heading: #0b2a3f;
+      --muted: #476b84;
+      --faint: #7194aa;
+      --active: #d0eaf5;
+      --active-ink: #0369a1;
+      --shadow: 0 1px 2px rgba(7, 53, 82, .03), 0 10px 30px rgba(7, 53, 82, .05);
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --canvas: #080c14;
+      --panel: #0f1623;
+      --panel-soft: #161f2e;
+      --panel-tint: #0b111f;
+      --field: #161f2e;
+      --line: #1a2535;
+      --line-strong: #2d3a4d;
+      --ink: #d8dfe8;
+      --heading: #f1f5f9;
+      --muted: #8a9bb0;
+      --faint: #64748b;
+      --active: #1a3654;
+      --active-ink: #93c5fd;
+      --success-soft: #0d2b25;
+      --warning-soft: #2a210f;
+      --danger-soft: #2a1420;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .18), 0 10px 30px rgba(0, 0, 0, .18);
+      --shadow-raised: 0 18px 50px rgba(0, 0, 0, .36);
+    }
+
+    * { box-sizing: border-box; letter-spacing: 0; }
+    html { min-width: 320px; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    button, input, textarea, select { font: inherit; }
+    button, select, input, textarea { color: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    svg { display: block; }
+    :focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 72%, white); outline-offset: 2px; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 244px minmax(0, 1fr);
+    }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .brand {
+      height: 82px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+    }
+    .brand img { width: 48px; height: 48px; object-fit: contain; }
+    .brand-copy { line-height: 1.1; }
+    .brand-name { display: block; color: var(--heading); font-size: 20px; font-weight: 750; }
+    .brand-sub { display: block; margin-top: 2px; color: var(--faint); font-size: 11px; font-weight: 550; line-height: 1.2; }
+    .nav { flex: 1; overflow-y: auto; padding: 16px 14px; }
+    .nav-group { display: grid; gap: 4px; }
+    .nav-label {
+      margin: 24px 0 8px;
+      padding: 0 14px;
+      color: var(--faint);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .nav-label:first-child { margin-top: 4px; }
+    .nav-item {
+      width: 100%;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 14px;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      font-size: 13px;
+      font-weight: 650;
+      transition: background-color .16s ease, color .16s ease, transform .16s ease;
+    }
+    .nav-item:hover { background: var(--panel-soft); color: var(--heading); }
+    .nav-item:active { transform: translateY(1px); }
+    .nav-item.active { background: var(--active); color: var(--active-ink); }
+    .nav-item i { width: 19px; height: 19px; flex: none; color: currentColor; }
+    .nav-badge {
+      margin-left: auto;
+      min-width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--primary);
+      color: #07111f;
+      font-size: 9px;
+      font-weight: 850;
+    }
+    .sidebar-foot { padding: 12px 14px 18px; }
+    .profile {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid var(--line);
+      padding: 16px 6px 0;
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #0b2a3f;
+      color: white;
+      font-size: 10px;
+      font-weight: 850;
+    }
+    .profile strong { display: block; overflow: hidden; color: var(--heading); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .profile span { display: block; margin-top: 2px; color: var(--faint); font-size: 9px; }
+
+    .workspace { min-width: 0; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 32px;
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      backdrop-filter: blur(18px);
+    }
+    .icon-button.mobile-menu { display: none; }
+    .environment {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 650;
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 12%, transparent);
+    }
+    .top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--muted);
+      transition: background-color .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+    }
+    .icon-button:hover { border-color: var(--line-strong); background: var(--panel-soft); color: var(--heading); }
+    .icon-button:active { transform: scale(.96); }
+    .icon-button i { width: 17px; height: 17px; }
+    .top-avatar { border: 0; background: #0b2a3f; color: white; font-size: 10px; font-weight: 850; }
+    .primary-button, .secondary-button, .danger-button, .quiet-button {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 7px;
+      padding: 0 14px;
+      font-size: 11px;
+      font-weight: 750;
+      transition: background-color .16s ease, color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+    }
+    .primary-button {
+      border: 0;
+      background: var(--primary);
+      color: #07111f;
+      box-shadow: 0 7px 16px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .primary-button:hover { background: color-mix(in srgb, var(--primary) 84%, white); transform: translateY(-1px); }
+    .primary-button:active { transform: scale(.98); }
+    .primary-button:disabled { cursor: not-allowed; opacity: .56; transform: none; }
+    .secondary-button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--heading);
+    }
+    .secondary-button:hover { border-color: var(--line-strong); background: var(--panel-soft); }
+    .danger-button { border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line)); background: var(--danger-soft); color: var(--danger); }
+    .quiet-button { border: 0; background: transparent; color: var(--primary-dark); padding: 0 8px; }
+    .primary-button i, .secondary-button i, .danger-button i, .quiet-button i { width: 14px; height: 14px; }
+
+    .content {
+      width: min(100%, 1600px);
+      margin: 0 auto;
+      padding: 26px 32px 48px;
+    }
+    .view { display: none; }
+    .view.active { display: block; animation: enter .2s ease both; }
+    @keyframes enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+    .page-head {
+      min-height: 54px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .eyebrow { margin: 0 0 6px; color: var(--primary-dark); font-size: 9px; font-weight: 850; text-transform: uppercase; }
+    h1 { margin: 0; color: var(--heading); font-size: 29px; line-height: 1.12; font-weight: 800; }
+    h2, h3, p { margin-top: 0; }
+    .page-copy { max-width: 760px; margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .metric {
+      min-height: 102px;
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr);
+      align-items: start;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .metric-icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--active);
+      color: var(--active-ink);
+    }
+    .metric-icon.success { background: var(--success-soft); color: var(--success); }
+    .metric-icon.warning { background: var(--warning-soft); color: var(--warning); }
+    .metric-icon i { width: 17px; height: 17px; }
+    .metric > span:last-child { min-width: 0; }
+    .metric-label { display: block; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .metric-value { display: block; margin-top: 3px; color: var(--heading); font-size: 22px; line-height: 1; font-weight: 820; }
+    .metric-detail { display: block; margin-top: 7px; color: var(--faint); font-size: 9px; line-height: 1.4; }
+
+    .panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .panel-head {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 17px;
+    }
+    .panel-title { margin: 0; color: var(--heading); font-size: 13px; font-weight: 780; }
+    .panel-subtitle { margin: 3px 0 0; color: var(--faint); font-size: 9px; }
+    .panel-body { padding: 17px; }
+    .split-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .55fr); gap: 16px; }
+    .stack { display: grid; gap: 16px; }
+
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .search {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 11px;
+      background: var(--field);
+    }
+    .search i { width: 15px; height: 15px; color: var(--faint); }
+    .search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--heading); font-size: 11px; }
+    .select {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 30px 0 11px;
+      background: var(--field);
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 650;
+    }
+    .room-table { width: 100%; border-collapse: collapse; }
+    .room-table th {
+      border-bottom: 1px solid var(--line);
+      padding: 11px 14px;
+      color: var(--muted);
+      text-align: left;
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .room-table td { border-bottom: 1px solid var(--line); padding: 13px 14px; vertical-align: middle; font-size: 11px; }
+    .room-table tr:last-child td { border-bottom: 0; }
+    .room-table tbody tr { transition: background-color .15s ease; }
+    .room-table tbody tr:hover { background: var(--panel-tint); }
+    .identity { display: flex; align-items: center; gap: 10px; }
+    .identity-avatar {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      flex: none;
+      border-radius: 50%;
+      background: #dff5ff;
+      color: #087aa4;
+      font-size: 10px;
+      font-weight: 850;
+    }
+    .identity strong { display: block; color: var(--heading); font-size: 11px; }
+    .identity span { display: block; margin-top: 2px; color: var(--faint); font-size: 9px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 5px;
+      padding: 4px 7px;
+      font-size: 9px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .status.live { background: var(--success-soft); color: var(--success); }
+    .status.waiting { background: var(--warning-soft); color: var(--warning); }
+    .status.offline { background: var(--danger-soft); color: var(--danger); }
+    .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .row-action {
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 10px;
+      background: var(--panel);
+      color: var(--heading);
+      font-size: 9px;
+      font-weight: 750;
+    }
+    .row-action:hover { background: var(--panel-soft); }
+
+    .coverage-list { display: grid; gap: 1px; }
+    .coverage-item {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding: 11px 0;
+    }
+    .coverage-item:last-child { border-bottom: 0; }
+    .coverage-icon {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--panel-soft);
+      color: var(--muted);
+    }
+    .coverage-icon i { width: 14px; height: 14px; }
+    .coverage-item strong { display: block; color: var(--heading); font-size: 10px; }
+    .coverage-item span { display: block; margin-top: 2px; color: var(--faint); font-size: 9px; line-height: 1.35; }
+    .coverage-state { color: var(--success); font-size: 9px; font-weight: 800; }
+
+    .breadcrumb {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 10px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .breadcrumb:hover { color: var(--heading); }
+    .room-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .room-head .identity { flex: 1; }
+    .room-meta { display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: 10px; font-weight: 650; }
+    .room-meta span { display: inline-flex; align-items: center; gap: 6px; }
+    .room-meta i { width: 14px; height: 14px; }
+    .connection-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--success);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .connection-state.offline { color: var(--danger); }
+    .connection-state.reconnecting { color: var(--warning); }
+    .room-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+    .room-workspace { overflow: hidden; }
+    .workspace-tabs {
+      height: 48px;
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 13px;
+    }
+    .workspace-tab {
+      position: relative;
+      height: 47px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 0;
+      padding: 0 12px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .workspace-tab i { width: 14px; height: 14px; }
+    .workspace-tab.active { color: var(--primary-dark); }
+    .workspace-tab.active::after { content: ""; position: absolute; right: 8px; bottom: -1px; left: 8px; height: 2px; border-radius: 2px; background: var(--primary); }
+    .room-pane { display: none; }
+    .room-pane.active { display: block; }
+    .conversation {
+      height: 570px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    .conversation-toolbar {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 15px;
+      background: var(--panel-tint);
+    }
+    .conversation-toolbar p { margin: 0; color: var(--muted); font-size: 9px; }
+    .conversation-toolbar strong { color: var(--heading); }
+    .messages { overflow-y: auto; padding: 18px; scroll-behavior: smooth; }
+    .message { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; max-width: 760px; margin-bottom: 16px; }
+    .message.candidate { margin-left: auto; grid-template-columns: minmax(0, 1fr) 30px; }
+    .message.interviewer { margin-left: auto; grid-template-columns: minmax(0, 1fr) 30px; }
+    .message-avatar {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--active);
+      color: var(--active-ink);
+      font-size: 9px;
+      font-weight: 850;
+    }
+    .message.candidate .message-avatar { background: #0b2a3f; color: white; }
+    .message.interviewer .message-avatar { background: #5b4acb; color: white; }
+    .message-body {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px 12px;
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .message.ai .message-body { background: var(--panel-tint); }
+    .message.candidate .message-body { background: var(--active); border-color: color-mix(in srgb, var(--primary) 18%, var(--line)); }
+    .message.interviewer .message-body { background: color-mix(in srgb, #8b7cf6 10%, var(--panel)); border-color: color-mix(in srgb, #8b7cf6 24%, var(--line)); }
+    .message-label { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; color: var(--faint); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+    .message-label .provider { color: var(--primary-dark); }
+    .streaming-cursor { display: inline-block; width: 2px; height: 12px; margin-left: 2px; background: var(--primary); vertical-align: -2px; animation: blink .8s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .composer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding: 12px;
+      background: var(--panel-tint);
+    }
+    .composer textarea {
+      min-height: 42px;
+      max-height: 90px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px 11px;
+      background: var(--field);
+      color: var(--heading);
+      font-size: 11px;
+      line-height: 1.45;
+      outline: 0;
+    }
+    .composer textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
+    .send-button { width: 42px; padding: 0; }
+    .composer-note {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: -2px 0 0;
+      color: var(--faint);
+      font-size: 8px;
+      line-height: 1.4;
+    }
+    .composer-note i { width: 12px; height: 12px; flex: none; }
+
+    .code-workspace { min-height: 570px; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+    .challenge-rail { border-right: 1px solid var(--line); background: var(--panel-soft); padding: 13px; }
+    .rail-label { margin: 0 0 9px 3px; color: var(--faint); font-size: 9px; font-weight: 850; text-transform: uppercase; }
+    .challenge {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 25px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      border: 0;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      padding: 8px;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+    }
+    .challenge.active { background: var(--panel); color: var(--heading); box-shadow: 0 0 0 1px var(--line), var(--shadow); }
+    .challenge-number { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 5px; background: var(--active); color: var(--active-ink); font-size: 9px; font-weight: 850; }
+    .challenge strong { display: block; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .challenge span { display: block; margin-top: 2px; color: var(--faint); font-size: 8px; }
+    .editor-pane { min-width: 0; display: grid; grid-template-rows: 44px minmax(330px, 1fr) auto; background: var(--editor); color: #e5edf7; }
+    .editor-bar { display: flex; align-items: center; gap: 9px; border-bottom: 1px solid rgba(255,255,255,.08); padding: 0 13px; }
+    .editor-file { color: white; font-size: 10px; font-weight: 750; }
+    .editor-status { margin-left: auto; display: flex; align-items: center; gap: 6px; color: #8fa2ba; font-size: 8px; }
+    .editor-status i { width: 12px; height: 12px; }
+    .language-select { min-height: 28px; border: 1px solid rgba(255,255,255,.12); border-radius: 5px; padding: 0 24px 0 8px; background: #161c26; color: #c9d5e4; font-size: 9px; }
+    .editor-wrap { min-height: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr); }
+    .line-numbers {
+      padding: 13px 10px 13px 0;
+      border-right: 1px solid rgba(255,255,255,.06);
+      color: #4d5b6d;
+      text-align: right;
+      font: 10px/20px Consolas, "SFMono-Regular", monospace;
+      white-space: pre;
+      user-select: none;
+    }
+    .code-editor {
+      width: 100%;
+      min-height: 350px;
+      resize: none;
+      border: 0;
+      padding: 13px 15px;
+      background: var(--editor);
+      color: #e5edf7;
+      font: 11px/20px Consolas, "SFMono-Regular", monospace;
+      tab-size: 2;
+      outline: 0;
+    }
+    .terminal { border-top: 1px solid rgba(255,255,255,.08); background: var(--editor-soft); }
+    .terminal-head { min-height: 38px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.07); padding: 0 13px; }
+    .terminal-title { color: white; font-size: 9px; font-weight: 750; }
+    .terminal-result { color: #52d5a1; font-size: 8px; }
+    .terminal-actions { margin-left: auto; display: flex; gap: 7px; }
+    .editor-button { min-height: 28px; border: 1px solid rgba(255,255,255,.13); border-radius: 5px; padding: 0 9px; background: transparent; color: #dce6f2; font-size: 8px; font-weight: 750; }
+    .editor-button.primary { border: 0; background: var(--primary); color: #07111f; }
+    .terminal-output { min-height: 70px; padding: 10px 13px; color: #9eb0c4; font: 9px/16px Consolas, monospace; white-space: pre-wrap; }
+
+    .side-panel { overflow: hidden; }
+    .side-section { border-bottom: 1px solid var(--line); padding: 15px; }
+    .side-section:last-child { border-bottom: 0; }
+    .side-title { display: flex; align-items: center; gap: 8px; margin: 0 0 11px; color: var(--heading); font-size: 10px; font-weight: 800; }
+    .side-title i { width: 14px; height: 14px; color: var(--primary-dark); }
+    .participant { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 7px 0; }
+    .participant-avatar { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--panel-soft); color: var(--heading); font-size: 8px; font-weight: 850; }
+    .participant strong { display: block; color: var(--heading); font-size: 9px; }
+    .participant span { display: block; margin-top: 2px; color: var(--faint); font-size: 8px; }
+    .presence { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+    .context-list { display: grid; gap: 8px; }
+    .context-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 9px; }
+    .context-row strong { color: var(--heading); font-size: 9px; text-align: right; }
+    .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .control-button {
+      min-height: 54px;
+      display: grid;
+      place-items: center;
+      gap: 4px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 8px;
+      font-weight: 750;
+    }
+    .control-button:hover, .control-button.active { border-color: color-mix(in srgb, var(--primary) 42%, var(--line)); background: var(--active); color: var(--active-ink); }
+    .control-button i { width: 16px; height: 16px; }
+    .control-button.wide { grid-column: 1 / -1; min-height: 38px; display: flex; }
+    .question-queue { display: grid; gap: 7px; }
+    .queue-empty {
+      border: 1px dashed var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      color: var(--faint);
+      font-size: 8px;
+      line-height: 1.45;
+      text-align: center;
+    }
+    .queued-question {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px;
+      background: var(--panel-tint);
+    }
+    .queued-question-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .queued-question-number { color: var(--primary-dark); font-size: 8px; font-weight: 850; text-transform: uppercase; }
+    .queued-question-state {
+      border-radius: 5px;
+      padding: 3px 6px;
+      background: var(--warning-soft);
+      color: var(--warning);
+      font-size: 7px;
+      font-weight: 850;
+    }
+    .queued-question-state.answered { background: var(--success-soft); color: var(--success); }
+    .queued-question p { margin: 6px 0 0; color: var(--heading); font-size: 8px; line-height: 1.45; }
+    .queued-question-answer { margin-top: 6px; color: var(--muted); font-size: 8px; line-height: 1.4; }
+
+    .candidate-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 14px;
+      padding: 16px;
+    }
+    .candidate-main { display: flex; align-items: center; gap: 12px; }
+    .candidate-avatar { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: #dff5ff; color: #087aa4; font-size: 15px; font-weight: 850; }
+    .candidate-main h2 { margin: 0; color: var(--heading); font-size: 16px; }
+    .candidate-main p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+    .candidate-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .tag { border-radius: 5px; padding: 4px 7px; background: var(--panel-soft); color: var(--muted); font-size: 8px; font-weight: 750; }
+    .score-block { min-width: 160px; text-align: right; }
+    .score-block strong { display: block; color: var(--heading); font-size: 22px; }
+    .score-block span { color: var(--faint); font-size: 9px; }
+    .evidence-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; align-items: start; }
+    .module-filter { padding: 10px; }
+    .module-button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border: 0;
+      border-radius: 6px;
+      margin-bottom: 3px;
+      padding: 9px;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .module-button:hover { background: var(--panel-soft); }
+    .module-button.active { background: var(--active); color: var(--active-ink); }
+    .module-count { margin-left: auto; color: var(--faint); font-size: 8px; }
+    .evidence-toolbar { display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--line); padding: 11px 14px; }
+    .evidence-toolbar .search { max-width: 380px; }
+    .evidence-count { margin-left: auto; color: var(--faint); font-size: 9px; }
+    .response-list { padding: 0 14px; }
+    .response-item { border-bottom: 1px solid var(--line); }
+    .response-item:last-child { border-bottom: 0; }
+    .response-toggle {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      padding: 14px 0;
+      background: transparent;
+      text-align: left;
+    }
+    .response-number { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; background: var(--panel-soft); color: var(--muted); font-size: 9px; font-weight: 850; }
+    .response-toggle strong { display: block; color: var(--heading); font-size: 10px; line-height: 1.4; }
+    .response-toggle span { display: block; margin-top: 3px; color: var(--faint); font-size: 8px; }
+    .response-chevron { width: 14px; height: 14px; color: var(--faint); transition: transform .16s ease; }
+    .response-item.open .response-chevron { transform: rotate(180deg); }
+    .response-content { display: none; padding: 0 0 16px 38px; }
+    .response-item.open .response-content { display: block; }
+    .answer-box { border-left: 3px solid var(--primary); padding: 10px 12px; background: var(--panel-tint); color: var(--ink); font-size: 10px; line-height: 1.6; }
+    .followup-box { margin-top: 8px; border-left-color: #8b5cf6; }
+    .answer-label { display: block; margin-bottom: 5px; color: var(--primary-dark); font-size: 8px; font-weight: 850; text-transform: uppercase; }
+    .followup-box .answer-label { color: #7c3aed; }
+    .response-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; color: var(--faint); font-size: 8px; }
+
+    .health-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .health-card { min-height: 110px; padding: 15px; }
+    .health-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .health-title { color: var(--muted); font-size: 9px; font-weight: 750; }
+    .health-value { margin-top: 9px; color: var(--heading); font-size: 21px; font-weight: 820; }
+    .health-detail { margin-top: 4px; color: var(--faint); font-size: 8px; }
+    .health-bar { height: 4px; overflow: hidden; border-radius: 4px; margin-top: 12px; background: var(--panel-soft); }
+    .health-bar span { display: block; height: 100%; border-radius: inherit; background: var(--success); }
+    .health-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); gap: 14px; }
+    .service-row {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) 90px 80px;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding: 11px 0;
+    }
+    .service-row:last-child { border-bottom: 0; }
+    .service-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 7px; background: var(--panel-soft); color: var(--muted); }
+    .service-icon i { width: 15px; height: 15px; }
+    .service-row strong { display: block; color: var(--heading); font-size: 10px; }
+    .service-row span { display: block; margin-top: 2px; color: var(--faint); font-size: 8px; }
+    .latency { color: var(--heading); font-size: 9px; font-weight: 750; text-align: right; }
+    .timeline { display: grid; gap: 0; }
+    .timeline-item { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 9px; padding-bottom: 14px; }
+    .timeline-item:not(:last-child)::before { content: ""; position: absolute; top: 10px; bottom: -2px; left: 4px; width: 1px; background: var(--line); }
+    .timeline-dot { width: 9px; height: 9px; margin-top: 3px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 10%, transparent); }
+    .timeline-dot.warning { background: var(--warning); }
+    .timeline-item strong { display: block; color: var(--heading); font-size: 9px; }
+    .timeline-item p { margin: 3px 0 0; color: var(--muted); font-size: 8px; line-height: 1.45; }
+    .timeline-item time { display: block; margin-top: 4px; color: var(--faint); font-size: 8px; }
+
+    .readiness-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 14px; align-items: start; }
+    .readiness-score { padding: 20px; text-align: center; }
+    .ring {
+      --progress: 65;
+      width: 118px;
+      height: 118px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      margin: 4px auto 14px;
+      background: conic-gradient(var(--primary) calc(var(--progress) * 1%), var(--panel-soft) 0);
+      position: relative;
+    }
+    .ring::after { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: var(--panel); }
+    .ring-value { position: relative; z-index: 1; color: var(--heading); font-size: 25px; font-weight: 850; }
+    .readiness-score h2 { margin: 0; color: var(--heading); font-size: 13px; }
+    .readiness-score p { margin: 7px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+    .checklist { padding: 0 16px; }
+    .check-item {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding: 13px 0;
+    }
+    .check-item:last-child { border-bottom: 0; }
+    .check-item input { width: 15px; height: 15px; accent-color: var(--primary); }
+    .check-item strong { display: block; color: var(--heading); font-size: 10px; }
+    .check-item span { display: block; margin-top: 2px; color: var(--faint); font-size: 8px; }
+    .check-tag { border-radius: 5px; padding: 4px 7px; background: var(--panel-soft); color: var(--muted); font-size: 8px; font-weight: 800; }
+
+    .candidate-preview {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      background: rgba(2, 8, 23, .52);
+      backdrop-filter: blur(4px);
+    }
+    .candidate-preview.open { display: flex; }
+    .candidate-preview-dialog {
+      width: min(100%, 1040px);
+      max-height: min(860px, calc(100vh - 44px));
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--canvas);
+      box-shadow: var(--shadow-raised);
+    }
+    .candidate-preview-head {
+      height: 62px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 16px;
+      background: var(--panel);
+    }
+    .candidate-preview-head img { width: 34px; height: 34px; object-fit: contain; }
+    .candidate-preview-head strong { display: block; color: var(--heading); font-size: 11px; }
+    .candidate-preview-head span { display: block; margin-top: 2px; color: var(--faint); font-size: 8px; }
+    .candidate-preview-head .connection-state { margin-left: auto; }
+    .candidate-preview-close { margin-left: 4px; }
+    .candidate-preview-body {
+      max-height: calc(min(860px, 100vh - 44px) - 62px);
+      overflow-y: auto;
+      padding: 22px;
+    }
+    .candidate-stage {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .candidate-modules { padding: 10px; }
+    .candidate-module {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      padding: 9px;
+      color: var(--muted);
+      font-size: 8px;
+      font-weight: 750;
+    }
+    .candidate-module.active { background: var(--active); color: var(--active-ink); }
+    .candidate-module i { width: 14px; height: 14px; flex: none; }
+    .candidate-question-card { padding: 18px; }
+    .candidate-question-kicker { color: var(--primary-dark); font-size: 8px; font-weight: 850; text-transform: uppercase; }
+    .candidate-question-card h2 { margin: 7px 0 0; color: var(--heading); font-size: 16px; line-height: 1.45; }
+    .candidate-question-card > p { margin: 8px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+    .interviewer-inbox {
+      margin-top: 16px;
+      border: 1px solid color-mix(in srgb, #8b7cf6 24%, var(--line));
+      border-radius: 7px;
+      padding: 14px;
+      background: color-mix(in srgb, #8b7cf6 8%, var(--panel));
+    }
+    .interviewer-inbox.empty { border-style: dashed; background: var(--panel-tint); }
+    .interviewer-inbox-head { display: flex; align-items: center; gap: 8px; color: #6956d9; font-size: 9px; font-weight: 850; }
+    .interviewer-inbox-head i { width: 15px; height: 15px; }
+    .interviewer-inbox-head .status { margin-left: auto; }
+    .interviewer-question-text { margin: 9px 0 0; color: var(--heading); font-size: 11px; font-weight: 700; line-height: 1.55; }
+    .interviewer-meta { margin-top: 5px; color: var(--faint); font-size: 8px; }
+    .candidate-answer {
+      width: 100%;
+      min-height: 112px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      margin-top: 11px;
+      padding: 10px 11px;
+      background: var(--field);
+      color: var(--heading);
+      font-size: 10px;
+      line-height: 1.55;
+      outline: 0;
+    }
+    .candidate-answer:focus { border-color: #8b7cf6; box-shadow: 0 0 0 3px color-mix(in srgb, #8b7cf6 12%, transparent); }
+    .candidate-answer-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 9px; }
+    .candidate-answer-actions p { margin: 0; color: var(--faint); font-size: 8px; line-height: 1.4; }
+    .candidate-waiting {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.5;
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 100;
+      min-width: 250px;
+      max-width: 360px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: var(--panel);
+      color: var(--heading);
+      box-shadow: var(--shadow-raised);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .toast.show { display: flex; animation: toast-in .2s ease both; }
+    .toast i { width: 16px; height: 16px; color: var(--success); }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .muted { color: var(--faint); }
+    .mobile-overlay { display: none; }
+
+    @media (max-width: 1180px) {
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .split-grid, .health-layout { grid-template-columns: 1fr; }
+      .room-layout { grid-template-columns: minmax(0, 1fr) 270px; }
+      .room-meta .optional { display: none; }
+    }
+    @media (max-width: 920px) {
+      .app { display: block; }
+      .sidebar {
+        position: fixed;
+        left: 0;
+        transform: translateX(-100%);
+        width: 268px;
+        transition: transform .2s ease;
+        box-shadow: var(--shadow-raised);
+      }
+      .app.sidebar-open .sidebar { transform: translateX(0); }
+      .app.sidebar-open .mobile-overlay { position: fixed; inset: 0; z-index: 35; display: block; border: 0; background: rgba(2, 8, 23, .42); }
+      .icon-button.mobile-menu { display: grid; }
+      .topbar { padding: 0 18px; }
+      .content { padding: 22px 18px 40px; }
+      .room-layout { grid-template-columns: 1fr; }
+      .side-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .side-section { border-right: 1px solid var(--line); border-bottom: 0; }
+      .side-section:last-child { border-right: 0; }
+      .room-head { flex-wrap: wrap; }
+      .room-meta { width: 100%; padding-left: 46px; }
+    }
+    @media (max-width: 700px) {
+      .topbar .environment, .topbar .top-primary { display: none; }
+      .page-head { align-items: flex-start; flex-direction: column; }
+      .metric-grid, .health-grid { grid-template-columns: 1fr; }
+      .room-table th:nth-child(3), .room-table td:nth-child(3), .room-table th:nth-child(4), .room-table td:nth-child(4) { display: none; }
+      .candidate-hero { grid-template-columns: 1fr; }
+      .score-block { text-align: left; }
+      .evidence-layout, .readiness-layout { grid-template-columns: 1fr; }
+      .module-filter { display: flex; overflow-x: auto; }
+      .module-button { width: auto; flex: none; white-space: nowrap; }
+      .code-workspace { grid-template-columns: 1fr; }
+      .challenge-rail { display: flex; gap: 5px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .rail-label { display: none; }
+      .challenge { width: 170px; flex: none; margin: 0; }
+      .side-panel { grid-template-columns: 1fr; }
+      .side-section { border-right: 0; border-bottom: 1px solid var(--line); }
+      .service-row { grid-template-columns: 34px minmax(0, 1fr) auto; }
+      .service-row .status { display: none; }
+      .conversation { height: 600px; }
+      .candidate-preview { padding: 10px; }
+      .candidate-preview-dialog { max-height: calc(100vh - 20px); }
+      .candidate-preview-body { max-height: calc(100vh - 82px); padding: 12px; }
+      .candidate-stage { grid-template-columns: 1fr; }
+      .candidate-modules { display: flex; overflow-x: auto; }
+      .candidate-module { flex: none; white-space: nowrap; }
+    }
+    @media (max-width: 480px) {
+      .content { padding-right: 12px; padding-left: 12px; }
+      h1 { font-size: 25px; }
+      .top-actions .secondary-button { display: none; }
+      .room-table th:nth-child(2), .room-table td:nth-child(2) { display: none; }
+      .filter-bar { align-items: stretch; flex-direction: column; }
+      .room-meta { padding-left: 0; flex-wrap: wrap; }
+      .evidence-toolbar { align-items: stretch; flex-direction: column; }
+      .evidence-toolbar .search { max-width: none; }
+      .evidence-count { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <button class="mobile-overlay" id="mobileOverlay" aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <img src="../public/evalora-mark.png" alt="" />
+        <span class="brand-copy">
+          <span class="brand-name">Evalora</span>
+          <span class="brand-sub">AI Candidate</span>
+          <span class="brand-sub">Assessment Platform</span>
+        </span>
+      </div>
+      <nav class="nav">
+        <div class="nav-group">
+          <button class="nav-item" data-view="live">
+            <i data-lucide="home"></i><span>Dashboard</span>
+          </button>
+          <button class="nav-item" data-view="evidence">
+            <i data-lucide="clipboard-list"></i><span>Assessment Templates</span>
+          </button>
+          <button class="nav-item active" data-view="live">
+            <i data-lucide="message-square"></i><span>Interview Session</span>
+            <span class="nav-badge">2</span>
+          </button>
+          <button class="nav-item" data-view="evidence">
+            <i data-lucide="user-round"></i><span>Candidates</span>
+          </button>
+          <button class="nav-item" data-view="health">
+            <i data-lucide="chart-no-axes-combined"></i><span>Analytics</span>
+          </button>
+        </div>
+
+        <p class="nav-label">Live operations</p>
+        <div class="nav-group">
+          <button class="nav-item" data-view="live">
+            <i data-lucide="radio"></i><span>Live rooms</span>
+            <span class="nav-badge">2</span>
+          </button>
+          <button class="nav-item" data-view="evidence">
+            <i data-lucide="file-search"></i><span>Review evidence</span>
+          </button>
+          <button class="nav-item" data-view="health">
+            <i data-lucide="activity"></i><span>System health</span>
+          </button>
+        </div>
+
+        <p class="nav-label">Workspace</p>
+        <div class="nav-group">
+          <button class="nav-item" data-view="delivery"><i data-lucide="users"></i><span>Team</span></button>
+          <button class="nav-item" data-view="delivery"><i data-lucide="rocket"></i><span>Release readiness</span></button>
+        </div>
+
+        <p class="nav-label">Account</p>
+        <div class="nav-group">
+          <button class="nav-item" data-view="delivery"><i data-lucide="settings"></i><span>Settings</span></button>
+        </div>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="profile">
+          <span class="avatar">AT</span>
+          <span>
+            <strong>Acme Talent</strong>
+            <span>Workspace owner</span>
+          </span>
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="mobileMenu" aria-label="Open navigation" title="Open navigation">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="environment">
+          <span class="live-dot"></span>
+          <span>Production preview</span>
+        </div>
+        <div class="top-actions">
+          <button class="secondary-button" id="connectionTest"><i data-lucide="wifi"></i> Test connection</button>
+          <button class="primary-button top-primary" data-open-room><i data-lucide="video"></i> Open live room</button>
+          <button class="icon-button" id="themeButton" aria-label="Change theme" title="Theme: light"><i data-lucide="sun"></i></button>
+          <button class="icon-button top-avatar" aria-label="Organization account">AT</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="view active" id="view-live">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Interview operations</p>
+              <h1>Live interview rooms</h1>
+              <p class="page-copy">Monitor active assessments, connection state, AI responsiveness, and candidate progress from one operational view.</p>
+            </div>
+            <div class="head-actions">
+              <button class="secondary-button" data-view-button="evidence"><i data-lucide="file-search"></i> Review evidence</button>
+              <button class="primary-button" data-open-room><i data-lucide="video"></i> Join active room</button>
+            </div>
+          </div>
+
+          <section class="metric-grid" aria-label="Live interview summary">
+            <article class="metric">
+              <span class="metric-icon success"><i data-lucide="radio"></i></span>
+              <span><span class="metric-label">Live now</span><span class="metric-value">2</span><span class="metric-detail">Both rooms are receiving updates</span></span>
+            </article>
+            <article class="metric">
+              <span class="metric-icon warning"><i data-lucide="clock-3"></i></span>
+              <span><span class="metric-label">Waiting to start</span><span class="metric-value">4</span><span class="metric-detail">Next session begins in 18 minutes</span></span>
+            </article>
+            <article class="metric">
+              <span class="metric-icon"><i data-lucide="gauge"></i></span>
+              <span><span class="metric-label">Live latency</span><span class="metric-value">84 ms</span><span class="metric-detail">WebSocket p95 across active rooms</span></span>
+            </article>
+            <article class="metric">
+              <span class="metric-icon success"><i data-lucide="sparkles"></i></span>
+              <span><span class="metric-label">AI availability</span><span class="metric-value">99.9%</span><span class="metric-detail">Fallback evaluator is ready</span></span>
+            </article>
+          </section>
+
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <span>
+                  <h2 class="panel-title">Current interview rooms</h2>
+                  <p class="panel-subtitle">Live state is synchronized without refreshing the page.</p>
+                </span>
+                <span class="connection-state" id="overviewConnection"><span class="status-dot"></span> Connected</span>
+              </div>
+              <div class="filter-bar">
+                <label class="search">
+                  <i data-lucide="search"></i>
+                  <input id="roomSearch" type="search" placeholder="Search candidate or assessment..." />
+                </label>
+                <select class="select" aria-label="Filter interview rooms"><option>All rooms</option><option>Live</option><option>Waiting</option></select>
+              </div>
+              <div style="overflow-x:auto">
+                <table class="room-table">
+                  <thead><tr><th>Candidate</th><th>Assessment</th><th>Progress</th><th>Connection</th><th></th></tr></thead>
+                  <tbody id="roomRows">
+                    <tr data-room-row>
+                      <td><span class="identity"><span class="identity-avatar">LM</span><span><strong>Lina Meas</strong><span>lina@example.com</span></span></span></td>
+                      <td><strong>Software Engineer</strong><br><span class="muted">Adaptive interview</span></td>
+                      <td><strong>72%</strong><br><span class="muted">18 of 25 responses</span></td>
+                      <td><span class="status live"><span class="status-dot"></span> Live &middot; 62 ms</span></td>
+                      <td><button class="row-action" data-open-room>Open room</button></td>
+                    </tr>
+                    <tr data-room-row>
+                      <td><span class="identity"><span class="identity-avatar">DK</span><span><strong>Dara Kim</strong><span>dara@example.com</span></span></span></td>
+                      <td><strong>Team Leader</strong><br><span class="muted">Leadership case</span></td>
+                      <td><strong>41%</strong><br><span class="muted">9 of 22 responses</span></td>
+                      <td><span class="status live"><span class="status-dot"></span> Live &middot; 106 ms</span></td>
+                      <td><button class="row-action" data-open-room>Open room</button></td>
+                    </tr>
+                    <tr data-room-row>
+                      <td><span class="identity"><span class="identity-avatar">SR</span><span><strong>Sokha Roeun</strong><span>sokha@example.com</span></span></span></td>
+                      <td><strong>Data Analyst</strong><br><span class="muted">Starts at 14:30</span></td>
+                      <td><strong>0%</strong><br><span class="muted">Not started</span></td>
+                      <td><span class="status waiting"><span class="status-dot"></span> Waiting</span></td>
+                      <td><button class="row-action">View details</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <aside class="panel">
+              <div class="panel-head">
+                <span><h2 class="panel-title">Required feature coverage</h2><p class="panel-subtitle">Capabilities added by this shell.</p></span>
+              </div>
+              <div class="panel-body coverage-list">
+                <div class="coverage-item"><span class="coverage-icon"><i data-lucide="message-square-more"></i></span><span><strong>Streaming AI interview</strong><span>Persistent conversation and follow-ups</span></span><span class="coverage-state">Ready</span></div>
+                <div class="coverage-item"><span class="coverage-icon"><i data-lucide="code-xml"></i></span><span><strong>Multi-language coding</strong><span>Editor, execution, autosave, code review</span></span><span class="coverage-state">Ready</span></div>
+                <div class="coverage-item"><span class="coverage-icon"><i data-lucide="refresh-cw"></i></span><span><strong>Reconnect handling</strong><span>Resume from the latest saved event</span></span><span class="coverage-state">Ready</span></div>
+                <div class="coverage-item"><span class="coverage-icon"><i data-lucide="file-search"></i></span><span><strong>Candidate answer review</strong><span>Questions, answers, follow-ups, code</span></span><span class="coverage-state">Ready</span></div>
+                <div class="coverage-item"><span class="coverage-icon"><i data-lucide="activity"></i></span><span><strong>System activity</strong><span>Latency, queues, failures, concurrency</span></span><span class="coverage-state">Ready</span></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-room">
+          <button class="breadcrumb" data-view-button="live"><i data-lucide="arrow-left"></i> Live interview rooms</button>
+          <div class="room-head">
+            <span class="identity">
+              <span class="identity-avatar">LM</span>
+              <span><strong>Lina Meas</strong><span>Software Engineer &middot; AI interview in progress</span></span>
+            </span>
+            <div class="room-meta">
+              <span><i data-lucide="timer"></i> 36:18 remaining</span>
+              <span class="optional"><i data-lucide="users"></i> 3 participants</span>
+              <span class="connection-state" id="roomConnection"><span class="status-dot"></span> Live &middot; 62 ms</span>
+            </div>
+            <button class="danger-button" id="endSession"><i data-lucide="phone-off"></i> End session</button>
+          </div>
+
+          <div class="room-layout">
+            <section class="panel room-workspace">
+              <div class="workspace-tabs" role="tablist">
+                <button class="workspace-tab active" data-room-tab="conversation"><i data-lucide="message-square-more"></i> AI conversation</button>
+                <button class="workspace-tab" data-room-tab="code"><i data-lucide="code-xml"></i> Shared coding</button>
+              </div>
+
+              <div class="room-pane active" id="room-pane-conversation">
+                <div class="conversation">
+                  <div class="conversation-toolbar">
+                    <p><strong>Adaptive question 3 of 5</strong> &middot; Grounded in the candidate's saved answers</p>
+                    <div style="display:flex;align-items:center;gap:4px">
+                      <button class="quiet-button" id="previewCandidate"><i data-lucide="eye"></i> Candidate preview</button>
+                      <button class="quiet-button" id="generateFollowup"><i data-lucide="sparkles"></i> Generate AI follow-up</button>
+                    </div>
+                  </div>
+                  <div class="messages" id="messages">
+                    <div class="message ai">
+                      <span class="message-avatar">AI</span>
+                      <div class="message-body">
+                        <span class="message-label">Evalora AI <span class="provider">DeepSeek</span></span>
+                        Earlier you described reducing deployment failures by introducing staged releases. What trade-off did you make between release speed and confidence, and how did you measure whether it was worthwhile?
+                      </div>
+                    </div>
+                    <div class="message candidate">
+                      <div class="message-body">
+                        <span class="message-label">Candidate &middot; saved</span>
+                        We initially accepted a 12-minute increase in release time. In return, canary checks reduced rollback events from six per month to one. After automating the verification step, the added time fell to four minutes.
+                      </div>
+                      <span class="message-avatar">LM</span>
+                    </div>
+                    <div class="message ai">
+                      <span class="message-avatar">AI</span>
+                      <div class="message-body">
+                        <span class="message-label">Evalora AI <span class="provider">Follow-up</span></span>
+                        How did you decide that one rollback per month was acceptable, and what signal would have caused you to stop the rollout?
+                      </div>
+                    </div>
+                  </div>
+                  <div class="composer">
+                    <textarea id="chatInput" aria-label="Interviewer follow-up question" maxlength="2000" placeholder="Write a follow-up question for the candidate..."></textarea>
+                    <button class="primary-button send-button" id="sendMessage" aria-label="Send question to candidate" title="Send question to candidate"><i data-lucide="send"></i></button>
+                    <p class="composer-note"><i data-lucide="lock-keyhole"></i> This draft is private. The candidate sees the question only after you send it.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="room-pane" id="room-pane-code">
+                <div class="code-workspace">
+                  <aside class="challenge-rail">
+                    <p class="rail-label">Challenges</p>
+                    <button class="challenge active"><span class="challenge-number">1</span><span><strong>Rate limiter</strong><span>Medium &middot; shared</span></span></button>
+                    <button class="challenge"><span class="challenge-number">2</span><span><strong>Event deduplication</strong><span>Medium &middot; queued</span></span></button>
+                    <button class="challenge"><span class="challenge-number">3</span><span><strong>Session recovery</strong><span>Hard &middot; queued</span></span></button>
+                  </aside>
+                  <div class="editor-pane">
+                    <div class="editor-bar">
+                      <select class="language-select" id="languageSelect" aria-label="Programming language">
+                        <option value="javascript">JavaScript (Node.js)</option>
+                        <option value="python">Python 3</option>
+                        <option value="java">Java 21</option>
+                        <option value="typescript">TypeScript</option>
+                      </select>
+                      <span class="editor-file" id="editorFile">solution.js</span>
+                      <span class="editor-status"><i data-lucide="mouse-pointer-2"></i> Interviewer viewing line 7</span>
+                      <span class="editor-status" id="autosaveStatus"><i data-lucide="cloud"></i> Saved</span>
+                    </div>
+                    <div class="editor-wrap">
+                      <pre class="line-numbers" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18</pre>
+                      <textarea class="code-editor" id="codeEditor" aria-label="Shared code editor" spellcheck="false">class TokenBucket {
+  constructor(capacity, refillPerSecond) {
+    this.capacity = capacity;
+    this.tokens = capacity;
+    this.refillPerSecond = refillPerSecond;
+    this.lastRefill = Date.now();
+  }
+
+  allow() {
+    const now = Date.now();
+    const elapsed = (now - this.lastRefill) / 1000;
+    this.tokens = Math.min(
+      this.capacity,
+      this.tokens + elapsed * this.refillPerSecond
+    );
+    this.lastRefill = now;
+    if (this.tokens &lt; 1) return false;
+    this.tokens -= 1;
+    return true;
+  }
+}</textarea>
+                    </div>
+                    <div class="terminal">
+                      <div class="terminal-head">
+                        <span class="terminal-title">Test results</span>
+                        <span class="terminal-result" id="terminalResult">Ready</span>
+                        <div class="terminal-actions">
+                          <button class="editor-button" id="aiReview"><i data-lucide="sparkles"></i> AI review</button>
+                          <button class="editor-button primary" id="runCode"><i data-lucide="play"></i> Run tests</button>
+                        </div>
+                      </div>
+                      <div class="terminal-output" id="terminalOutput">Run tests to validate the shared solution against isolated test cases.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="panel side-panel">
+              <section class="side-section">
+                <h3 class="side-title"><i data-lucide="users"></i> Participants</h3>
+                <div class="participant"><span class="participant-avatar">LM</span><span><strong>Lina Meas</strong><span>Candidate &middot; speaking</span></span><span class="presence"></span></div>
+                <div class="participant"><span class="participant-avatar">JD</span><span><strong>John Doe</strong><span>Interviewer &middot; host</span></span><span class="presence"></span></div>
+                <div class="participant"><span class="participant-avatar">AI</span><span><strong>Evalora AI</strong><span>Interview assistant</span></span><span class="presence"></span></div>
+              </section>
+              <section class="side-section">
+                <h3 class="side-title"><i data-lucide="clipboard-list"></i> Session context</h3>
+                <div class="context-list">
+                  <div class="context-row"><span>Module</span><strong>Adaptive interview</strong></div>
+                  <div class="context-row"><span>Question</span><strong>3 of 5</strong></div>
+                  <div class="context-row"><span>Autosave</span><strong>Event #184</strong></div>
+                  <div class="context-row"><span>AI fallback</span><strong>Ready</strong></div>
+                  <div class="context-row"><span>Recording</span><strong id="recordingText">Off</strong></div>
+                </div>
+              </section>
+              <section class="side-section">
+                <h3 class="side-title"><i data-lucide="list-ordered"></i> Interviewer questions</h3>
+                <div class="question-queue" id="questionQueue">
+                  <div class="queue-empty">No interviewer questions sent yet. Draft a question in the conversation panel.</div>
+                </div>
+              </section>
+              <section class="side-section">
+                <h3 class="side-title"><i data-lucide="sliders-horizontal"></i> Room controls</h3>
+                <div class="control-grid">
+                  <button class="control-button" id="shareScreen"><i data-lucide="screen-share"></i><span>Share screen</span></button>
+                  <button class="control-button" id="recordSession"><i data-lucide="circle-dot"></i><span>Record</span></button>
+                  <button class="control-button" id="simulateReconnect"><i data-lucide="refresh-cw"></i><span>Reconnect</span></button>
+                  <button class="control-button" data-room-tab-button="code" onclick="openRoomTab('code')"><i data-lucide="code-xml"></i><span>Open code</span></button>
+                  <button class="control-button wide" data-view-button="evidence"><i data-lucide="file-search"></i><span>Open answer evidence</span></button>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-evidence">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Candidate evidence</p>
+              <h1>Review every submitted answer</h1>
+              <p class="page-copy">Inspect the candidate's original responses, AI follow-ups, code submissions, and evaluation evidence before making a human decision.</p>
+            </div>
+            <div class="head-actions">
+              <button class="secondary-button"><i data-lucide="download"></i> Export transcript</button>
+              <button class="primary-button" data-open-room><i data-lucide="radio"></i> Open live room</button>
+            </div>
+          </div>
+
+          <section class="panel candidate-hero">
+            <div class="candidate-main">
+              <span class="candidate-avatar">LM</span>
+              <span>
+                <h2>Lina Meas <span class="status live"><span class="status-dot"></span> In assessment</span></h2>
+                <p>Software Engineer &middot; lina@example.com &middot; Invited Jul 28, 2026</p>
+                <span class="candidate-tags"><span class="tag">18 responses</span><span class="tag">2 code submissions</span><span class="tag">3 AI follow-ups</span><span class="tag">Integrity signals: low risk</span><span class="tag">Last saved 18s ago</span></span>
+              </span>
+            </div>
+            <div class="score-block"><strong>72%</strong><span>Progress &middot; evaluation pending</span></div>
+          </section>
+
+          <div class="evidence-layout">
+            <aside class="panel module-filter" aria-label="Response modules">
+              <button class="module-button active" data-module="all"><i data-lucide="layers-3"></i> All evidence <span class="module-count">18</span></button>
+              <button class="module-button" data-module="behavioral"><i data-lucide="user-round-check"></i> Behavioral <span class="module-count">5</span></button>
+              <button class="module-button" data-module="leadership"><i data-lucide="shield-check"></i> Leadership <span class="module-count">4</span></button>
+              <button class="module-button" data-module="coding"><i data-lucide="code-xml"></i> Coding <span class="module-count">2</span></button>
+              <button class="module-button" data-module="debugging"><i data-lucide="bug"></i> Debugging <span class="module-count">4</span></button>
+              <button class="module-button" data-module="ai"><i data-lucide="sparkles"></i> AI interview <span class="module-count">3</span></button>
+            </aside>
+
+            <section class="panel">
+              <div class="evidence-toolbar">
+                <label class="search"><i data-lucide="search"></i><input id="evidenceSearch" type="search" placeholder="Search questions and answers..." /></label>
+                <select class="select" id="evidenceType" aria-label="Evidence type"><option value="all">All types</option><option value="answer">Written answers</option><option value="followup">AI follow-ups</option><option value="code">Code submissions</option></select>
+                <span class="evidence-count" id="evidenceCount">Showing 5 records</span>
+              </div>
+              <div class="response-list" id="responseList">
+                <article class="response-item open" data-module-name="behavioral" data-type="answer">
+                  <button class="response-toggle">
+                    <span class="response-number">1</span>
+                    <span><strong>Describe a production incident where your first assumption was wrong. How did you recover?</strong><span>Behavioral &middot; Written response &middot; Saved 12:42</span></span>
+                    <i class="response-chevron" data-lucide="chevron-down"></i>
+                  </button>
+                  <div class="response-content">
+                    <div class="answer-box"><span class="answer-label">Candidate answer</span>During a payment outage I initially blamed a recent API deployment. The traces instead showed connection pool exhaustion in an unchanged worker. I paused the rollback, reduced worker concurrency, restored traffic, and then added pool saturation alerts. The incident lasted 19 minutes and the same failure has not repeated in six months.</div>
+                    <div class="response-meta"><span>1,248 characters</span><span>Saved successfully</span><span>Included in AI evaluation</span></div>
+                  </div>
+                </article>
+                <article class="response-item" data-module-name="leadership" data-type="followup">
+                  <button class="response-toggle">
+                    <span class="response-number">2</span>
+                    <span><strong>How do you handle disagreement about a technical direction when you are not the decision owner?</strong><span>Leadership &middot; Answer with AI follow-up &middot; Saved 12:51</span></span>
+                    <i class="response-chevron" data-lucide="chevron-down"></i>
+                  </button>
+                  <div class="response-content">
+                    <div class="answer-box"><span class="answer-label">Candidate answer</span>I document the decision criteria, compare the options against those criteria, and make my disagreement explicit without blocking the owner. Once a decision is made, I support it unless new evidence changes the risk.</div>
+                    <div class="answer-box followup-box"><span class="answer-label">AI follow-up</span>Give one example where you disagreed, committed to the chosen direction, and later measured whether the decision worked.<br><br><strong>Candidate response:</strong> On a migration project I preferred an incremental strategy, but the owner chose a scheduled cutover. I built rollback checkpoints and monitoring around the chosen plan. The cutover met the target, although our rollback drill exposed a missing permission that we fixed before launch.</div>
+                    <div class="response-meta"><span>Follow-up generated from prior answer</span><span>Provider: DeepSeek</span><span>Human review required</span></div>
+                  </div>
+                </article>
+                <article class="response-item" data-module-name="coding" data-type="code">
+                  <button class="response-toggle">
+                    <span class="response-number">3</span>
+                    <span><strong>Implement a token-bucket rate limiter with deterministic refill behavior.</strong><span>Coding &middot; JavaScript &middot; 7 of 8 tests passed</span></span>
+                    <i class="response-chevron" data-lucide="chevron-down"></i>
+                  </button>
+                  <div class="response-content">
+                    <div class="answer-box"><span class="answer-label">Execution evidence</span><strong>Score:</strong> 87.5% &middot; <strong>Runtime:</strong> 41 ms &middot; <strong>Memory:</strong> 18.4 MB<br>Passed capacity, burst, refill, fractional refill, and boundary tests. Failed the clock-skew test because elapsed time can become negative.</div>
+                    <div class="answer-box followup-box"><span class="answer-label">AI code review</span>The structure is clear and the refill calculation is efficient. Clamp elapsed time to zero and inject a clock dependency so behavior remains deterministic under clock changes and unit tests.</div>
+                    <div class="response-meta"><span>Submission #2</span><span>Sandbox: Piston</span><span>Source retained for reviewer</span></div>
+                  </div>
+                </article>
+                <article class="response-item" data-module-name="debugging" data-type="answer">
+                  <button class="response-toggle">
+                    <span class="response-number">4</span>
+                    <span><strong>A test fails randomly in CI but passes locally. What steps do you take before disabling it?</strong><span>Debugging &middot; Written response &middot; Saved 13:04</span></span>
+                    <i class="response-chevron" data-lucide="chevron-down"></i>
+                  </button>
+                  <div class="response-content">
+                    <div class="answer-box"><span class="answer-label">Candidate answer</span>I preserve the failure artifacts, compare environment and dependency versions, inspect shared state and timing assumptions, run the test repeatedly with randomized ordering, and add instrumentation. I quarantine only when it blocks delivery and the quarantine has an owner and deadline.</div>
+                    <div class="response-meta"><span>672 characters</span><span>Saved successfully</span><span>Rubric: investigation, containment, prevention</span></div>
+                  </div>
+                </article>
+                <article class="response-item" data-module-name="ai" data-type="followup">
+                  <button class="response-toggle">
+                    <span class="response-number">5</span>
+                    <span><strong>What evidence would convince you that your staged-release process is no longer worth the operational cost?</strong><span>AI interview &middot; Adaptive question &middot; In progress</span></span>
+                    <i class="response-chevron" data-lucide="chevron-down"></i>
+                  </button>
+                  <div class="response-content">
+                    <div class="answer-box"><span class="answer-label">Candidate answer</span>If release incidents stayed below our error budget for two quarters while the staged process remained the main contributor to lead time, I would test a lighter approach on low-risk services and compare rollback rate, change failure rate, and deployment time.</div>
+                    <div class="response-meta"><span>Question generated from complete assessment context</span><span>Saved 18 seconds ago</span></div>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-health">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Platform operations</p>
+              <h1>System activity and reliability</h1>
+              <p class="page-copy">Track concurrent sessions, real-time delivery, AI and sandbox latency, reconnects, and background processing.</p>
+            </div>
+            <div class="head-actions">
+              <button class="secondary-button" id="simulateIncident"><i data-lucide="triangle-alert"></i> Simulate incident</button>
+              <button class="primary-button" id="refreshHealth"><i data-lucide="refresh-cw"></i> Refresh metrics</button>
+            </div>
+          </div>
+
+          <section class="health-grid">
+            <article class="panel health-card"><div class="health-top"><span class="health-title">Concurrent sessions</span><span class="status live"><span class="status-dot"></span> Healthy</span></div><div class="health-value">24 / 250</div><div class="health-detail">9.6% of tested capacity</div><div class="health-bar"><span style="width:9.6%"></span></div></article>
+            <article class="panel health-card"><div class="health-top"><span class="health-title">Event delivery</span><span class="status live"><span class="status-dot"></span> Healthy</span></div><div class="health-value">99.98%</div><div class="health-detail">Last 15 minutes &middot; 18,420 events</div><div class="health-bar"><span style="width:99.98%"></span></div></article>
+            <article class="panel health-card"><div class="health-top"><span class="health-title">Reconnect success</span><span class="status live"><span class="status-dot"></span> Healthy</span></div><div class="health-value">100%</div><div class="health-detail">14 resumptions &middot; no progress lost</div><div class="health-bar"><span style="width:100%"></span></div></article>
+          </section>
+
+          <div class="health-layout">
+            <section class="panel">
+              <div class="panel-head"><span><h2 class="panel-title">Service health</h2><p class="panel-subtitle">Latest p95 latency and availability.</p></span><span class="connection-state"><span class="status-dot"></span> All systems operational</span></div>
+              <div class="panel-body" id="serviceList">
+                <div class="service-row"><span class="service-icon"><i data-lucide="radio-tower"></i></span><span><strong>Live session gateway</strong><span>WebSocket rooms and presence</span></span><span class="status live"><span class="status-dot"></span> Operational</span><span class="latency">84 ms</span></div>
+                <div class="service-row"><span class="service-icon"><i data-lucide="sparkles"></i></span><span><strong>AI interview service</strong><span>Streaming questions and evaluation</span></span><span class="status live"><span class="status-dot"></span> Operational</span><span class="latency">1.8 s</span></div>
+                <div class="service-row"><span class="service-icon"><i data-lucide="code-xml"></i></span><span><strong>Code execution sandbox</strong><span>Isolated compile and test workers</span></span><span class="status live"><span class="status-dot"></span> Operational</span><span class="latency">740 ms</span></div>
+                <div class="service-row"><span class="service-icon"><i data-lucide="database"></i></span><span><strong>Persistence layer</strong><span>Responses, events, transcripts</span></span><span class="status live"><span class="status-dot"></span> Operational</span><span class="latency">31 ms</span></div>
+                <div class="service-row"><span class="service-icon"><i data-lucide="list-restart"></i></span><span><strong>Background workers</strong><span>Reports, email, exports</span></span><span class="status live"><span class="status-dot"></span> Operational</span><span class="latency">3 queued</span></div>
+              </div>
+            </section>
+            <aside class="panel">
+              <div class="panel-head"><span><h2 class="panel-title">Activity timeline</h2><p class="panel-subtitle">Operational events requiring context.</p></span></div>
+              <div class="panel-body timeline" id="healthTimeline">
+                <div class="timeline-item"><span class="timeline-dot"></span><span><strong>Candidate session reconnected</strong><p>Lina Meas resumed from event #176 with no response loss.</p><time>2 minutes ago</time></span></div>
+                <div class="timeline-item"><span class="timeline-dot"></span><span><strong>Code worker scaled to 3 instances</strong><p>Queue depth crossed the autoscale threshold of eight jobs.</p><time>11 minutes ago</time></span></div>
+                <div class="timeline-item"><span class="timeline-dot warning"></span><span><strong>AI provider timeout recovered</strong><p>Fallback question returned in 620 ms and the original answer was preserved.</p><time>24 minutes ago</time></span></div>
+                <div class="timeline-item"><span class="timeline-dot"></span><span><strong>Load test completed</strong><p>250 concurrent room connections remained below the 200 ms target.</p><time>Today, 09:20</time></span></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-delivery">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Assignment delivery</p>
+              <h1>Production and submission readiness</h1>
+              <p class="page-copy">Keep the final engineering, deployment, documentation, and public-delivery requirements visible to the whole team.</p>
+            </div>
+            <div class="head-actions"><button class="primary-button" id="copyChecklist"><i data-lucide="copy"></i> Copy remaining work</button></div>
+          </div>
+
+          <div class="readiness-layout">
+            <aside class="panel readiness-score">
+              <div class="ring" id="readinessRing"><span class="ring-value" id="readinessValue">65%</span></div>
+              <h2>Assignment readiness</h2>
+              <p>Required product features, engineering evidence, and public submission assets.</p>
+            </aside>
+            <section class="panel">
+              <div class="panel-head"><span><h2 class="panel-title">Required deliverables</h2><p class="panel-subtitle">Mark an item complete when the public artifact is verifiable.</p></span><span class="status waiting" id="remainingCount">5 remaining</span></div>
+              <div class="checklist" id="deliveryChecklist">
+                <label class="check-item"><input type="checkbox" checked /><span><strong>Public GitHub repositories</strong><span>Frontend and backend with contributions from all team members</span></span><span class="check-tag">Complete</span></label>
+                <label class="check-item"><input type="checkbox" checked /><span><strong>Architecture, database, and API documentation</strong><span>Existing repository documentation can feed the final report</span></span><span class="check-tag">Complete</span></label>
+                <label class="check-item"><input type="checkbox" /><span><strong>WebSocket and streaming implementation</strong><span>Live rooms, persistence, reconnect, and failure handling</span></span><span class="check-tag">Required</span></label>
+                <label class="check-item"><input type="checkbox" /><span><strong>Multi-language editor and sandbox evidence</strong><span>Syntax highlighting, autosave, execution, and timeout states</span></span><span class="check-tag">Required</span></label>
+                <label class="check-item"><input type="checkbox" /><span><strong>Concurrency and performance test results</strong><span>Document session capacity, API latency, and rendering targets</span></span><span class="check-tag">Required</span></label>
+                <label class="check-item"><input type="checkbox" /><span><strong>Container deployment and CI/CD pipeline</strong><span>Docker images, automated checks, migrations, and deployment workflow</span></span><span class="check-tag" data-incomplete-label="Bonus">Bonus</span></label>
+                <label class="check-item"><input type="checkbox" /><span><strong>Public production URL</strong><span>Frontend, backend, database migrations, and environment configuration</span></span><span class="check-tag">Required</span></label>
+                <label class="check-item"><input type="checkbox" /><span><strong>Final PDF report and public demo video</strong><span>Screenshots, engineering challenges, testing, links, and contributions</span></span><span class="check-tag">Required</span></label>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <section class="candidate-preview" id="candidatePreview" aria-hidden="true">
+    <div class="candidate-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="candidatePreviewTitle">
+      <header class="candidate-preview-head">
+        <img src="../public/evalora-mark.png" alt="" />
+        <span>
+          <strong id="candidatePreviewTitle">Candidate assessment preview</strong>
+          <span>Lina Meas - Software Engineer</span>
+        </span>
+        <span class="connection-state"><span class="status-dot"></span> Saved</span>
+        <button class="icon-button candidate-preview-close" id="closeCandidatePreview" aria-label="Close candidate preview" title="Close candidate preview"><i data-lucide="x"></i></button>
+      </header>
+      <div class="candidate-preview-body">
+        <div class="candidate-stage">
+          <aside class="panel candidate-modules">
+            <span class="candidate-module"><i data-lucide="check"></i> Behavioral</span>
+            <span class="candidate-module"><i data-lucide="check"></i> Leadership</span>
+            <span class="candidate-module"><i data-lucide="check"></i> Coding assessment</span>
+            <span class="candidate-module active"><i data-lucide="message-square"></i> AI interview</span>
+            <span class="candidate-module"><i data-lucide="file-check-2"></i> Review and submit</span>
+          </aside>
+          <main class="panel candidate-question-card">
+            <span class="candidate-question-kicker">AI interview - Question 3 of 5</span>
+            <h2>How did you decide that one rollback per month was acceptable, and what signal would have caused you to stop the rollout?</h2>
+            <p>The candidate can continue answering the assigned assessment while interviewer questions arrive separately below.</p>
+
+            <section class="interviewer-inbox empty" id="interviewerInbox">
+              <div class="interviewer-inbox-head">
+                <i data-lucide="message-square-plus"></i>
+                <span>Question from your interviewer</span>
+                <span class="status waiting" id="candidateInboxStatus">Waiting</span>
+              </div>
+              <p class="candidate-waiting" id="candidateWaiting">No interviewer question has been sent. Draft text remains invisible to the candidate.</p>
+              <div id="candidateQuestionContent" hidden>
+                <p class="interviewer-question-text" id="candidateQuestionText"></p>
+                <p class="interviewer-meta" id="candidateQuestionMeta">John Doe sent this question just now.</p>
+                <textarea class="candidate-answer" id="candidateAnswer" maxlength="12000" placeholder="Write your answer to the interviewer..."></textarea>
+                <div class="candidate-answer-actions">
+                  <p>Your answer is saved as candidate evidence and returned to the interviewer.</p>
+                  <button class="primary-button" id="submitCandidateAnswer"><i data-lucide="send"></i> Send answer</button>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" role="status"><i data-lucide="circle-check"></i><span id="toastText">Updated</span></div>
+
+  <script>
+    const app = document.getElementById("app");
+    const views = Array.from(document.querySelectorAll(".view"));
+    const navItems = Array.from(document.querySelectorAll(".nav-item"));
+    const toast = document.getElementById("toast");
+    const toastText = document.getElementById("toastText");
+    let toastTimer;
+
+    function refreshIcons() {
+      if (window.lucide) window.lucide.createIcons({ attrs: { "stroke-width": 1.8 } });
+    }
+
+    function showToast(message) {
+      toastText.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    function setView(name) {
+      views.forEach(view => view.classList.toggle("active", view.id === `view-${name}`));
+      const activeLabel = {
+        live: "Interview Session",
+        room: "Interview Session",
+        evidence: "Candidates",
+        health: "Analytics",
+        delivery: "Release readiness"
+      }[name];
+      navItems.forEach(item => {
+        const label = item.querySelector("span")?.textContent?.trim();
+        item.classList.toggle("active", label === activeLabel);
+      });
+      app.classList.remove("sidebar-open");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      refreshIcons();
+    }
+
+    navItems.forEach(item => item.addEventListener("click", () => setView(item.dataset.view)));
+    document.querySelectorAll("[data-view-button]").forEach(button => button.addEventListener("click", () => setView(button.dataset.viewButton)));
+    document.querySelectorAll("[data-open-room]").forEach(button => button.addEventListener("click", () => setView("room")));
+
+    document.getElementById("mobileMenu").addEventListener("click", () => app.classList.add("sidebar-open"));
+    document.getElementById("mobileOverlay").addEventListener("click", () => app.classList.remove("sidebar-open"));
+
+    const themes = ["light", "ocean", "dark"];
+    const themeIcons = { light: "sun", ocean: "waves", dark: "moon" };
+    let themeIndex = 0;
+    document.getElementById("themeButton").addEventListener("click", event => {
+      themeIndex = (themeIndex + 1) % themes.length;
+      const theme = themes[themeIndex];
+      document.documentElement.dataset.theme = theme;
+      event.currentTarget.title = `Theme: ${theme}`;
+      event.currentTarget.innerHTML = `<i data-lucide="${themeIcons[theme]}"></i>`;
+      refreshIcons();
+      showToast(`${theme[0].toUpperCase() + theme.slice(1)} theme applied`);
+    });
+
+    document.querySelectorAll("[data-room-tab]").forEach(tab => {
+      tab.addEventListener("click", () => openRoomTab(tab.dataset.roomTab));
+    });
+    document.querySelectorAll("[data-room-tab-button]").forEach(button => {
+      button.addEventListener("click", () => openRoomTab(button.dataset.roomTabButton));
+    });
+
+    function openRoomTab(name) {
+      document.querySelectorAll("[data-room-tab]").forEach(tab => tab.classList.toggle("active", tab.dataset.roomTab === name));
+      document.querySelectorAll(".room-pane").forEach(pane => pane.classList.toggle("active", pane.id === `room-pane-${name}`));
+      refreshIcons();
+    }
+
+    const messages = document.getElementById("messages");
+    const chatInput = document.getElementById("chatInput");
+    const candidatePreview = document.getElementById("candidatePreview");
+    const questionQueue = document.getElementById("questionQueue");
+    const interviewerQuestions = [];
+    let interviewerQuestionSequence = 0;
+
+    function appendMessage(kind, label, text) {
+      const article = document.createElement("div");
+      article.className = `message ${kind}`;
+      const initials = kind === "candidate" ? "LM" : kind === "interviewer" ? "JD" : "AI";
+      const avatar = `<span class="message-avatar">${initials}</span>`;
+      const body = `<div class="message-body"><span class="message-label">${label}</span><span class="message-text"></span></div>`;
+      article.innerHTML = kind === "candidate" || kind === "interviewer" ? body + avatar : avatar + body;
+      article.querySelector(".message-text").textContent = text;
+      messages.appendChild(article);
+      messages.scrollTop = messages.scrollHeight;
+      return article;
+    }
+
+    function renderQuestionQueue() {
+      questionQueue.innerHTML = "";
+      if (!interviewerQuestions.length) {
+        questionQueue.innerHTML = '<div class="queue-empty">No interviewer questions sent yet. Draft a question in the conversation panel.</div>';
+        return;
+      }
+      interviewerQuestions.slice().reverse().forEach((question, index) => {
+        const item = document.createElement("article");
+        item.className = "queued-question";
+        item.innerHTML = `
+          <div class="queued-question-top">
+            <span class="queued-question-number">Question ${interviewerQuestions.length - index}</span>
+            <span class="queued-question-state ${question.answer ? "answered" : ""}">${question.answer ? "Answered" : "Sent"}</span>
+          </div>
+          <p></p>
+          ${question.answer ? '<div class="queued-question-answer"><strong>Candidate:</strong> <span></span></div>' : ""}
+        `;
+        item.querySelector("p").textContent = question.text;
+        if (question.answer) item.querySelector(".queued-question-answer span").textContent = question.answer;
+        questionQueue.appendChild(item);
+      });
+    }
+
+    function nextPendingInterviewerQuestion() {
+      return interviewerQuestions.find(question => !question.answer);
+    }
+
+    function renderCandidateInbox() {
+      const pending = nextPendingInterviewerQuestion();
+      const content = document.getElementById("candidateQuestionContent");
+      const waiting = document.getElementById("candidateWaiting");
+      const inbox = document.getElementById("interviewerInbox");
+      const status = document.getElementById("candidateInboxStatus");
+      const answer = document.getElementById("candidateAnswer");
+
+      if (pending) {
+        inbox.classList.remove("empty");
+        content.hidden = false;
+        waiting.hidden = true;
+        status.className = "status waiting";
+        status.textContent = "Response needed";
+        document.getElementById("candidateQuestionText").textContent = pending.text;
+        document.getElementById("candidateQuestionMeta").textContent = `John Doe sent this question at ${pending.sentAt}.`;
+        answer.value = "";
+        answer.dataset.questionId = pending.id;
+        return;
+      }
+
+      content.hidden = true;
+      waiting.hidden = false;
+      inbox.classList.add("empty");
+      if (interviewerQuestions.length) {
+        status.className = "status live";
+        status.textContent = "Answered";
+        waiting.textContent = "Your interviewer answer was sent and saved. New questions will appear here.";
+      } else {
+        status.className = "status waiting";
+        status.textContent = "Waiting";
+        waiting.textContent = "No interviewer question has been sent. Draft text remains invisible to the candidate.";
+      }
+    }
+
+    function openCandidatePreview() {
+      renderCandidateInbox();
+      candidatePreview.classList.add("open");
+      candidatePreview.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      refreshIcons();
+      const answer = document.getElementById("candidateAnswer");
+      if (!answer.closest("[hidden]")) setTimeout(() => answer.focus(), 80);
+    }
+
+    function closeCandidatePreview() {
+      candidatePreview.classList.remove("open");
+      candidatePreview.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+    }
+
+    document.getElementById("sendMessage").addEventListener("click", () => {
+      const value = chatInput.value.trim();
+      if (!value) return;
+      const sentAt = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date());
+      interviewerQuestionSequence += 1;
+      interviewerQuestions.push({
+        id: `interviewer-question-${interviewerQuestionSequence}`,
+        text: value,
+        sentAt,
+        answer: ""
+      });
+      appendMessage("interviewer", "Interviewer - sent to candidate", value);
+      chatInput.value = "";
+      renderQuestionQueue();
+      renderCandidateInbox();
+      showToast("Question sent to the candidate and added to the queue");
+      setTimeout(openCandidatePreview, 350);
+    });
+
+    chatInput.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        document.getElementById("sendMessage").click();
+      }
+    });
+
+    document.getElementById("previewCandidate").addEventListener("click", openCandidatePreview);
+    document.getElementById("closeCandidatePreview").addEventListener("click", closeCandidatePreview);
+    candidatePreview.addEventListener("click", event => {
+      if (event.target === candidatePreview) closeCandidatePreview();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && candidatePreview.classList.contains("open")) closeCandidatePreview();
+    });
+
+    document.getElementById("submitCandidateAnswer").addEventListener("click", () => {
+      const answerInput = document.getElementById("candidateAnswer");
+      const answer = answerInput.value.trim();
+      const question = interviewerQuestions.find(item => item.id === answerInput.dataset.questionId);
+      if (!answer || !question) {
+        showToast("Write an answer before sending it to the interviewer");
+        return;
+      }
+      question.answer = answer;
+      question.answeredAt = new Date().toISOString();
+      appendMessage("candidate", "Candidate - answer to interviewer", answer);
+      renderQuestionQueue();
+      renderCandidateInbox();
+      showToast("Answer sent to the interviewer and saved as evidence");
+    });
+
+    document.getElementById("generateFollowup").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.innerHTML = '<i data-lucide="loader-circle"></i> Streaming...';
+      refreshIcons();
+      const answer = "You measured rollback frequency, but how did staged releases affect developer throughput and what evidence would justify simplifying the process?";
+      const article = appendMessage("ai", 'Evalora AI <span class="provider">Streaming</span>', "");
+      const textNode = article.querySelector(".message-text");
+      const cursor = document.createElement("span");
+      cursor.className = "streaming-cursor";
+      textNode.after(cursor);
+      const words = answer.split(" ");
+      for (let index = 0; index < words.length; index += 1) {
+        await new Promise(resolve => setTimeout(resolve, 42));
+        textNode.textContent += `${index ? " " : ""}${words[index]}`;
+        messages.scrollTop = messages.scrollHeight;
+      }
+      cursor.remove();
+      button.disabled = false;
+      button.innerHTML = '<i data-lucide="sparkles"></i> Generate follow-up';
+      refreshIcons();
+      showToast("Follow-up persisted to conversation history");
+    });
+
+    function setConnection(state, text) {
+      ["roomConnection", "overviewConnection"].forEach(id => {
+        const element = document.getElementById(id);
+        element.className = `connection-state ${state === "connected" ? "" : state}`;
+        element.innerHTML = `<span class="status-dot"></span> ${text}`;
+      });
+    }
+
+    function simulateReconnect() {
+      setConnection("offline", "Connection lost");
+      showToast("Connection interrupted. Saved progress is preserved.");
+      setTimeout(() => setConnection("reconnecting", "Reconnecting..."), 700);
+      setTimeout(() => {
+        setConnection("connected", "Live - 71 ms");
+        showToast("Reconnected from the latest saved event");
+      }, 1900);
+    }
+
+    document.getElementById("simulateReconnect").addEventListener("click", simulateReconnect);
+    document.getElementById("connectionTest").addEventListener("click", simulateReconnect);
+
+    ["shareScreen", "recordSession"].forEach(id => {
+      document.getElementById(id).addEventListener("click", event => {
+        event.currentTarget.classList.toggle("active");
+        const active = event.currentTarget.classList.contains("active");
+        if (id === "recordSession") document.getElementById("recordingText").textContent = active ? "Recording" : "Off";
+        showToast(id === "shareScreen" ? (active ? "Screen sharing simulation started" : "Screen sharing stopped") : (active ? "Session recording started" : "Session recording stopped"));
+      });
+    });
+
+    document.getElementById("endSession").addEventListener("click", () => showToast("End-session confirmation would open here"));
+
+    const editor = document.getElementById("codeEditor");
+    const autosaveStatus = document.getElementById("autosaveStatus");
+    let saveTimer;
+    editor.addEventListener("input", () => {
+      autosaveStatus.innerHTML = '<i data-lucide="cloud-upload"></i> Saving...';
+      refreshIcons();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        autosaveStatus.innerHTML = '<i data-lucide="cloud"></i> Saved';
+        refreshIcons();
+      }, 650);
+    });
+
+    const codeSamples = {
+      javascript: {
+        file: "solution.js",
+        code: `class TokenBucket {
+  constructor(capacity, refillPerSecond) {
+    this.capacity = capacity;
+    this.tokens = capacity;
+    this.refillPerSecond = refillPerSecond;
+    this.lastRefill = Date.now();
+  }
+
+  allow() {
+    const now = Date.now();
+    const elapsed = (now - this.lastRefill) / 1000;
+    this.tokens = Math.min(this.capacity,
+      this.tokens + elapsed * this.refillPerSecond);
+    this.lastRefill = now;
+    if (this.tokens < 1) return false;
+    this.tokens -= 1;
+    return true;
+  }
+}`
+      },
+      python: {
+        file: "solution.py",
+        code: `import time
+
+class TokenBucket:
+    def __init__(self, capacity, refill_per_second):
+        self.capacity = capacity
+        self.tokens = capacity
+        self.refill_per_second = refill_per_second
+        self.last_refill = time.monotonic()
+
+    def allow(self):
+        now = time.monotonic()
+        elapsed = max(0, now - self.last_refill)
+        self.tokens = min(
+            self.capacity,
+            self.tokens + elapsed * self.refill_per_second
+        )
+        self.last_refill = now
+        if self.tokens < 1:
+            return False
+        self.tokens -= 1
+        return True`
+      },
+      java: {
+        file: "Solution.java",
+        code: `final class TokenBucket {
+  private final double capacity;
+  private final double refillPerSecond;
+  private double tokens;
+  private long lastRefillNanos;
+
+  TokenBucket(double capacity, double refillPerSecond) {
+    this.capacity = capacity;
+    this.refillPerSecond = refillPerSecond;
+    this.tokens = capacity;
+    this.lastRefillNanos = System.nanoTime();
+  }
+
+  synchronized boolean allow() {
+    long now = System.nanoTime();
+    double elapsed = (now - lastRefillNanos) / 1_000_000_000d;
+    tokens = Math.min(capacity, tokens + elapsed * refillPerSecond);
+    lastRefillNanos = now;
+    if (tokens < 1) return false;
+    tokens -= 1;
+    return true;
+  }
+}`
+      },
+      typescript: {
+        file: "solution.ts",
+        code: `class TokenBucket {
+  private tokens: number;
+  private lastRefill: number;
+
+  constructor(
+    private readonly capacity: number,
+    private readonly refillPerSecond: number,
+  ) {
+    this.tokens = capacity;
+    this.lastRefill = Date.now();
+  }
+
+  allow(): boolean {
+    const now = Date.now();
+    const elapsed = Math.max(0, now - this.lastRefill) / 1000;
+    this.tokens = Math.min(
+      this.capacity,
+      this.tokens + elapsed * this.refillPerSecond,
+    );
+    this.lastRefill = now;
+    if (this.tokens < 1) return false;
+    this.tokens -= 1;
+    return true;
+  }
+}`
+      }
+    };
+
+    document.getElementById("languageSelect").addEventListener("change", event => {
+      const sample = codeSamples[event.target.value];
+      editor.value = sample.code;
+      document.getElementById("editorFile").textContent = sample.file;
+      autosaveStatus.innerHTML = '<i data-lucide="cloud"></i> Saved';
+      refreshIcons();
+      showToast(`${event.target.options[event.target.selectedIndex].text} workspace loaded`);
+    });
+
+    document.getElementById("runCode").addEventListener("click", event => {
+      const button = event.currentTarget;
+      const result = document.getElementById("terminalResult");
+      const output = document.getElementById("terminalOutput");
+      button.disabled = true;
+      result.textContent = "Running in isolated sandbox...";
+      output.textContent = "Compiling source and preparing 8 test cases...";
+      setTimeout(() => {
+        result.textContent = "7 of 8 tests passed - 41 ms";
+        output.textContent = "PASS capacity limit\nPASS burst handling\nPASS deterministic refill\nPASS fractional tokens\nPASS concurrent calls\nPASS zero capacity\nPASS boundary behavior\nFAIL clock skew: elapsed time must not become negative";
+        button.disabled = false;
+        showToast("Execution evidence saved to the candidate transcript");
+      }, 1150);
+    });
+
+    document.getElementById("aiReview").addEventListener("click", () => {
+      document.getElementById("terminalResult").textContent = "AI review ready";
+      document.getElementById("terminalOutput").textContent = "Clamp elapsed time to zero and inject a clock dependency. This makes refill behavior deterministic under clock changes and unit tests.";
+      showToast("AI code review added as advisory evidence");
+    });
+
+    document.querySelectorAll(".response-toggle").forEach(button => {
+      button.addEventListener("click", () => button.closest(".response-item").classList.toggle("open"));
+    });
+
+    const moduleButtons = Array.from(document.querySelectorAll(".module-button"));
+    const responseItems = Array.from(document.querySelectorAll(".response-item"));
+    const evidenceSearch = document.getElementById("evidenceSearch");
+    const evidenceType = document.getElementById("evidenceType");
+    let activeModule = "all";
+
+    function filterEvidence() {
+      const query = evidenceSearch.value.trim().toLowerCase();
+      const type = evidenceType.value;
+      let count = 0;
+      responseItems.forEach(item => {
+        const moduleMatch = activeModule === "all" || item.dataset.moduleName === activeModule;
+        const typeMatch = type === "all" || item.dataset.type === type;
+        const textMatch = !query || item.textContent.toLowerCase().includes(query);
+        const visible = moduleMatch && typeMatch && textMatch;
+        item.hidden = !visible;
+        if (visible) count += 1;
+      });
+      document.getElementById("evidenceCount").textContent = `Showing ${count} record${count === 1 ? "" : "s"}`;
+    }
+
+    moduleButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        activeModule = button.dataset.module;
+        moduleButtons.forEach(item => item.classList.toggle("active", item === button));
+        filterEvidence();
+      });
+    });
+    evidenceSearch.addEventListener("input", filterEvidence);
+    evidenceType.addEventListener("change", filterEvidence);
+
+    document.getElementById("roomSearch").addEventListener("input", event => {
+      const query = event.target.value.trim().toLowerCase();
+      document.querySelectorAll("[data-room-row]").forEach(row => row.hidden = Boolean(query) && !row.textContent.toLowerCase().includes(query));
+    });
+
+    document.getElementById("simulateIncident").addEventListener("click", () => {
+      const row = document.querySelector("#serviceList .service-row:nth-child(2)");
+      row.querySelector(".status").className = "status waiting";
+      row.querySelector(".status").innerHTML = '<span class="status-dot"></span> Fallback active';
+      row.querySelector(".latency").textContent = "4.6 s";
+      const timeline = document.getElementById("healthTimeline");
+      const incident = document.createElement("div");
+      incident.className = "timeline-item";
+      incident.innerHTML = '<span class="timeline-dot warning"></span><span><strong>AI latency threshold exceeded</strong><p>New questions are using the deterministic fallback while the provider recovers.</p><time>Just now</time></span>';
+      timeline.prepend(incident);
+      showToast("Incident simulated without interrupting candidate progress");
+    });
+
+    document.getElementById("refreshHealth").addEventListener("click", event => {
+      event.currentTarget.innerHTML = '<i data-lucide="loader-circle"></i> Refreshing';
+      refreshIcons();
+      setTimeout(() => {
+        event.currentTarget.innerHTML = '<i data-lucide="refresh-cw"></i> Refresh metrics';
+        refreshIcons();
+        showToast("Operational metrics refreshed");
+      }, 700);
+    });
+
+    const checklist = document.getElementById("deliveryChecklist");
+    const checklistInputs = Array.from(checklist.querySelectorAll("input"));
+    function updateReadiness() {
+      const complete = checklistInputs.filter(input => input.checked).length;
+      const percent = Math.round((complete / checklistInputs.length) * 100);
+      document.getElementById("readinessValue").textContent = `${percent}%`;
+      document.getElementById("readinessRing").style.setProperty("--progress", percent);
+      document.getElementById("remainingCount").textContent = `${checklistInputs.length - complete} remaining`;
+      checklistInputs.forEach(input => {
+        const tag = input.closest(".check-item").querySelector(".check-tag");
+        tag.textContent = input.checked ? "Complete" : (tag.dataset.incompleteLabel || "Required");
+      });
+    }
+    checklistInputs.forEach(input => input.addEventListener("change", updateReadiness));
+
+    document.getElementById("copyChecklist").addEventListener("click", async () => {
+      const remaining = checklistInputs.filter(input => !input.checked).map(input => `- ${input.closest(".check-item").querySelector("strong").textContent}`).join("\n");
+      try { await navigator.clipboard.writeText(remaining); } catch (_) {}
+      showToast("Remaining assignment work copied");
+    });
+
+    refreshIcons();
+  </script>
+</body>
+</html>

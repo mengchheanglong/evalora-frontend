@@ -1520,6 +1520,7 @@ function buildTranscript(session: InterviewSession): SessionTranscript {
     {
       id: `${session.id}-tr-1`,
       origin: "template",
+      questionId: interviewModule?.questions?.[0]?.id,
       ...moduleFields(interviewModule),
       questionText: questionOf(interviewModule, 0, "Tell us about a project you owned. What trade-offs did you make?"),
       answerText:
@@ -1542,6 +1543,7 @@ function buildTranscript(session: InterviewSession): SessionTranscript {
     {
       id: `${session.id}-tr-3`,
       origin: "interviewer_follow_up",
+      parentQuestionId: interviewModule?.questions?.[0]?.id,
       ...moduleFields(interviewModule),
       questionText: "Who else had to agree before you removed the legacy route, and how did you get that agreement?",
       answerText:

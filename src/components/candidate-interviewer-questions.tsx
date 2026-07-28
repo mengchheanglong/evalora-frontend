@@ -15,6 +15,12 @@ const EARLIEST_REAL_TIMESTAMP_MS = Date.UTC(2000, 0, 1);
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
+export type InterviewerQuestionContext = {
+  moduleTitle?: string;
+  questionText?: string;
+  answerText?: string;
+};
+
 /**
  * Candidate-side queue of questions a human interviewer sent during this
  * session. Polling is the delivery mechanism (REST is authoritative), so this
@@ -86,17 +92,112 @@ export function useInterviewerFollowUps(accessCode: string, active: boolean) {
   return { followUps, pending, pendingRequired, arrival, dismissArrival, reload: load, connection, participants, latencyMs };
 }
 
+/**
+ * Preview-style inbox that stays inside the candidate interview workspace.
+ * It surfaces the newest pending question without replacing the module the
+ * candidate is working on; the full queue remains available as history.
+ */
+export function CandidateInterviewerInbox({
+  accessCode,
+  followUps,
+  contextByFollowUpId,
+  onChanged,
+  onOpenAll,
+  disabled,
+  highlightId,
+  primary = false,
+}: {
+  accessCode: string;
+  followUps: InterviewerFollowUp[];
+  contextByFollowUpId?: Record<string, InterviewerQuestionContext>;
+  onChanged: (followUpId?: string) => Promise<unknown>;
+  onOpenAll: () => void;
+  disabled?: boolean;
+  highlightId?: string;
+  primary?: boolean;
+}) {
+  const visible = followUps.filter((item) => item.status !== "cancelled");
+  const pending = visible.filter((item) => item.status === "sent");
+  const active = pending.find((item) => item.id === highlightId) ?? pending[pending.length - 1];
+  const answeredCount = visible.filter((item) => item.status === "answered").length;
+
+  return (
+    <section
+      className={`mx-auto max-w-[860px] rounded-[10px] border p-4 shadow-[0_12px_35px_rgba(15,23,42,0.04)] sm:p-5 ${primary ? "mt-0" : "mt-4"} ${
+        active ? "border-violet-300 bg-violet-50/35" : "border-dashed border-[var(--theme-border)] bg-[var(--theme-panel)]"
+      }`}
+      id="candidate-interviewer-inbox"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`grid size-8 shrink-0 place-items-center rounded-[7px] ${active ? "bg-violet-100 text-violet-700" : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]"}`}>
+          <Icon name="message" size={15} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className={`text-xs font-bold uppercase ${active ? "text-violet-700" : "text-[var(--theme-heading)]"}`}>
+            {active ? `Question from ${active.askedBy.name}` : "Question from your interviewer"}
+          </h2>
+          <p className="mt-0.5 text-xs text-[var(--theme-muted)]">
+            {active
+              ? `${pending.length} waiting${active.required ? " - an answer is required before submission" : ""}`
+              : answeredCount
+                ? "All interviewer questions have been answered."
+                : "No interviewer question has been sent yet."}
+          </p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${active ? "bg-violet-100 text-violet-700" : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]"}`}>
+          {active ? (active.required ? "Required" : "Optional") : answeredCount ? "Up to date" : "Waiting"}
+        </span>
+      </div>
+
+      {active ? (
+        <div className="mt-4 border-t border-violet-200/70 pt-4">
+          {primary ? (
+            <p className="mb-3 text-xs leading-5 text-[var(--theme-muted)]">
+              Your interviewer is asking about something you already shared. Answer this turn to continue the interview plan.
+            </p>
+          ) : null}
+          <QuestionCard
+            accessCode={accessCode}
+            compact
+            disabled={disabled}
+            followUp={active}
+            context={contextByFollowUpId?.[active.id]}
+            highlighted={active.id === highlightId}
+            onChanged={onChanged}
+          />
+        </div>
+      ) : (
+        <p className="mt-4 rounded-[7px] bg-[var(--theme-panel-soft)] px-3 py-2.5 text-xs leading-5 text-[var(--theme-muted)]">
+          Continue the interview when you are ready. A follow-up will appear here immediately after your interviewer sends it.
+        </p>
+      )}
+
+      {visible.length > 1 || (!active && answeredCount > 0) ? (
+        <button
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-violet-700 transition hover:underline"
+          onClick={onOpenAll}
+          type="button"
+        >
+          View all interviewer questions <Icon className="-rotate-90" name="chevron" size={11} />
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 export function CandidateInterviewerQuestions({
   accessCode,
   followUps,
+  contextByFollowUpId,
   onChanged,
   disabled,
   highlightId,
 }: {
   accessCode: string;
   followUps: InterviewerFollowUp[];
+  contextByFollowUpId?: Record<string, InterviewerQuestionContext>;
   /** Refresh the queue. The reloaded list is returned but not needed here. */
-  onChanged: () => Promise<unknown>;
+  onChanged: (followUpId?: string) => Promise<unknown>;
   disabled?: boolean;
   /** Question to ring and scroll to — a fresh arrival, or the one blocking submission. */
   highlightId?: string;
@@ -108,15 +209,22 @@ export function CandidateInterviewerQuestions({
 
   return (
     <section aria-labelledby="interviewer-questions-heading" className="mx-auto max-w-[860px]">
-      <h2 className="mb-3 flex items-center gap-2" id="interviewer-questions-heading">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-700">
-          <Icon name="user" size={13} /> Questions from your interviewer
-        </span>
-      </h2>
+      <div className="mb-4">
+        <h2 className="flex items-center gap-2 text-base font-bold text-[var(--theme-heading)]" id="interviewer-questions-heading">
+          <span className="grid size-8 place-items-center rounded-[7px] bg-violet-100 text-violet-700">
+            <Icon name="message" size={15} />
+          </span>
+          Interviewer conversation
+        </h2>
+        <p className="mt-1 pl-10 text-xs leading-5 text-[var(--theme-muted)]">
+          Follow-up questions stay connected to the answer your interviewer is asking about.
+        </p>
+      </div>
       <div className="space-y-3">
         {visible.map((followUp) => (
           <QuestionCard
             accessCode={accessCode}
+            context={contextByFollowUpId?.[followUp.id]}
             disabled={disabled}
             followUp={followUp}
             highlighted={followUp.id === highlightId}
@@ -139,16 +247,20 @@ export function CandidateInterviewerQuestions({
 function QuestionCard({
   accessCode,
   followUp,
+  context,
   onChanged,
   disabled,
   highlighted,
+  compact = false,
 }: {
   accessCode: string;
   followUp: InterviewerFollowUp;
+  context?: InterviewerQuestionContext;
   /** Refresh the queue. The reloaded list is returned but not needed here. */
-  onChanged: () => Promise<unknown>;
+  onChanged: (followUpId?: string) => Promise<unknown>;
   disabled?: boolean;
   highlighted?: boolean;
+  compact?: boolean;
 }) {
   const [answer, setAnswer] = useState(followUp.answerText ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -196,7 +308,7 @@ function QuestionCard({
       setSavedAt(new Date().toISOString());
       setSaveState("saved");
       setError("");
-      if (submit) await onChanged();
+      if (submit) await onChanged(followUp.id);
       return true;
     } catch (requestError) {
       setSaveState("error");
@@ -216,20 +328,26 @@ function QuestionCard({
 
   return (
     <article
-      className={`rounded-[10px] border p-4 transition focus:outline-none ${answered ? "border-emerald-300 bg-emerald-50/50" : "border-violet-300 bg-violet-50/40"} ${highlighted ? "ring-2 ring-violet-500 ring-offset-2" : ""}`}
+      className={`${compact ? "" : `rounded-[10px] border p-4 ${answered ? "border-emerald-300 bg-emerald-50/50" : "border-violet-300 bg-violet-50/40"}`} transition focus:outline-none ${highlighted ? "ring-2 ring-violet-500 ring-offset-2" : ""}`}
       ref={cardRef}
       // Focusable only as a landing target, never a stop in the tab order.
       tabIndex={-1}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-wide text-violet-700">Question from {followUp.askedBy.name}</span>
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-neutral-500 ring-1 ring-neutral-200">
-          {followUp.required ? "Required" : "Optional"}
-        </span>
-        <RelativeTime prefix="Sent" value={followUp.sentAt} />
-        {answered ? <span className="ml-auto text-xs font-bold uppercase text-emerald-700">Answered</span> : null}
+      {!compact ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wide text-violet-700">Question from {followUp.askedBy.name}</span>
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-neutral-500 ring-1 ring-neutral-200">
+            {followUp.required ? "Required" : "Optional"}
+          </span>
+          <RelativeTime prefix="Sent" value={followUp.sentAt} />
+          {answered ? <span className="ml-auto text-xs font-bold uppercase text-emerald-700">Answered</span> : null}
+        </div>
+      ) : null}
+      <QuestionContext context={context} compact={compact} />
+      <div className={`${context?.questionText ? "mt-3 rounded-[7px] bg-violet-50/70 px-3 py-2.5" : compact ? "" : "mt-2"}`}>
+        <p className="mb-1 text-xs font-bold text-violet-700">{followUp.askedBy.name} asks</p>
+        <p className="whitespace-pre-wrap text-sm font-bold leading-6 text-[var(--theme-heading)]">{followUp.questionText}</p>
       </div>
-      <p className="mt-2 whitespace-pre-wrap text-base font-bold leading-6 text-neutral-950">{followUp.questionText}</p>
 
       {answered ? (
         <>
@@ -274,6 +392,34 @@ function QuestionCard({
         </>
       )}
     </article>
+  );
+}
+
+function QuestionContext({ context, compact }: { context?: InterviewerQuestionContext; compact: boolean }) {
+  if (!context?.questionText) return null;
+  return (
+    <details
+      className={`${compact ? "" : "mt-3"} group rounded-[8px] border border-neutral-200 bg-white/80 px-3 py-2.5`}
+      open
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-bold text-neutral-600 marker:hidden">
+        <Icon className="text-sky-600" name="clipboard" size={13} />
+        <span className="min-w-0 flex-1 truncate">
+          Follow-up to {context.moduleTitle ? `${context.moduleTitle}: ` : ""}{context.questionText}
+        </span>
+        <span className="text-neutral-400 transition group-open:rotate-180">
+          <Icon name="chevron" size={11} />
+        </span>
+      </summary>
+      <div className="mt-2 border-t border-neutral-100 pt-2">
+        <p className="text-xs font-bold uppercase text-neutral-400">Original question</p>
+        <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-neutral-700">{context.questionText}</p>
+        <p className="mt-2 text-xs font-bold uppercase text-neutral-400">Your earlier answer</p>
+        <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap rounded-[6px] bg-neutral-50 px-2.5 py-2 text-xs leading-5 text-neutral-600">
+          {context.answerText?.trim() || "No earlier answer was recorded."}
+        </p>
+      </div>
+    </details>
   );
 }
 

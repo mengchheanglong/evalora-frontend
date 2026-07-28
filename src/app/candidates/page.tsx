@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FilterPanelFrame, FilterSelectField, FilterToggleButton } from "@/components/filter-controls";
 import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
@@ -29,6 +30,7 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<InterviewSession | null>(null);
 
   const loadCandidates = useCallback(async (syncQueryFromUrl = false) => {
     setLoading(true);
@@ -59,19 +61,21 @@ export default function CandidatesPage() {
     [sessions],
   );
 
-  const removeCandidate = useCallback(async (session: InterviewSession) => {
-    if (!window.confirm(`Delete ${session.candidateName}'s assessment record? This permanently removes the session, saved responses, and any report.`)) return;
+  const removeCandidate = useCallback(async () => {
+    const session = pendingDelete;
+    if (!session || deletingId) return;
     setDeletingId(session.id);
     setError("");
     try {
       await apiDelete(`/sessions/${session.id}`);
+      setPendingDelete(null);
       await loadCandidates();
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Could not delete this candidate. Please try again."));
     } finally {
       setDeletingId(null);
     }
-  }, [loadCandidates]);
+  }, [deletingId, loadCandidates, pendingDelete]);
 
   const visible = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -206,7 +210,7 @@ export default function CandidatesPage() {
                             <td className="px-3 py-2.5 text-xs font-medium text-[var(--theme-muted)]">{formatDate(session.createdAt)}</td>
                             <td className="px-3 py-2.5">
                               <div className="flex justify-end gap-2">
-                                <button aria-label={`Delete ${session.candidateName}`} className="flex size-7 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-faint)] transition hover:border-[var(--theme-border-strong)] hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-muted)] disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === session.id} onClick={() => void removeCandidate(session)} type="button">{deletingId === session.id ? <span className="size-3 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" /> : <Icon name="trash" size={13} />}</button>
+                                <button aria-label={`Delete ${session.candidateName}`} className="flex size-7 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-faint)] transition hover:border-rose-300 hover:bg-rose-500/10 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === session.id} onClick={() => setPendingDelete(session)} type="button">{deletingId === session.id ? <span className="size-3 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" /> : <Icon name="trash" size={13} />}</button>
                               </div>
                             </td>
                           </tr>
@@ -225,6 +229,15 @@ export default function CandidatesPage() {
           </section>
         </div>
       ) : null}
+      <ConfirmDialog
+        confirmLabel="Delete record"
+        message={pendingDelete ? `${pendingDelete.candidateName}'s assessment record and all saved responses, code submissions, and report data will be permanently removed.` : undefined}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => void removeCandidate()}
+        open={pendingDelete !== null}
+        pending={deletingId !== null}
+        title="Delete this candidate record?"
+      />
     </AppShell>
   );
 }

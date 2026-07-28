@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { CodingChallengePicker } from "@/components/coding-challenge-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon, type IconName } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
-import { apiPost, getErrorMessage } from "@/lib/api";
-import type { AssessmentTemplate, JsonValue, ModuleType, QuestionType } from "@/lib/types";
+import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import type { AssessmentTemplate, CodeQuestion, JsonValue, ModuleType, QuestionType } from "@/lib/types";
 
 const MODULE_TYPES: ModuleType[] = [
   "ai_interview", "coding", "debugging", "work_style", "behavioral", "leadership", "communication", "problem_solving",
@@ -33,6 +34,7 @@ type EditorQuestion = {
   questionType: QuestionType;
   optionsText: string;
   rubricText: string;
+  codeQuestionId: string;
 };
 
 type EditorModule = {
@@ -41,6 +43,7 @@ type EditorModule = {
   title: string;
   description: string;
   weight: string;
+  aiFollowUpsEnabled: boolean;
   questions: EditorQuestion[];
   collapsed: boolean;
 };
@@ -65,6 +68,13 @@ export default function CreateTemplatePage() {
   const [modules, setModules] = useState<EditorModule[]>([]);
   const [activeModuleKey, setActiveModuleKey] = useState("");
   const [pendingModuleRemoval, setPendingModuleRemoval] = useState<string | null>(null);
+  const [codeChallenges, setCodeChallenges] = useState<CodeQuestion[]>([]);
+
+  useEffect(() => {
+    void apiGet<CodeQuestion[]>("/code/questions")
+      .then(setCodeChallenges)
+      .catch(() => setCodeChallenges([]));
+  }, []);
 
   const questionCount = useMemo(() => modules.reduce((total, module) => total + module.questions.length, 0), [modules]);
 
@@ -89,7 +99,10 @@ export default function CreateTemplatePage() {
       title: seed?.title ?? "New module",
       description: seed?.description ?? "",
       weight: "1",
-      questions: [emptyQuestion(seed?.type === "coding" ? "coding" : seed?.type === "work_style" ? "scale" : "short_answer")],
+      aiFollowUpsEnabled: seed?.type === "ai_interview",
+      questions: seed?.type === "ai_interview"
+        ? []
+        : [emptyQuestion(seed?.type === "coding" ? "coding" : seed?.type === "work_style" ? "scale" : "short_answer")],
       collapsed: false,
     };
     setModules((current) => [...current, next]);
@@ -106,7 +119,11 @@ export default function CreateTemplatePage() {
 
   function addQuestion(moduleKey: string) {
     setModules((current) =>
-      current.map((module) => (module.key === moduleKey ? { ...module, collapsed: false, questions: [...module.questions, emptyQuestion()] } : module))
+      current.map((module) => (module.key === moduleKey ? {
+        ...module,
+        collapsed: false,
+        questions: [...module.questions, emptyQuestion(module.type === "coding" ? "coding" : "short_answer")],
+      } : module))
     );
   }
 
@@ -142,12 +159,18 @@ export default function CreateTemplatePage() {
   }
 
   function validateModules(): string | null {
-    if (!modules.length) return "Add at least one module with questions.";
+    if (!modules.length) return "Add at least one module.";
     for (const module of modules) {
       if (!module.title.trim()) return "Every module needs a title.";
-      if (!module.questions.length) return `Module "${module.title}" needs at least one question.`;
+      if (module.type !== "ai_interview" && !module.questions.length) return `Module "${module.title}" needs at least one question.`;
       for (const question of module.questions) {
         if (!question.questionText.trim()) return `A question in "${module.title}" is empty.`;
+        if (module.type === "coding" && !question.codeQuestionId) {
+          return `Choose an executable challenge for every question in "${module.title}".`;
+        }
+      }
+      if (module.type === "coding" && new Set(module.questions.map((question) => question.codeQuestionId)).size !== module.questions.length) {
+        return `Choose a different executable challenge for each question in "${module.title}".`;
       }
     }
     return null;
@@ -208,10 +231,14 @@ export default function CreateTemplatePage() {
           description: module.description.trim() || undefined,
           weight: module.weight ? Number(module.weight) : 1,
           orderIndex: index + 1,
+          settings: {
+            aiFollowUpsEnabled: module.type === "ai_interview",
+            ...(module.type === "ai_interview" ? { adaptiveQuestionCount: 3 } : {}),
+          },
           questions: module.questions.map((question) => ({
             questionText: question.questionText.trim(),
             questionType: question.questionType,
-            options: parseOptions(question.optionsText, question.questionType),
+            options: parseOptions(question.optionsText, question.questionType, question.codeQuestionId),
             rubric: parseRubric(question.rubricText),
           })),
         })),
@@ -399,6 +426,7 @@ export default function CreateTemplatePage() {
                     ) : (
                       modules.map((module, index) => (
                         <ModuleCard
+                          codeChallenges={codeChallenges}
                           key={module.key}
                           index={index}
                           module={module}
@@ -589,8 +617,9 @@ function StepButton({ number, title, subtitle, active, done, onClick }: { number
   );
 }
 
-function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion, onRemoveQuestion, onMove }: {
+function ModuleCard({ module, index, codeChallenges, onUpdate, onRemove, onAdd, onUpdateQuestion, onRemoveQuestion, onMove }: {
   module: EditorModule; index: number; onUpdate: (patch: Partial<EditorModule>) => void; onRemove: () => void;
+  codeChallenges: CodeQuestion[];
   onAdd: () => void; onUpdateQuestion: (qk: string, patch: Partial<EditorQuestion>) => void;
   onRemoveQuestion: (qk: string) => void; onMove: (qk: string, d: -1 | 1) => void;
 }) {
@@ -610,7 +639,22 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
               </label>
               <label className="block text-xs font-semibold text-[var(--theme-muted)]">
                 Category <span className="font-normal text-[var(--theme-faint)]">— sets how this module is scored</span>
-                <select className="input-field mt-1 bg-[var(--theme-panel)]" onChange={(e) => onUpdate({ type: e.target.value as ModuleType })} value={module.type}>
+                <select
+                  className="input-field mt-1 bg-[var(--theme-panel)]"
+                  onChange={(event) => {
+                    const type = event.target.value as ModuleType;
+                    onUpdate({
+                      type,
+                      aiFollowUpsEnabled: type === "ai_interview" ? true : module.aiFollowUpsEnabled,
+                      questions: type === "ai_interview"
+                        ? []
+                        : module.questions.length
+                          ? module.questions
+                          : [emptyQuestion(type === "coding" ? "coding" : type === "work_style" ? "scale" : "short_answer")],
+                    });
+                  }}
+                  value={module.type}
+                >
                   {MODULE_TYPES.map((t) => <option key={t} value={t}>{t.replaceAll("_", " ")}</option>)}
                 </select>
               </label>
@@ -619,6 +663,14 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
                 Weight
                 <input className="input-field w-24" min={0} onChange={(e) => onUpdate({ weight: e.target.value })} step="0.05" type="number" value={module.weight} />
               </label>
+              {module.type === "ai_interview" ? (
+                <div className="rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] p-3 sm:col-span-2">
+                  <p className="text-sm font-semibold text-[var(--theme-heading)]">Context-aware AI interviewer</p>
+                  <p className="mt-0.5 text-xs leading-5 text-[var(--theme-muted)]">
+                    This closing stage uses the full interview context. It may also ask a concise probe after an earlier answer only when clarification or stronger evidence is genuinely useful.
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -629,7 +681,15 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
       </div>
       {!module.collapsed && (
         <div className="space-y-4 p-6">
-          {module.questions.map((question, qIndex) => (
+          {module.type === "ai_interview" ? (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+              <p className="text-sm font-bold text-sky-950">Questions are generated during the assessment</p>
+              <p className="mt-1 text-xs leading-5 text-sky-800">
+                Evalora reviews answers, AI probes, interviewer follow-ups, and coding evidence from earlier modules,
+                then generates three closing questions and one contextual follow-up after each answer.
+              </p>
+            </div>
+          ) : module.questions.map((question, qIndex) => (
             <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] p-4" key={question.key}>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -643,6 +703,18 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
                 </div>
               </div>
               <div className="space-y-4">
+                {module.type === "coding" ? (
+                  <CodingChallengePicker
+                    challenges={codeChallenges}
+                    onChange={(challenge) => onUpdateQuestion(question.key, {
+                      codeQuestionId: challenge.id,
+                      questionText: `${challenge.title}: ${challenge.description}`,
+                      questionType: "coding",
+                    })}
+                    value={question.codeQuestionId}
+                  />
+                ) : (
+                  <>
                 <Field label="Question text" required>
                   <textarea className="input-field min-h-[80px]" onChange={(e) => onUpdateQuestion(question.key, { questionText: e.target.value })} placeholder="Write the question candidates will see…" rows={3} value={question.questionText} />
                 </Field>
@@ -656,7 +728,9 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
                     <input className="input-field" onChange={(e) => onUpdateQuestion(question.key, { rubricText: e.target.value })} placeholder="clarity, ownership, impact" value={question.rubricText} />
                   </Field>
                 </div>
-                {(question.questionType === "mcq" || question.questionType === "scale") && (
+                  </>
+                )}
+                {module.type !== "coding" && (question.questionType === "mcq" || question.questionType === "scale") && (
                   <Field label={question.questionType === "mcq" ? "Options (one per line)" : "Scale labels (one per line)"}>
                     <textarea className="input-field min-h-[80px] font-mono text-xs" onChange={(e) => onUpdateQuestion(question.key, { optionsText: e.target.value })} placeholder={question.questionType === "mcq" ? "Option A\nOption B" : "1 - Strongly disagree\n...\n5 - Strongly agree"} rows={4} value={question.optionsText} />
                   </Field>
@@ -664,10 +738,16 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
               </div>
             </div>
           ))}
-          <button className="button-secondary w-full" onClick={onAdd} type="button"><Icon name="plus" size={14} /> Add question</button>
+          {module.type !== "ai_interview" ? (
+            <button className="button-secondary w-full" onClick={onAdd} type="button"><Icon name="plus" size={14} /> Add question</button>
+          ) : null}
         </div>
       )}
-      {module.collapsed && <div className="border-t border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-6 py-3 text-sm text-[var(--theme-muted)]">{module.questions.length} question{module.questions.length !== 1 ? "s" : ""} collapsed</div>}
+      {module.collapsed && (
+        <div className="border-t border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-6 py-3 text-sm text-[var(--theme-muted)]">
+          {module.type === "ai_interview" ? "3 adaptive questions" : `${module.questions.length} question${module.questions.length !== 1 ? "s" : ""}`} collapsed
+        </div>
+      )}
     </div>
   );
 }
@@ -714,10 +794,11 @@ function getModuleColor(type: ModuleType): string {
 }
 
 function emptyQuestion(type: QuestionType = "short_answer"): EditorQuestion {
-  return { key: newKey("q"), questionText: "", questionType: type, optionsText: type === "scale" ? "1 - Strongly disagree\n2\n3\n4\n5 - Strongly agree" : "", rubricText: "" };
+  return { key: newKey("q"), questionText: "", questionType: type, optionsText: type === "scale" ? "1 - Strongly disagree\n2\n3\n4\n5 - Strongly agree" : "", rubricText: "", codeQuestionId: "" };
 }
 
-function parseOptions(text: string, questionType: QuestionType): JsonValue | undefined {
+function parseOptions(text: string, questionType: QuestionType, codeQuestionId = ""): JsonValue | undefined {
+  if (questionType === "coding") return codeQuestionId ? { codeQuestionId } : undefined;
   if (questionType !== "mcq" && questionType !== "scale") return undefined;
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   return lines.length ? lines : undefined;

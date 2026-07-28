@@ -8,6 +8,7 @@ export const INTERVIEW_EVENTS = {
   ping: "session.ping",
   presenceUpdated: "presence.updated",
   sessionUpdated: "session.updated",
+  responseSaved: "response.saved",
   questionSent: "interviewer-question.sent",
   questionAnswered: "interviewer-question.answered",
   questionCancelled: "interviewer-question.cancelled",

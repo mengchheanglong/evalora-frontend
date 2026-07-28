@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { AppShell } from "@/components/app-shell";
+import { useAuth } from "@/components/auth-provider";
 import { Icon, type IconName } from "@/components/icons";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
-import type { AssessmentTemplate, InterviewSession } from "@/lib/types";
+import type { AssessmentTemplate, InterviewSession, WorkspaceMember } from "@/lib/types";
 
 const fieldClass =
   "w-full h-11 rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15";
@@ -17,7 +18,9 @@ const fieldHintClass = "mt-1.5 text-xs text-slate-500";
 
 export default function CreateSessionPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -28,8 +31,10 @@ export default function CreateSessionPage() {
   // Form state (Cleared defaults for real usage)
   const [sessionTitle, setSessionTitle] = useState("");
   const [interviewType, setInterviewType] = useState("Technical Interview");
-  const [interviewers, setInterviewers] = useState<string[]>([]);
-  const [newInterviewer, setNewInterviewer] = useState("");
+  const [interviewerIds, setInterviewerIds] = useState<string[]>([]);
+  const [interviewerQuery, setInterviewerQuery] = useState("");
+  const [interviewerPickerOpen, setInterviewerPickerOpen] = useState(false);
+  const [activeInterviewerIndex, setActiveInterviewerIndex] = useState(0);
   const [notes, setNotes] = useState("");
   const [sessionLanguage, setSessionLanguage] = useState("English");
   
@@ -45,10 +50,14 @@ export default function CreateSessionPage() {
 
   useEffect(() => {
     let cancelled = false;
-    apiGet<AssessmentTemplate[]>("/templates")
-      .then((items) => {
+    Promise.all([
+      apiGet<AssessmentTemplate[]>("/templates"),
+      apiGet<WorkspaceMember[]>("/organization/members"),
+    ])
+      .then(([items, workspaceMembers]) => {
         if (cancelled) return;
         setTemplates(items);
+        setMembers(workspaceMembers);
         const requested = new URLSearchParams(window.location.search).get("templateId");
         setSelectedTemplateId(items.some((item) => item.id === requested) ? requested! : items[0]?.id ?? "");
       })
@@ -58,25 +67,62 @@ export default function CreateSessionPage() {
   }, []);
 
   const selectedTemplate = useMemo(() => templates.find((template) => template.id === selectedTemplateId), [selectedTemplateId, templates]);
+  const selectedInterviewers = useMemo(
+    () => interviewerIds.map((id) => members.find((member) => member.id === id)).filter((member): member is WorkspaceMember => Boolean(member)),
+    [interviewerIds, members],
+  );
+  const creator = useMemo(
+    () => members.find((member) => member.isCurrentUser) ?? members.find((member) => member.id === user?.id),
+    [members, user?.id],
+  );
+  const availableInterviewers = useMemo(() => {
+    const selected = new Set(interviewerIds);
+    const query = interviewerQuery.trim().toLowerCase();
+    return members.filter((member) => {
+      if (selected.has(member.id)) return false;
+      if (!query) return true;
+      return member.name.toLowerCase().includes(query) || member.email.toLowerCase().includes(query);
+    });
+  }, [interviewerIds, interviewerQuery, members]);
+  const defaultInterviewerName = creator?.name ?? user?.name ?? "Session creator";
 
   // --- Interviewers Logic ---
-  function addInterviewer() {
-    const name = newInterviewer.trim();
-    if (name && !interviewers.includes(name)) {
-      setInterviewers([...interviewers, name]);
-      setNewInterviewer("");
-    }
+  function addInterviewer(member: WorkspaceMember) {
+    setInterviewerIds((current) => current.includes(member.id) ? current : [...current, member.id]);
+    setInterviewerQuery("");
+    setActiveInterviewerIndex(0);
+    setInterviewerPickerOpen(true);
   }
 
   function handleInterviewerKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setInterviewerPickerOpen(true);
+      setActiveInterviewerIndex((current) => Math.min(current + 1, Math.max(availableInterviewers.length - 1, 0)));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveInterviewerIndex((current) => Math.max(current - 1, 0));
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
-      addInterviewer();
+      const member = availableInterviewers[activeInterviewerIndex] ?? availableInterviewers[0];
+      if (member) addInterviewer(member);
+      return;
+    }
+    if (e.key === "Escape") {
+      setInterviewerPickerOpen(false);
+      return;
+    }
+    if (e.key === "Backspace" && !interviewerQuery && interviewerIds.length) {
+      setInterviewerIds((current) => current.slice(0, -1));
     }
   }
 
-  function removeInterviewer(name: string) {
-    setInterviewers(interviewers.filter(i => i !== name));
+  function removeInterviewer(id: string) {
+    setInterviewerIds((current) => current.filter((interviewerId) => interviewerId !== id));
   }
 
   // --- Backend Submission ---
@@ -105,7 +151,8 @@ export default function CreateSessionPage() {
         templateId: selectedTemplateId,
         title: sessionTitle || undefined,
         interviewType: interviewType || undefined,
-        interviewers: interviewers.length ? interviewers : undefined,
+        interviewers: selectedInterviewers.length ? selectedInterviewers.map((member) => member.name) : undefined,
+        interviewerIds: selectedInterviewers.length ? selectedInterviewers.map((member) => member.id) : undefined,
         notes: notes || undefined,
         targetRole: position || undefined,
         department: department || undefined,
@@ -251,27 +298,106 @@ export default function CreateSessionPage() {
                     <p className={fieldHintClass}>Select the type of interview.</p>
                   </div>
 
-                  {/* Interviewers (Now Functional) */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Interviewers <span className="text-red-500">*</span></label>
-                    <div className="flex min-h-11   rounded-lg border border-slate-300   p-2 transition hover:border-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15">
-                      {interviewers.map(interviewer => (
-                        <span key={interviewer} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-200">
-                          {interviewer}
-                          <button type="button" onClick={() => removeInterviewer(interviewer)} className="text-gray-400 hover:text-gray-600 ml-1">×</button>
-                        </span>
-                      ))}
-                      <input 
-                        type="text" 
-                        placeholder="Add interviewer and press Enter..." 
-                        value={newInterviewer}
-                        onChange={(e) => setNewInterviewer(e.target.value)}
-                        onKeyDown={handleInterviewerKeyDown}
-                        onBlur={addInterviewer}
-                        className="min-w-[150px] flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                      />
+                    <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="interviewer-search">
+                      Interviewers
+                    </label>
+                    <div className="relative">
+                      <div className="interviewer-token-field flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 transition hover:border-slate-400 focus-within:border-sky-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-sky-500/15">
+                        {selectedInterviewers.map((interviewer) => (
+                          <span
+                            className="interviewer-token inline-flex h-7 items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 text-xs font-medium text-sky-800"
+                            key={interviewer.id}
+                          >
+                            {interviewer.name}
+                            <button
+                              aria-label={`Remove ${interviewer.name}`}
+                              className="text-sky-500 transition hover:text-sky-800"
+                              onClick={() => removeInterviewer(interviewer.id)}
+                              type="button"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                        <input
+                          aria-activedescendant={
+                            interviewerPickerOpen && availableInterviewers[activeInterviewerIndex]
+                              ? `interviewer-option-${availableInterviewers[activeInterviewerIndex].id}`
+                              : undefined
+                          }
+                          aria-autocomplete="list"
+                          aria-controls="interviewer-options"
+                          aria-expanded={interviewerPickerOpen}
+                          autoComplete="off"
+                          className="interviewer-token-input h-7 min-w-[170px] flex-1 bg-transparent px-1 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                          id="interviewer-search"
+                          onBlur={() => window.setTimeout(() => setInterviewerPickerOpen(false), 120)}
+                          onChange={(event) => {
+                            setInterviewerQuery(event.target.value);
+                            setActiveInterviewerIndex(0);
+                            setInterviewerPickerOpen(true);
+                          }}
+                          onFocus={() => setInterviewerPickerOpen(true)}
+                          onKeyDown={handleInterviewerKeyDown}
+                          placeholder={selectedInterviewers.length ? "Add another member..." : "Search team members..."}
+                          role="combobox"
+                          type="text"
+                          value={interviewerQuery}
+                        />
+                      </div>
+
+                      {interviewerPickerOpen ? (
+                        <ul
+                          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                          id="interviewer-options"
+                          role="listbox"
+                        >
+                          {availableInterviewers.length ? (
+                            availableInterviewers.map((member, index) => (
+                              <li
+                                aria-selected={index === activeInterviewerIndex}
+                                className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
+                                  index === activeInterviewerIndex ? "bg-sky-50 text-sky-900" : "text-slate-700 hover:bg-slate-50"
+                                }`}
+                                id={`interviewer-option-${member.id}`}
+                                key={member.id}
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  addInterviewer(member);
+                                }}
+                                role="option"
+                              >
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold uppercase text-sky-700">
+                                  {member.name.slice(0, 1)}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex items-center gap-2 font-semibold">
+                                    <span className="truncate">{member.name}</span>
+                                    {member.isCurrentUser ? (
+                                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+                                        You
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <span className="block truncate text-xs text-slate-500">{member.email}</span>
+                                </span>
+                                <span className="text-xs text-slate-400">{member.roleLabel}</span>
+                              </li>
+                            ))
+                          ) : (
+                            <li className="px-3 py-3 text-sm text-slate-500">
+                              {interviewerQuery.trim() ? "No matching team member." : "All team members are selected."}
+                            </li>
+                          )}
+                        </ul>
+                      ) : null}
                     </div>
-                    <p className={fieldHintClass}>Select one or more interviewers.</p>
+                    <p className={fieldHintClass}>
+                      {selectedInterviewers.length
+                        ? `${selectedInterviewers.length} team ${selectedInterviewers.length === 1 ? "member" : "members"} assigned.`
+                        : `${defaultInterviewerName} will be assigned by default.`}
+                    </p>
                   </div>
 
                   <div className="sm:col-span-2">
@@ -381,7 +507,15 @@ export default function CreateSessionPage() {
                   <SummaryRow icon="clipboard" label="Session Title" value={sessionTitle || "Untitled Session"} />
                   <SummaryRow icon="file" label="Template" value={selectedTemplate?.title || "Not selected"} />
                   <SummaryRow icon="message" label="Interview Type" value={interviewType} />
-                  <SummaryRow icon="users" label="Interviewers" value={interviewers.length > 0 ? `${interviewers.length} interviewers` : "None"} />
+                  <SummaryRow
+                    icon="users"
+                    label="Interviewers"
+                    value={
+                      selectedInterviewers.length
+                        ? selectedInterviewers.map((member) => member.name).join(", ")
+                        : `${defaultInterviewerName} (default)`
+                    }
+                  />
                   <SummaryRow icon="user" label="Candidate" value={candidate || "Not selected"} />
                   <SummaryRow icon="clock" label="Estimated Duration" value={duration ? `${duration} minutes` : "Not set"} />
                   <SummaryRow icon="globe" label="Language" value={sessionLanguage} />

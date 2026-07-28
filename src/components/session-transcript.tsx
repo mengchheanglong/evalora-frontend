@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/icons";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ConnectionPill, PresenceChips } from "@/components/realtime-indicators";
 import { EmptyState, ErrorState, InlineAlert } from "@/components/ui-states";
 import { useInterviewSocket } from "@/components/use-interview-socket";
-import { apiGet, getErrorMessage } from "@/lib/api";
+import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import type {
   JsonValue,
   SessionTranscript,
@@ -14,11 +16,14 @@ import type {
   TranscriptOrigin,
   TranscriptSourceCounts,
   TranscriptTruncation,
+  SessionStatus,
 } from "@/lib/types";
 
 const REFRESH_DEBOUNCE_MS = 600;
+const QUESTION_MAX = 2_000;
 
 type Props = {
+  onStatusChange?: (status: SessionStatus) => void;
   sessionId: string;
 };
 
@@ -26,7 +31,6 @@ type OriginMeta = {
   label: string;
   icon: IconName;
   badge: string;
-  rail: string;
   countKey: keyof TranscriptCounts;
 };
 
@@ -35,10 +39,10 @@ type OriginMeta = {
  * guess whether a question came from the template, the model, or a colleague.
  */
 const ORIGIN_META: Record<TranscriptOrigin, OriginMeta> = {
-  template: { label: "Prebuilt", icon: "clipboard", badge: "bg-sky-100 text-sky-700", rail: "border-l-sky-400", countKey: "template" },
-  ai_adaptive: { label: "AI follow-up", icon: "sparkle", badge: "bg-amber-100 text-amber-700", rail: "border-l-amber-400", countKey: "aiAdaptive" },
-  interviewer_follow_up: { label: "Interviewer follow-up", icon: "user", badge: "bg-violet-100 text-violet-700", rail: "border-l-violet-400", countKey: "interviewerFollowUp" },
-  code_submission: { label: "Code", icon: "code", badge: "bg-emerald-100 text-emerald-700", rail: "border-l-emerald-400", countKey: "codeSubmission" },
+  template: { label: "Prebuilt", icon: "clipboard", badge: "bg-sky-100 text-sky-700", countKey: "template" },
+  ai_adaptive: { label: "AI follow-up", icon: "sparkle", badge: "bg-amber-100 text-amber-700", countKey: "aiAdaptive" },
+  interviewer_follow_up: { label: "Interviewer follow-up", icon: "user", badge: "bg-violet-100 text-violet-700", countKey: "interviewerFollowUp" },
+  code_submission: { label: "Code", icon: "code", badge: "bg-emerald-100 text-emerald-700", countKey: "codeSubmission" },
 };
 
 const ORIGIN_ORDER: TranscriptOrigin[] = ["template", "ai_adaptive", "interviewer_follow_up", "code_submission"];
@@ -66,13 +70,14 @@ type Truncation = {
  * the report was allowed to score it. The page only claims to be complete when
  * the backend confirms nothing was dropped.
  */
-export function SessionTranscriptView({ sessionId }: Props) {
+export function SessionTranscriptView({ onStatusChange, sessionId }: Props) {
   const [transcript, setTranscript] = useState<SessionTranscript | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const refreshTimer = useRef<number | null>(null);
+  const [composerFor, setComposerFor] = useState<string | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -99,6 +104,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
       });
       if (!current()) return;
       setTranscript(loaded);
+      onStatusChange?.(loaded.status);
       setError("");
     } catch (requestError) {
       if (!current()) return;
@@ -109,7 +115,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
       if (current()) setLoading(false);
       if (controller.current === abort) controller.current = null;
     }
-  }, [sessionId]);
+  }, [onStatusChange, sessionId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -138,7 +144,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
   // REST stays authoritative; the channel only says when the record has moved on.
   // Every event the hook forwards — question sent, answered or cancelled, session
   // updated, and the snapshot replayed after a reconnect — can change a line here.
-  useInterviewSocket({
+  const { connection, participants, latencyMs } = useInterviewSocket({
     sessionId,
     enabled: transcript?.status === "in_progress",
     onEvent: scheduleRefresh,
@@ -152,26 +158,49 @@ export function SessionTranscriptView({ sessionId }: Props) {
   if (!transcript) return null;
 
   const unscored = transcript.entries.filter((entry) => !entry.isEvidence).length;
+  const isLive = transcript.status === "in_progress";
+  const canManageFollowUps = transcript.canManageFollowUps === true;
+  const currentStage = groups.at(-1)?.title ?? "Waiting for the first response";
+  const evidenceNotice = isLive
+    ? transcript.entries.length
+      ? "Only submitted answers appear here. Scoring starts after the interview is completed."
+      : "Submitted answers will appear here as the candidate progresses."
+    : transcript.entries.length === 0
+      ? "No submitted answers were recorded for this interview."
+      : unscored
+        ? `${unscored} of these answers are marked "Not scored as evidence" and are shown for context only.`
+        : "All submitted answers are available as evidence for report generation.";
 
   return (
     <div className="space-y-4">
       <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-[var(--theme-heading)]">{truncation.truncated ? "Partial transcript" : "Full transcript"}</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-[var(--theme-heading)]">
+              Interview
+            </h2>
             <p className="mt-1 text-xs text-[var(--theme-muted)]">
-              {truncation.truncated
+              {isLive
+                ? `Saved turns from ${transcript.candidate.name} appear here as the interview progresses. Live typing is never exposed.`
+                : truncation.truncated
                 ? `Part of what ${transcript.candidate.name} answered — this session is too long to show in full, so entries are missing and the order below is not the complete sequence.`
                 : `Every answer ${transcript.candidate.name} gave, in the order it happened.`}{" "}
               Each entry is labelled with the origin of its question.
             </p>
           </div>
-          <dl className="grid gap-1 text-xs text-[var(--theme-muted)]">
-            <TranscriptMeta label="Template" value={transcript.templateTitle ?? "—"} />
-            <TranscriptMeta label="Started" value={formatDateTime(transcript.startedAt)} />
-            <TranscriptMeta label="Completed" value={formatDateTime(transcript.completedAt)} />
-          </dl>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {isLive ? <PresenceChips participants={participants} /> : null}
+            {isLive ? <ConnectionPill latencyMs={latencyMs} state={connection} /> : null}
+          </div>
         </div>
+
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--theme-border)] pt-3 text-xs sm:grid-cols-4">
+          <TranscriptMeta label="Template" value={transcript.templateTitle ?? "—"} />
+          {isLive ? <TranscriptMeta label="Current stage" value={currentStage} /> : null}
+          {isLive ? <TranscriptMeta label="Saved turns" value={String(transcript.entries.length)} /> : null}
+          <TranscriptMeta label="Started" value={formatDateTime(transcript.startedAt)} />
+          {!isLive ? <TranscriptMeta label="Completed" value={formatDateTime(transcript.completedAt)} /> : null}
+        </dl>
 
         <ul className="mt-3 flex flex-wrap items-center gap-2">
           {ORIGIN_ORDER.map((origin) => {
@@ -188,7 +217,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
           })}
           <li>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--theme-muted)]">
-              {transcript.entries.length} entries {truncation.truncated ? "shown" : "total"}
+              {transcript.entries.length} turns {truncation.truncated ? "shown" : "total"}
             </span>
           </li>
         </ul>
@@ -207,10 +236,14 @@ export function SessionTranscriptView({ sessionId }: Props) {
 
         <p className="mt-3 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2 text-xs leading-5 text-[var(--theme-muted)]">
           <Icon className="mr-1.5 inline align-[-2px] text-[var(--theme-faint)]" name="shield" size={12} />
-          {unscored
-            ? `${unscored} of these answers are marked “Not scored as evidence” — they are shown for context but the report was not allowed to score them.`
-            : "Every answer below was used as evidence when the report was scored."}
+          {evidenceNotice}
         </p>
+        {isLive && !canManageFollowUps ? (
+          <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--theme-muted)]">
+            <Icon name="eye" size={12} />
+            View only. Only assigned interviewers can send or withdraw live follow-up questions.
+          </p>
+        ) : null}
       </section>
 
       {transcript.entries.length ? (
@@ -226,9 +259,21 @@ export function SessionTranscriptView({ sessionId }: Props) {
               <span className="text-xs text-[var(--theme-faint)]">{group.entries.length} entries</span>
             </div>
             <ol className="space-y-3">
-              {group.entries.map((entry) => (
+              {threadTranscriptEntries(group.entries).map(({ entry, followUps }) => (
                 <li key={entry.id}>
-                  <TranscriptEntryCard entry={entry} />
+                  <TranscriptEntryCard
+                    composing={composerFor === entry.id}
+                    canManageFollowUps={canManageFollowUps}
+                    entry={entry}
+                    followUps={followUps}
+                    isLive={isLive}
+                    onComposerChange={(open) => setComposerFor(open ? entry.id : null)}
+                    onChanged={async () => {
+                      setComposerFor(null);
+                      await load(true);
+                    }}
+                    sessionId={sessionId}
+                  />
                 </li>
               ))}
             </ol>
@@ -245,13 +290,53 @@ export function SessionTranscriptView({ sessionId }: Props) {
   );
 }
 
-function TranscriptEntryCard({ entry }: { entry: TranscriptEntry }) {
+function TranscriptEntryCard({
+  entry,
+  followUps,
+  sessionId,
+  isLive,
+  canManageFollowUps,
+  composing,
+  onComposerChange,
+  onChanged,
+}: {
+  entry: TranscriptEntry;
+  followUps: TranscriptEntry[];
+  sessionId: string;
+  isLive: boolean;
+  canManageFollowUps: boolean;
+  composing: boolean;
+  onComposerChange: (open: boolean) => void;
+  onChanged: () => Promise<void>;
+}) {
   const meta = ORIGIN_META[entry.origin];
   const answer = entry.answerText?.trim();
   const timestamp = formatDateTime(entry.answeredAt ?? entry.askedAt);
+  const [cancelling, setCancelling] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const canAsk = canManageFollowUps
+    && isLive
+    && entry.origin !== "interviewer_follow_up"
+    && Boolean(answer || entry.code)
+    && Boolean(entry.questionId)
+    && Boolean(entry.moduleId);
+
+  async function cancelFollowUp() {
+    if (cancelling) return;
+    setCancelling(true);
+    setActionError("");
+    try {
+      await apiPost(`/interviewer-follow-ups/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(entry.id)}/cancel`);
+      await onChanged();
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError, "The question could not be cancelled."));
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   return (
-    <article className={`rounded-lg border border-l-4 border-[var(--theme-border)] p-3 ${meta.rail}`} id={`transcript-entry-${entry.sequence}`}>
+    <article className="rounded-lg border border-[var(--theme-border)] p-3" id={`transcript-entry-${entry.sequence}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-bold tabular-nums text-[var(--theme-faint)]">
           <span className="sr-only">Transcript line </span>#{entry.sequence}
@@ -292,13 +377,246 @@ function TranscriptEntryCard({ entry }: { entry: TranscriptEntry }) {
         {entry.code ? <CodeArtifact code={entry.code} sequence={entry.sequence} /> : null}
       </div>
 
+      {followUps.length ? (
+        <div className="mt-3 rounded-lg bg-violet-50/35 p-3">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-violet-700">
+            <Icon name="message" size={12} />
+            Follow-up thread
+            <span className="font-semibold text-[var(--theme-faint)]">
+              {followUps.length} {followUps.length === 1 ? "question" : "questions"}
+            </span>
+          </p>
+          <ol className="space-y-2">
+            {followUps.map((followUp) => (
+              <li key={followUp.id}>
+                <TranscriptFollowUp
+                  entry={followUp}
+                  canManageFollowUps={canManageFollowUps}
+                  isLive={isLive}
+                  onChanged={onChanged}
+                  sessionId={sessionId}
+                />
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+
       {entry.isEvidence ? null : (
         <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-dashed border-[var(--theme-border-strong)] px-2 py-1 text-xs font-bold leading-4 text-[var(--theme-muted)]">
           <Icon name="shield" size={11} /> Not scored as evidence — shown for context only
         </p>
       )}
+      {actionError ? <p className="mt-2 text-xs text-rose-600">{actionError}</p> : null}
+      {canManageFollowUps && isLive && entry.origin === "interviewer_follow_up" && entry.status === "sent" ? (
+        <button
+          className="mt-2 text-xs font-semibold text-rose-600 transition hover:underline disabled:opacity-50"
+          disabled={cancelling}
+          onClick={() => void cancelFollowUp()}
+          type="button"
+        >
+          {cancelling ? "Cancelling..." : "Cancel question"}
+        </button>
+      ) : null}
+      {canAsk ? (
+        composing ? (
+          <LiveFollowUpComposer
+            moduleId={entry.moduleId}
+            onCancel={() => onComposerChange(false)}
+            onSent={onChanged}
+            parentQuestionId={entry.questionId}
+            sessionId={sessionId}
+          />
+        ) : (
+          <button
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--theme-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-primary-700)] transition hover:bg-[var(--theme-panel-soft)]"
+            onClick={() => onComposerChange(true)}
+            type="button"
+          >
+            <Icon name="message" size={13} /> {followUps.length ? "Ask another follow-up" : "Ask live follow-up"}
+          </button>
+        )
+      ) : null}
     </article>
   );
+}
+
+function TranscriptFollowUp({
+  entry,
+  sessionId,
+  isLive,
+  canManageFollowUps,
+  onChanged,
+}: {
+  entry: TranscriptEntry;
+  sessionId: string;
+  isLive: boolean;
+  canManageFollowUps: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [error, setError] = useState("");
+  const answer = entry.answerText?.trim();
+
+  async function cancel() {
+    if (cancelling) return;
+    setCancelling(true);
+    setError("");
+    try {
+      await apiPost(`/interviewer-follow-ups/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(entry.id)}/cancel`);
+      await onChanged();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "The question could not be cancelled."));
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  return (
+    <article className="rounded-lg border border-violet-200 bg-violet-50/35 p-3" id={`transcript-entry-${entry.sequence}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold text-violet-700">{entry.askedBy?.name ?? "Interviewer"} asked</span>
+        {entry.status ? (
+          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+            entry.status === "answered"
+              ? "bg-emerald-100 text-emerald-700"
+              : entry.status === "cancelled"
+                ? "bg-neutral-100 text-neutral-500"
+                : "bg-violet-100 text-violet-700"
+          }`}>
+            {entry.status === "sent" ? "Waiting for answer" : entry.status === "answered" ? "Answered" : "Withdrawn"}
+          </span>
+        ) : null}
+        <span className="ml-auto text-xs text-[var(--theme-faint)]">{formatDateTime(entry.answeredAt ?? entry.askedAt)}</span>
+      </div>
+      <p className="mt-1.5 whitespace-pre-wrap text-sm font-semibold leading-5 text-[var(--theme-heading)]">{entry.questionText}</p>
+      <div className="mt-2 rounded-md bg-[var(--theme-panel)] px-3 py-2">
+        <p className="text-xs font-bold uppercase text-[var(--theme-faint)]">Candidate reply</p>
+        <p className={`mt-1 whitespace-pre-wrap text-xs leading-5 ${answer ? "text-[var(--theme-text)]" : "text-[var(--theme-faint)]"}`}>
+          {answer || "Waiting for the candidate to answer."}
+        </p>
+      </div>
+      {!entry.isEvidence || (canManageFollowUps && isLive && entry.status === "sent") ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          {!entry.isEvidence ? (
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--theme-muted)]">
+              <Icon name="shield" size={11} /> Not scored as evidence
+            </p>
+          ) : null}
+          {canManageFollowUps && isLive && entry.status === "sent" ? (
+            <button
+              className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-[var(--theme-panel)] px-2.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+              disabled={cancelling}
+              onClick={() => setConfirmWithdraw(true)}
+              type="button"
+            >
+              <Icon name="trash" size={12} /> Withdraw
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null}
+      <ConfirmDialog
+        confirmLabel="Withdraw question"
+        message="The candidate will no longer be asked to answer it. Questions that were already answered remain part of the interview record."
+        onCancel={() => setConfirmWithdraw(false)}
+        onConfirm={() => {
+          setConfirmWithdraw(false);
+          void cancel();
+        }}
+        open={confirmWithdraw}
+        pending={cancelling}
+        title="Withdraw this follow-up?"
+      />
+    </article>
+  );
+}
+
+function LiveFollowUpComposer({
+  sessionId,
+  moduleId,
+  parentQuestionId,
+  onSent,
+  onCancel,
+}: {
+  sessionId: string;
+  moduleId?: string;
+  parentQuestionId?: string;
+  onSent: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [required, setRequired] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const idempotencyKey = useRef(cryptoRandomId());
+
+  async function send() {
+    if (text.trim().length < 3 || sending) return;
+    setSending(true);
+    setError("");
+    try {
+      await apiPost(`/interviewer-follow-ups/session/${encodeURIComponent(sessionId)}`, {
+        moduleId,
+        parentQuestionId,
+        questionText: text.trim(),
+        required,
+        idempotencyKey: idempotencyKey.current,
+      });
+      await onSent();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Question was not sent. Your draft is preserved."));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-violet-300/60 bg-violet-50/40 p-3">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">
+          <Icon name="lock" size={11} /> Private draft
+        </span>
+        <span className="text-xs text-[var(--theme-faint)]">Visible to the candidate only after you send.</span>
+      </div>
+      <textarea
+        autoFocus
+        className="control mt-2 min-h-[84px] rounded-lg text-xs"
+        maxLength={QUESTION_MAX}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void send();
+        }}
+        placeholder="Ask the candidate to go deeper on this answer..."
+        value={text}
+      />
+      {error ? <p className="mt-1.5 text-xs text-rose-600">{error}</p> : null}
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs font-semibold text-[var(--theme-muted)]">
+          <input checked={required} onChange={(event) => setRequired(event.target.checked)} type="checkbox" />
+          Required before submission
+        </label>
+        <span className="text-xs text-[var(--theme-faint)]">{text.length}/{QUESTION_MAX}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button className="button-secondary h-8 rounded-lg px-3 text-xs" onClick={onCancel} type="button">Cancel</button>
+          <button
+            className="inline-flex h-8 items-center rounded-lg bg-violet-600 px-3 text-xs font-bold text-white transition hover:bg-violet-700 disabled:opacity-50"
+            disabled={sending || text.trim().length < 3}
+            onClick={() => void send()}
+            type="button"
+          >
+            {sending ? "Sending..." : "Send question"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function cryptoRandomId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `ifu-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function CodeArtifact({ code, sequence }: { code: TranscriptCodeArtifact; sequence: number }) {
@@ -340,9 +658,9 @@ function CodeBlock({ label, text, title }: { label: string; text: string; title?
 
 function TranscriptMeta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt>{label}</dt>
-      <dd className="font-semibold text-[var(--theme-heading)]">{value}</dd>
+    <div className="min-w-0">
+      <dt className="text-[var(--theme-muted)]">{label}</dt>
+      <dd className="mt-0.5 break-words font-semibold leading-5 text-[var(--theme-heading)]">{value}</dd>
     </div>
   );
 }
@@ -353,6 +671,37 @@ type TranscriptGroup = {
   moduleType?: string;
   entries: TranscriptEntry[];
 };
+
+type TranscriptThread = {
+  entry: TranscriptEntry;
+  followUps: TranscriptEntry[];
+};
+
+/**
+ * Human follow-ups belong to the answer that prompted them. Older records can
+ * lack a parent id, so unmatched entries remain visible as standalone cards.
+ */
+function threadTranscriptEntries(entries: TranscriptEntry[]): TranscriptThread[] {
+  const ordered = [...entries].sort((first, second) => first.sequence - second.sequence);
+  const parentIds = new Set(ordered.map((entry) => entry.questionId).filter((id): id is string => Boolean(id)));
+  const children = new Map<string, TranscriptEntry[]>();
+  const attached = new Set<string>();
+
+  for (const entry of ordered) {
+    if (entry.origin !== "interviewer_follow_up" || !entry.parentQuestionId || !parentIds.has(entry.parentQuestionId)) continue;
+    const current = children.get(entry.parentQuestionId) ?? [];
+    current.push(entry);
+    children.set(entry.parentQuestionId, current);
+    attached.add(entry.id);
+  }
+
+  return ordered
+    .filter((entry) => !attached.has(entry.id))
+    .map((entry) => ({
+      entry,
+      followUps: entry.questionId ? children.get(entry.questionId) ?? [] : [],
+    }));
+}
 
 /**
  * Groups by module while preserving transcript order: a module appears where

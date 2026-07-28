@@ -11,12 +11,13 @@ type ReportViewProps = {
   notes: ReviewerNote[];
   onAddNote: (note: string) => Promise<boolean>;
   savingNote: boolean;
+  onViewInterview?: () => void;
   /** When false, the identity block (avatar/name) is hidden — used where a
    *  profile header already shows the candidate (e.g. the candidate detail tab). */
   showIdentity?: boolean;
 };
 
-export function ReportView({ report, role, notes, onAddNote, savingNote, showIdentity = true }: ReportViewProps) {
+export function ReportView({ report, role, notes, onAddNote, savingNote, onViewInterview, showIdentity = true }: ReportViewProps) {
   const score = Math.round(report.overallScore * 20);
   const meta = scoreMeta(score);
   const moduleEntries = Object.entries(report.moduleScores);
@@ -64,7 +65,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-        {/* Left: analytical + evidence */}
+        {/* Left: analytical summary */}
         <div className="space-y-4">
           <SectionCard icon="analytics" title="Competency breakdown">
             {moduleEntries.length ? (
@@ -74,18 +75,15 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, showIde
 
           <SectionCard icon="report" title="Assessment summary">
             <p className="text-sm text-[var(--theme-muted)]">{report.summary || "No summary was generated."}</p>
-          </SectionCard>
-
-          <SectionCard icon="message" title="Evidence from responses">
-            {report.evidence.length ? (
-              <div className="space-y-2.5">
-                {report.evidence.slice(0, 6).map((item, index) => (
-                  <blockquote className="rounded-[7px] border-l-[3px] border-[var(--color-primary-300)] bg-[var(--theme-panel-soft)] px-3.5 py-3 text-sm text-[var(--theme-muted)]" key={index}>
-                    {item}
-                  </blockquote>
-                ))}
-              </div>
-            ) : <Empty>No supporting evidence was extracted.</Empty>}
+            {onViewInterview ? (
+              <button
+                className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-[var(--theme-border)] px-2.5 text-xs font-semibold text-[var(--theme-text)] transition hover:border-[var(--color-primary-300)] hover:bg-[var(--theme-panel-soft)] hover:text-[var(--color-primary-700)]"
+                onClick={onViewInterview}
+                type="button"
+              >
+                <Icon name="eye" size={13} /> View interview
+              </button>
+            ) : null}
           </SectionCard>
         </div>
 

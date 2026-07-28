@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
-import { CodeEditor, LanguagePicker, STARTER_BY_LANGUAGE, languageFileName, type CodeLanguage } from "@/components/code-editor";
+import {
+  CodeEditor,
+  LanguagePicker,
+  STARTER_BY_LANGUAGE,
+  isCodeLanguage,
+  languageFileName,
+  languageLabel,
+  languageRuntime,
+  type CodeLanguage,
+} from "@/components/code-editor";
 import { ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import type { CandidateCodeSubmission, CandidateCodeSubmitResult, CodeQuestion, CodeRunResult } from "@/lib/types";
@@ -14,10 +23,14 @@ type CandidateCodingAssessmentProps = {
   locked?: boolean;
 };
 
+type QuestionDrafts = Record<string, Partial<Record<CodeLanguage, string>>>;
+
 export function CandidateCodingAssessment({ accessCode, onBack, onContinue, locked = false }: CandidateCodingAssessmentProps) {
   const [questions, setQuestions] = useState<CodeQuestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [codeByQuestion, setCodeByQuestion] = useState<Record<string, string>>({});
+  // Each challenge retains an independent draft for every language. Switching
+  // runtimes must never reinterpret JavaScript source as Python or overwrite it.
+  const [draftsByQuestion, setDraftsByQuestion] = useState<QuestionDrafts>({});
   // Language is tracked per question so switching challenges keeps each choice.
   const [languageByQuestion, setLanguageByQuestion] = useState<Record<string, CodeLanguage>>({});
   const [results, setResults] = useState<Record<string, CandidateCodeSubmitResult>>({});
@@ -37,8 +50,23 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
       ]);
       const latestByQuestion = new Map<string, CandidateCodeSubmission>();
       for (const submission of previous) if (!latestByQuestion.has(submission.questionId)) latestByQuestion.set(submission.questionId, submission);
+      const restoredLanguages: Record<string, CodeLanguage> = {};
+      const restoredDrafts: QuestionDrafts = {};
+      for (const question of assigned) {
+        const submission = latestByQuestion.get(question.id);
+        const language = isCodeLanguage(submission?.language)
+          ? submission.language
+          : isCodeLanguage(question.language)
+            ? question.language
+            : "javascript";
+        restoredLanguages[question.id] = language;
+        restoredDrafts[question.id] = {
+          [language]: submission?.sourceCode ?? starterForQuestion(question, language),
+        };
+      }
       setQuestions(assigned);
-      setCodeByQuestion(Object.fromEntries(assigned.map((question) => [question.id, latestByQuestion.get(question.id)?.sourceCode ?? question.starterCode])));
+      setLanguageByQuestion(restoredLanguages);
+      setDraftsByQuestion(restoredDrafts);
       setResults(Object.fromEntries(Array.from(latestByQuestion.values()).map((submission) => [submission.questionId, {
         submissionId: submission.id,
         sessionId: submission.sessionId,
@@ -63,19 +91,25 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
   useEffect(() => { void loadWorkspace(); }, [loadWorkspace]);
 
   const activeQuestion = questions[activeIndex];
-  const activeCode = activeQuestion ? codeByQuestion[activeQuestion.id] ?? activeQuestion.starterCode : "";
   const activeLanguage: CodeLanguage = (activeQuestion && languageByQuestion[activeQuestion.id]) || "javascript";
+  const activeCode = activeQuestion
+    ? draftsByQuestion[activeQuestion.id]?.[activeLanguage] ?? starterForQuestion(activeQuestion, activeLanguage)
+    : "";
 
-  // Switching language swaps in that language's starter unless the candidate
-  // already wrote something they'd lose.
+  // Initialize only the newly selected language. Existing drafts in every other
+  // runtime remain untouched and are restored when the candidate switches back.
   function changeLanguage(next: CodeLanguage) {
     if (!activeQuestion) return;
     setLanguageByQuestion((current) => ({ ...current, [activeQuestion.id]: next }));
-    setCodeByQuestion((current) => {
-      const existing = (current[activeQuestion.id] ?? activeQuestion.starterCode ?? "").trim();
-      const untouched = !existing || existing === (activeQuestion.starterCode ?? "").trim() || Object.values(STARTER_BY_LANGUAGE).some((starter) => starter.trim() === existing);
-      return untouched ? { ...current, [activeQuestion.id]: STARTER_BY_LANGUAGE[next] } : current;
-    });
+    setDraftsByQuestion((current) => ({
+      ...current,
+      [activeQuestion.id]: {
+        ...current[activeQuestion.id],
+        [next]: current[activeQuestion.id]?.[next] ?? starterForQuestion(activeQuestion, next),
+      },
+    }));
+    setTerminal(null);
+    setError("");
   }
   const completedCount = Object.keys(results).length;
   const allSubmitted = questions.length > 0 && questions.every((question) => results[question.id]);
@@ -132,7 +166,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
   return (
     <section className="overflow-hidden rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-[var(--shadow-card)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--theme-border)] px-4 py-3 sm:px-5">
-        <div><p className="text-xs font-bold uppercase text-[var(--color-primary-700)]">Coding assessment</p><h2 className="mt-1 text-sm font-black text-[var(--theme-heading)]">JavaScript sandbox</h2></div>
+        <div><p className="text-xs font-bold uppercase text-[var(--color-primary-700)]">Coding assessment</p><h2 className="mt-1 text-sm font-black text-[var(--theme-heading)]">{languageLabel(activeLanguage)} sandbox</h2></div>
         <div className="flex items-center gap-3"><span className="text-xs font-semibold text-[var(--theme-muted)]">{completedCount}/{questions.length} submitted</span><div className="h-1.5 w-28 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${questions.length ? (completedCount / questions.length) * 100 : 0}%` }} /></div></div>
       </header>
 
@@ -152,7 +186,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
 
         <div className="grid min-w-0 xl:grid-cols-[minmax(260px,0.72fr)_minmax(420px,1.28fr)]">
           <article className="border-b border-[var(--theme-border)] p-5 xl:border-b-0 xl:border-r">
-            <div className="flex items-center justify-between gap-3"><span className={`rounded-[4px] px-2 py-1 text-xs font-bold capitalize ${activeQuestion.difficulty === "easy" ? "bg-emerald-50 text-emerald-700" : activeQuestion.difficulty === "medium" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{activeQuestion.difficulty}</span><span className="text-xs font-semibold text-[var(--theme-faint)]">{activeQuestion.testCaseCount} hidden tests</span></div>
+            <div className="flex items-center justify-between gap-3"><span className={`rounded-[4px] px-2 py-1 text-xs font-bold capitalize ${activeQuestion.difficulty === "easy" ? "bg-emerald-50 text-emerald-700" : activeQuestion.difficulty === "medium" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{activeQuestion.difficulty}</span><span className="text-xs font-semibold text-[var(--theme-faint)]">Private test cases</span></div>
             <h3 className="mt-3 text-sm font-black text-[var(--theme-heading)]">{activeQuestion.title}</h3>
             <p className="mt-2 text-xs text-[var(--theme-muted)]">{activeQuestion.description}</p>
             <div className="mt-4 space-y-3">
@@ -164,16 +198,32 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
 
           <div className="flex min-w-0 flex-col bg-[#0e1117]">
             <div className="flex h-11 items-center justify-between gap-3 border-b border-white/10 px-4">
-              <span className="flex items-center gap-2 text-xs font-bold text-white"><Icon name="code" size={13} /> {languageFileName(activeLanguage)}</span>
+              <span className="flex min-w-0 items-center gap-2 text-xs font-bold text-white">
+                <Icon name="code" size={13} />
+                <span className="truncate">{languageFileName(activeLanguage)}</span>
+                <span className="hidden font-semibold text-slate-500 md:inline">{languageRuntime(activeLanguage)}</span>
+              </span>
               <LanguagePicker disabled={locked} language={activeLanguage} onChange={changeLanguage} />
             </div>
             <div className="min-h-[360px] flex-1 overflow-auto bg-[#0e1117] text-sm">
-              <CodeEditor language={activeLanguage} onChange={(next) => setCodeByQuestion((current) => ({ ...current, [activeQuestion.id]: next }))} readOnly={locked} value={activeCode} />
+              <CodeEditor
+                key={`${activeQuestion.id}:${activeLanguage}`}
+                language={activeLanguage}
+                onChange={(next) => {
+                  setDraftsByQuestion((current) => ({
+                    ...current,
+                    [activeQuestion.id]: { ...current[activeQuestion.id], [activeLanguage]: next },
+                  }));
+                  setTerminal(null);
+                }}
+                readOnly={locked}
+                value={activeCode}
+              />
             </div>
             <div className="border-t border-white/10 bg-[#090c11]">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-2"><span className={`text-xs font-bold ${output.tone}`}>{output.title}</span>{terminal ? <span className="text-xs text-slate-500">{Math.round(terminal.executionTime * 1000)} ms</span> : null}</div>
               <pre className="min-h-[96px] max-h-[150px] overflow-auto whitespace-pre-wrap p-4 text-xs text-slate-300">{output.body}</pre>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-4 py-3"><button className="rounded-[5px] px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5" onClick={onBack} type="button">Back</button><div className="flex gap-2"><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] border border-white/15 px-3 text-xs font-bold text-white hover:bg-white/5 disabled:opacity-50" disabled={running || submitting || locked} onClick={() => void runCode()} type="button"><Icon name="paperPlane" size={12} />{running ? "Running" : "Run sample"}</button><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] bg-[#29b7e5] px-3 text-xs font-black text-[#07111f] hover:bg-[#53c7eb] disabled:opacity-50" disabled={running || submitting || locked} onClick={() => void submitCode()} type="button"><Icon name="check" size={12} />{submitting ? "Submitting" : results[activeQuestion.id] ? "Resubmit" : "Submit"}</button></div></div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-4 py-3"><button className="rounded-[5px] px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5" onClick={onBack} type="button">Back</button><div className="flex gap-2"><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] border border-white/15 px-3 text-xs font-bold text-white hover:bg-white/5 disabled:opacity-50" disabled={running || submitting || locked || !activeCode.trim()} onClick={() => void runCode()} type="button"><Icon name="paperPlane" size={12} />{running ? "Running" : "Run sample"}</button><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] bg-[#29b7e5] px-3 text-xs font-black text-[#07111f] hover:bg-[#53c7eb] disabled:opacity-50" disabled={running || submitting || locked || !activeCode.trim()} onClick={() => void submitCode()} type="button"><Icon name="check" size={12} />{submitting ? "Submitting" : results[activeQuestion.id] ? "Resubmit" : "Submit"}</button></div></div>
             </div>
           </div>
         </div>
@@ -185,3 +235,9 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
 }
 
 function InfoBlock({ label, children }: { label: string; children: React.ReactNode }) { return <div><p className="mb-1.5 text-xs font-bold uppercase text-[var(--theme-faint)]">{label}</p><div className="overflow-auto rounded-[6px] bg-neutral-950 p-2.5 font-mono text-xs text-slate-200">{children}</div></div>; }
+
+function starterForQuestion(question: CodeQuestion, language: CodeLanguage): string {
+  if (language === "javascript" && question.starterCode.trim()) return question.starterCode;
+  const comment = language === "python" ? `# ${question.title}\n` : `// ${question.title}\n`;
+  return `${comment}${STARTER_BY_LANGUAGE[language]}`;
+}

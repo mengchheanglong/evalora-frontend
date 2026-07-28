@@ -454,6 +454,9 @@ export interface TranscriptCodeArtifact {
 export interface TranscriptEntry {
   id: string;
   origin: TranscriptOrigin;
+  questionId?: string;
+  /** Interviewer follow-ups only: the question whose answer prompted it. */
+  parentQuestionId?: string;
   moduleId?: string;
   moduleTitle?: string;
   moduleType?: string;
@@ -503,6 +506,7 @@ export interface TranscriptTruncation {
 export interface SessionTranscript {
   sessionId: string;
   status: SessionStatus;
+  canManageFollowUps?: boolean;
   startedAt?: string;
   completedAt?: string;
   candidate: { id: string; name: string; email: string };

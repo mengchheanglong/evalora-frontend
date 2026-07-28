@@ -248,6 +248,16 @@
   border-color: color-mix(in srgb, var(--color-primary) 22%, var(--theme-border)) !important;
 }
 
+.live-status-dot {
+  background-color: #ef4444;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 18%, transparent);
+}
+
+[data-theme="dark"] .live-status-dot {
+  background-color: #fb7185 !important;
+  box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.2), 0 0 8px rgba(251, 113, 133, 0.42);
+}
+
 ::selection {
   background: #bfeeff;
   color: #07111f;

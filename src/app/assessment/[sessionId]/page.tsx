@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { CandidateInterviewerQuestions, useInterviewerFollowUps } from "@/components/candidate-interviewer-questions";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CandidateInterviewerInbox, CandidateInterviewerQuestions, useInterviewerFollowUps } from "@/components/candidate-interviewer-questions";
 import { ConnectionPill } from "@/components/realtime-indicators";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
 import { useAiStream } from "@/components/use-ai-stream";
 import { EvaloraLogo } from "@/components/logo";
 import { ApiError, apiGet, apiPost, apiPut, getErrorMessage } from "@/lib/api";
+import { decideInterviewerResume } from "@/lib/candidate-interview-navigation";
 import type { AssessmentModule, CandidateAccessSession, CandidateCodeSubmission, CandidateResponse, InterviewerFollowUp, JsonValue, Question } from "@/lib/types";
 import {
   parseSavedResponse,
@@ -37,8 +38,8 @@ export default function CandidateAssessmentPage() {
   const aiStream = useAiStream(accessCode);
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [briefingModuleId, setBriefingModuleId] = useState("");
   const [codingComplete, setCodingComplete] = useState(false);
-  const [codingSandboxActive, setCodingSandboxActive] = useState(false);
   const [adaptiveQuestions, setAdaptiveQuestions] = useState<Question[] | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -60,6 +61,11 @@ export default function CandidateAssessmentPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   // Question to ring and scroll to once the interviewer view opens.
   const [highlightFollowUpId, setHighlightFollowUpId] = useState("");
+  const [focusedFollowUpId, setFocusedFollowUpId] = useState("");
+  // Set only when a required interviewer turn interrupted the candidate's
+  // Continue action. An unsolicited question may be answered without advancing
+  // the interview plan underneath it.
+  const resumeAfterFollowUpId = useRef("");
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const saveRequests = useRef(new Map<string, Promise<boolean>>());
   const answerRevisions = useRef(new Map<string, number>());
@@ -84,7 +90,10 @@ export default function CandidateAssessmentPage() {
       for (const response of savedResponses) {
         if (!response.questionId) {
           const adaptive = parseAdaptiveSavedResponse(response);
-          if (adaptive) nextAdaptiveAnswers.set(adaptive.question, { text: adaptive.answer });
+          if (adaptive) {
+            nextAdaptiveAnswers.set(adaptive.question, { text: adaptive.answer });
+            if (adaptive.followUp) nextFollowUps[adaptive.questionId] = adaptive.followUp;
+          }
           continue;
         }
         const parsed = parseSavedResponse(response.responseText);
@@ -126,6 +135,7 @@ export default function CandidateAssessmentPage() {
         }
       }
       setSession(nextSession);
+      setBriefingModuleId("");
       setAnswers(nextAnswers);
       setFollowUps(nextFollowUps);
       setAdaptiveQuestions(restoredAdaptiveQuestions);
@@ -138,8 +148,6 @@ export default function CandidateAssessmentPage() {
         setActiveModuleIndex(Math.max(0, aiModuleIndex));
         setActiveQuestionIndex(authoredCount + (firstUnanswered >= 0 ? firstUnanswered : Math.max(0, restoredAdaptiveQuestions.length - 1)));
       }
-      const codingModule = candidateModules(nextSession.template.modules).find((module) => module.type === "coding");
-      setCodingSandboxActive(Boolean(codingModule && questionResponsesComplete(codingModule, nextAnswers, nextFollowUps)));
       if (nextSession.status === "in_progress" && nextSession.template.modules.some((module) => module.type === "coding")) {
         try {
           const [codeQuestions, codeSubmissions] = await Promise.all([
@@ -205,7 +213,23 @@ export default function CandidateAssessmentPage() {
     if (arrivalId) setHighlightFollowUpId(arrivalId);
   }, [arrivalId]);
 
-  function openInterviewerQuestions(followUpId?: string) {
+  function focusInterviewerInbox(followUpId?: string) {
+    if (followUpId) {
+      setHighlightFollowUpId(followUpId);
+      setFocusedFollowUpId(followUpId);
+    }
+    interviewer.dismissArrival();
+    setActionError("");
+    setView("assessment");
+    window.setTimeout(() => {
+      const inbox = document.getElementById("candidate-interviewer-inbox");
+      if (!inbox) return;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      inbox.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+    }, 0);
+  }
+
+  function openInterviewerHistory(followUpId?: string) {
     if (followUpId) setHighlightFollowUpId(followUpId);
     interviewer.dismissArrival();
     setActionError("");
@@ -221,6 +245,24 @@ export default function CandidateAssessmentPage() {
         : module
     ));
   }, [session?.template.modules, adaptiveQuestions]);
+  const interviewerContextById = useMemo(() => {
+    const contexts: Record<string, { moduleTitle?: string; questionText?: string; answerText?: string }> = {};
+    for (const followUp of interviewer.followUps) {
+      if (!followUp.parentQuestionId) continue;
+      const module = modules.find((item) => (item.questions ?? []).some((question) => question.id === followUp.parentQuestionId));
+      const question = module?.questions?.find((item) => item.id === followUp.parentQuestionId);
+      const aiParentId = followUp.parentQuestionId.startsWith("ai-follow-up:")
+        ? followUp.parentQuestionId.slice("ai-follow-up:".length)
+        : undefined;
+      const aiProbe = aiParentId ? followUps[aiParentId] : undefined;
+      contexts[followUp.id] = {
+        moduleTitle: module?.title ?? (aiParentId ? modules.find((item) => (item.questions ?? []).some((candidate) => candidate.id === aiParentId))?.title : undefined),
+        questionText: question?.questionText ?? aiProbe?.question,
+        answerText: answers[followUp.parentQuestionId]?.text ?? aiProbe?.answer,
+      };
+    }
+    return contexts;
+  }, [answers, interviewer.followUps, modules]);
   const activeModule = modules[activeModuleIndex];
   const activeQuestionCount = activeModule?.questions?.length ?? 0;
   const displayedQuestionIndex = activeQuestionCount > 0
@@ -228,6 +270,7 @@ export default function CandidateAssessmentPage() {
     : 0;
   const activeQuestion = activeModule?.questions?.[displayedQuestionIndex];
   const adaptiveReady = !modules.some((module) => module.type === "ai_interview") || adaptiveQuestions !== null;
+  const focusedInterviewerTurn = interviewer.pending.find((item) => item.id === focusedFollowUpId);
 
   useEffect(() => {
     if (activeModuleIndex >= modules.length && modules.length > 0) {
@@ -246,6 +289,7 @@ export default function CandidateAssessmentPage() {
     try {
       const started = await apiPut<CandidateAccessSession>(`/sessions/access/${encodeURIComponent(accessCode)}/start`);
       setSession(started);
+      setBriefingModuleId(candidateModules(started.template.modules)[0]?.id ?? "");
       setView("assessment");
     } catch (requestError) {
       setActionError(getErrorMessage(requestError, "Unable to start the assessment."));
@@ -283,15 +327,17 @@ export default function CandidateAssessmentPage() {
     setSaveState("saving");
     const request = (async () => {
       try {
+        const followUp = followUps[questionId];
         if (questionId.startsWith("ai-adaptive-")) {
           const question = adaptiveQuestions?.find((item) => item.id === questionId)?.questionText ?? "";
           await apiPost(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-answer`, {
             questionId,
             question,
             answer: answer.text,
+            followUpQuestion: followUp?.question,
+            followUpAnswer: followUp?.answer,
           });
         } else {
-          const followUp = followUps[questionId];
           await apiPost<CandidateResponse>(`/responses/access/${encodeURIComponent(accessCode)}`, {
             questionId,
             // Only what the candidate typed for this question. The AI's wording never
@@ -345,7 +391,10 @@ export default function CandidateAssessmentPage() {
     setActionError("");
     try {
       await flushPendingSaves();
-      const result = await apiPost<{ questions: string[] }>(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-questions`, { count: 3 });
+      const aiModule = candidateModules(session?.template.modules ?? []).find((module) => module.type === "ai_interview");
+      const result = await apiPost<{ questions: string[] }>(`/ai/access/${encodeURIComponent(accessCode)}/adaptive-questions`, {
+        count: adaptiveQuestionCount(aiModule?.settings),
+      });
       const generated = toAdaptiveQuestions(result.questions);
       if (!generated.length) throw new Error("No tailored questions were generated.");
 
@@ -369,7 +418,34 @@ export default function CandidateAssessmentPage() {
     }
   }
 
-  async function nextQuestion() {
+  async function handleInterviewerQuestionChanged(followUpId?: string): Promise<InterviewerFollowUp[]> {
+    const refreshed = await interviewer.reload();
+    if (!followUpId) return refreshed;
+
+    const decision = decideInterviewerResume({
+      activeQuestionId: activeQuestion?.id,
+      changedFollowUpId: followUpId,
+      refreshedFollowUps: refreshed,
+      resumeAfterFollowUpId: resumeAfterFollowUpId.current,
+    });
+    if (!decision.resolved) return refreshed;
+    if (focusedFollowUpId === followUpId) {
+      setFocusedFollowUpId("");
+      setHighlightFollowUpId("");
+    }
+    if (decision.nextBlockingId) {
+      resumeAfterFollowUpId.current = decision.nextBlockingId;
+      focusInterviewerInbox(decision.nextBlockingId);
+      setActionError("Your interviewer has another follow-up before the interview continues.");
+    } else if (decision.resume) {
+      resumeAfterFollowUpId.current = "";
+      setView("assessment");
+      await nextQuestion(followUpId);
+    }
+    return refreshed;
+  }
+
+  async function nextQuestion(resolvedInterviewerFollowUpId?: string) {
     if (timeLeft === 0 || advancingRef.current) return;
     if (!activeModule || !activeQuestion) return;
     const answer = answers[activeQuestion.id];
@@ -379,22 +455,37 @@ export default function CandidateAssessmentPage() {
     }
     setActionError("");
 
+    const remainingRequiredTurns = interviewer.pendingRequired.filter(
+      (item) => item.id !== resolvedInterviewerFollowUpId,
+    );
+    const interviewerTurn = remainingRequiredTurns.find((item) => item.parentQuestionId === activeQuestion.id)
+      ?? remainingRequiredTurns[0];
+    if (interviewerTurn) {
+      resumeAfterFollowUpId.current = interviewerTurn.id;
+      focusInterviewerInbox(interviewerTurn.id);
+      setActionError(`Your interviewer has a follow-up before the interview continues.`);
+      return;
+    }
+
     if (
-      activeModule.type === "ai_interview"
-      && displayedQuestionIndex === 0
-      && !activeQuestion.id.startsWith("ai-adaptive-")
+      hasAiInterviewer(session?.template.modules ?? [])
       && !followUps[activeQuestion.id]
       && !followUpAttempts.current.has(activeQuestion.id)
     ) {
       advancingRef.current = true;
       setAdvancing(true);
-      let generated = "";
+      let decision: Awaited<ReturnType<typeof aiStream.start>> = null;
       try {
         if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
           setActionError("Your response could not be saved. Check your connection and try again.");
           return;
         }
-        generated = await aiStream.start({ question: activeQuestion.questionText, answer: answer.text });
+        decision = await aiStream.start({
+          questionId: activeQuestion.id,
+          moduleId: activeModule.id,
+          question: activeQuestion.questionText,
+          answer: answer.text,
+        });
       } catch (requestError) {
         setActionError(getErrorMessage(requestError, "Your answer was saved, but the follow-up could not load. You can continue."));
       } finally {
@@ -402,19 +493,18 @@ export default function CandidateAssessmentPage() {
         setAdvancing(false);
       }
 
-      if (generated) {
-        setFollowUps((current) => ({ ...current, [activeQuestion.id]: { question: generated, answer: "" } }));
+      if (decision?.shouldAsk && decision.question) {
+        setFollowUps((current) => ({ ...current, [activeQuestion.id]: { question: decision.question, answer: "" } }));
         aiStream.reset();
         setActionError("One follow-up question was added based on your response.");
         return;
       }
 
-      // The follow-up could not be produced. Record the attempt and fall through to
-      // the normal advance: a candidate must never be held on a question because an
-      // optional AI extra failed. Their answer is already saved above.
       followUpAttempts.current.add(activeQuestion.id);
       aiStream.reset();
-      setActionError("The follow-up question could not be loaded, so we moved on. Your answer was saved.");
+      if (!decision) {
+        setActionError("The optional AI check could not load, so we moved on. Your answer was saved.");
+      }
     }
 
     const followUp = followUps[activeQuestion.id];
@@ -422,27 +512,6 @@ export default function CandidateAssessmentPage() {
       setActionError("Answer the follow-up question before continuing.");
       return;
     }
-    const authoredQuestionCount = authoredQuestionsForModule(session?.template.modules ?? [], activeModule.id).length;
-    const finishedAuthoredAiQuestions =
-      activeModule.type === "ai_interview"
-      && adaptiveQuestions === null
-      && displayedQuestionIndex === authoredQuestionCount - 1;
-    if (finishedAuthoredAiQuestions) {
-      advancingRef.current = true;
-      setAdvancing(true);
-      try {
-        if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
-          setActionError("Your response could not be saved. Check your connection and try again.");
-          return;
-        }
-        await prepareAdaptiveQuestions(authoredQuestionCount);
-      } finally {
-        advancingRef.current = false;
-        setAdvancing(false);
-      }
-      return;
-    }
-
     advancingRef.current = true;
     setAdvancing(true);
     if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
@@ -458,13 +527,14 @@ export default function CandidateAssessmentPage() {
       return;
     }
     if (activeModule.type === "coding") {
-      setCodingSandboxActive(true);
       releaseAdvanceLock();
       return;
     }
     if (activeModuleIndex < modules.length - 1) {
+      const nextModule = modules[activeModuleIndex + 1];
       setActiveModuleIndex((index) => index + 1);
       setActiveQuestionIndex(0);
+      setBriefingModuleId(nextModule?.id ?? "");
       releaseAdvanceLock();
       return;
     }
@@ -488,7 +558,6 @@ export default function CandidateAssessmentPage() {
       const previousModule = modules[activeModuleIndex - 1];
       setActiveModuleIndex((index) => index - 1);
       setActiveQuestionIndex(Math.max(0, (previousModule.questions?.length ?? 1) - 1));
-      setCodingSandboxActive(previousModule.type === "coding" && questionResponsesComplete(previousModule, answers, followUps));
     }
   }
 
@@ -513,7 +582,7 @@ export default function CandidateAssessmentPage() {
         const refreshed = await interviewer.reload();
         const blocking = refreshed.find((item) => item.status === "sent" && item.required)
           ?? refreshed.find((item) => item.status === "sent");
-        openInterviewerQuestions(blocking?.id);
+        focusInterviewerInbox(blocking?.id);
         setActionError("Answer the question your interviewer sent, then submit again.");
       } else {
         setActionError(getErrorMessage(requestError, "Unable to submit. Your saved responses are still available."));
@@ -571,16 +640,17 @@ export default function CandidateAssessmentPage() {
 
       <div className="mx-auto grid max-w-[1480px] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden min-h-[calc(100vh-64px)] border-r border-neutral-200 bg-white p-4 lg:block">
-          <p className="px-2 pb-3 text-xs font-bold uppercase text-neutral-400">Assessment modules</p>
-          <nav className="space-y-1">{modules.map((module, index) => { const complete = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); const active = index === activeModuleIndex && view === "assessment"; return <button className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left transition ${active ? "bg-sky-50 text-sky-900" : "text-neutral-600 hover:bg-neutral-50"}`} disabled={index > activeModuleIndex && !moduleComplete(modules[index - 1], answers, followUps, codingComplete, adaptiveReady)} key={module.id} onClick={() => { setActiveModuleIndex(index); setActiveQuestionIndex(0); setCodingSandboxActive(module.type === "coding" && questionResponsesComplete(module, answers, followUps)); setView("assessment"); }} type="button"><span className={`flex size-7 shrink-0 items-center justify-center rounded-[5px] ${complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-sky-100 text-sky-700" : "bg-neutral-100 text-neutral-500"}`}>{complete ? <Icon name="check" size={13} /> : <Icon name={moduleIcon(module.type)} size={13} />}</span><span className="min-w-0"><span className="block truncate text-sm font-bold">{module.title}</span><span className="mt-0.5 block text-xs text-neutral-400">{module.type === "coding" ? `${module.questions?.length ?? 0} questions + sandbox` : `${module.questions?.length ?? 0} questions`}</span></span></button>; })}</nav>
+          <p className="px-2 pb-1 text-xs font-bold uppercase text-neutral-400">Interview plan</p>
+          <p className="px-2 pb-3 text-xs text-neutral-400">{modules.length} stages</p>
+          <nav className="space-y-1">{modules.map((module, index) => { const complete = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); const active = index === activeModuleIndex && view === "assessment"; return <button className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left transition ${active ? "bg-sky-50 text-sky-900" : "text-neutral-600 hover:bg-neutral-50"}`} disabled={index > activeModuleIndex && !moduleComplete(modules[index - 1], answers, followUps, codingComplete, adaptiveReady)} key={module.id} onClick={() => { setActiveModuleIndex(index); setActiveQuestionIndex(0); setView("assessment"); }} type="button"><span className={`flex size-7 shrink-0 items-center justify-center rounded-[5px] ${complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-sky-100 text-sky-700" : "bg-neutral-100 text-neutral-500"}`}>{complete ? <Icon name="check" size={13} /> : <Icon name={moduleIcon(module.type)} size={13} />}</span><span className="min-w-0"><span className="block truncate text-sm font-bold">{module.title}</span><span className="mt-0.5 block text-xs text-neutral-400">{complete ? "Complete" : active ? "In progress" : stageFormatLabel(module.type)}</span></span></button>; })}</nav>
           {interviewer.followUps.length ? (
-            <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-sm font-bold ${view === "interviewer" ? "bg-violet-600 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => openInterviewerQuestions()} type="button">
-              <span className="flex size-7 items-center justify-center rounded-[5px] bg-violet-100 text-violet-700"><Icon name="user" size={13} /></span>
-              Interviewer questions
+            <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-sm font-bold transition ${view === "interviewer" ? "bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-200" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => openInterviewerHistory()} type="button">
+              <span className="flex size-7 items-center justify-center rounded-[5px] bg-violet-100 text-violet-700"><Icon name="message" size={13} /></span>
+              Conversation history
               {interviewer.pending.length ? <span className="ml-auto grid size-5 place-items-center rounded-full bg-violet-600 text-xs font-black text-white">{interviewer.pending.length}</span> : null}
             </button>
           ) : null}
-          <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-sm font-bold ${view === "review" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("review")} type="button"><span className="flex size-7 items-center justify-center rounded-[5px] bg-white/10"><Icon name="report" size={13} /></span>Review and submit</button>
+          <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-sm font-bold ${view === "review" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("review")} type="button"><span className="flex size-7 items-center justify-center rounded-[5px] bg-white/10"><Icon name="report" size={13} /></span>Close interview</button>
         </aside>
 
         {/*
@@ -593,17 +663,51 @@ export default function CandidateAssessmentPage() {
           {view === "interviewer" ? (
             <>
               {actionError ? <p className="mx-auto mb-3 max-w-[860px] rounded-[6px] bg-amber-50 px-3 py-2 text-sm text-amber-800">{actionError}</p> : null}
-              <CandidateInterviewerQuestions accessCode={accessCode} disabled={timeUp} followUps={interviewer.followUps} highlightId={highlightFollowUpId} onChanged={interviewer.reload} />
+              <CandidateInterviewerQuestions accessCode={accessCode} contextByFollowUpId={interviewerContextById} disabled={timeUp} followUps={interviewer.followUps} highlightId={highlightFollowUpId} onChanged={handleInterviewerQuestionChanged} />
             </>
           ) : view === "review" ? (
-            <ReviewPanel adaptiveReady={adaptiveReady} answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onAnswerInterviewer={() => openInterviewerQuestions(interviewer.pendingRequired[0]?.id)} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} pendingRequiredCount={pendingRequiredCount} submitting={submitting} />
-          ) : activeModule?.type === "coding" && (codingSandboxActive || !(activeModule.questions?.length ?? 0)) ? (
-            <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={() => { setCodingSandboxActive(false); setActiveQuestionIndex(Math.max(0, (activeModule.questions?.length ?? 1) - 1)); }} onContinue={() => { setCodingComplete(true); setCodingSandboxActive(false); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
+            <ReviewPanel adaptiveReady={adaptiveReady} answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onAnswerInterviewer={() => focusInterviewerInbox(interviewer.pendingRequired[0]?.id)} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} pendingRequiredCount={pendingRequiredCount} submitting={submitting} />
+          ) : view === "assessment" && focusedInterviewerTurn ? (
+            <CandidateInterviewerInbox
+              accessCode={accessCode}
+              contextByFollowUpId={interviewerContextById}
+              disabled={timeUp}
+              followUps={interviewer.followUps}
+              highlightId={focusedInterviewerTurn.id}
+              onChanged={handleInterviewerQuestionChanged}
+              onOpenAll={() => openInterviewerHistory(focusedInterviewerTurn.id)}
+              primary
+            />
+          ) : view === "assessment" && activeModule && briefingModuleId === activeModule.id ? (
+            <StageBriefing
+              module={activeModule}
+              onBegin={() => {
+                setBriefingModuleId("");
+                if (activeModule.type === "ai_interview" && !(activeModule.questions?.length ?? 0)) {
+                  void prepareAdaptiveQuestions(0);
+                }
+              }}
+              stageIndex={activeModuleIndex}
+              stageTotal={modules.length}
+            />
+          ) : activeModule?.type === "coding" ? (
+            <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={previousQuestion} onContinue={() => { setCodingComplete(true); if (activeModuleIndex < modules.length - 1) { const nextModule = modules[activeModuleIndex + 1]; setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); setBriefingModuleId(nextModule?.id ?? ""); } else setView("review"); }} />
           ) : activeModule?.type === "ai_interview" && aiGenerating ? (
             <AiPreparing />
           ) : activeModule && activeQuestion ? (
             <QuestionPanel answer={answers[activeQuestion.id]} busy={advancing} disabled={timeUp} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { if (timeLeft === 0) return; setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); answerRevisions.current.set(activeQuestion.id, (answerRevisions.current.get(activeQuestion.id) ?? 0) + 1); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={displayedQuestionIndex} stream={aiStream} />
           ) : <QuestionLoading />}
+          {view === "assessment" && !briefingModuleId && !focusedInterviewerTurn ? (
+            <CandidateInterviewerInbox
+              accessCode={accessCode}
+              contextByFollowUpId={interviewerContextById}
+              disabled={timeUp}
+              followUps={interviewer.followUps}
+              highlightId={highlightFollowUpId}
+              onChanged={handleInterviewerQuestionChanged}
+              onOpenAll={() => openInterviewerHistory(highlightFollowUpId)}
+            />
+          ) : null}
         </section>
       </div>
 
@@ -611,7 +715,7 @@ export default function CandidateAssessmentPage() {
         <NewQuestionAlert
           followUp={interviewer.arrival}
           onDismiss={interviewer.dismissArrival}
-          onOpen={() => openInterviewerQuestions(interviewer.arrival?.id)}
+          onOpen={() => focusInterviewerInbox(interviewer.arrival?.id)}
         />
       ) : null}
 
@@ -711,7 +815,7 @@ function TimeUpModal() {
       <div className="w-full max-w-[440px] rounded-[14px] border border-neutral-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
         <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-100 text-red-600"><Icon name="clock" size={24} /></span>
         <h2 className="mt-5 text-xl font-black text-neutral-950">Time&apos;s up</h2>
-        <p className="mt-3 text-sm leading-6 text-neutral-600">The time limit for this assessment has ended. You can no longer edit answers, run code, or submit new responses. Everything you saved has been preserved for the review team.</p>
+        <p className="mt-3 text-sm leading-6 text-neutral-600">The time limit for this interview has ended. You can no longer edit answers, run code, or submit new responses. Everything you saved has been preserved for the review team.</p>
         <p className="mt-6 text-xs text-neutral-500">You may close this window.</p>
       </div>
     </div>
@@ -720,56 +824,67 @@ function TimeUpModal() {
 
 function CandidateWelcome({ session, onStart, starting, error }: { session: CandidateAccessSession; onStart: () => void; starting: boolean; error: string }) {
   const modules = candidateModules(session.template.modules);
-  const [candidateName, setCandidateName] = useState(session.candidateName);
-  const timeLabel = session.template.timeLimitMin ? `${session.template.timeLimitMin} Minutes` : "30-60 Minutes";
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!candidateName.trim()) return;
-    onStart();
-  }
+  const timeLabel = session.template.timeLimitMin ? `${session.template.timeLimitMin} minutes` : "Untimed";
 
   return (
-    <main className="min-h-screen bg-[#f1f2fb] px-5 py-10 text-neutral-950 sm:py-14">
-      <section className="mx-auto flex min-h-[calc(100vh-96px)] max-w-[980px] flex-col justify-center">
-        <form className="mx-auto w-full max-w-[700px] rounded-[14px] border border-white/80 bg-white px-6 py-12 shadow-[0_18px_55px_rgba(67,72,107,0.06)] sm:px-20 sm:py-24" onSubmit={handleSubmit}>
-          <div className="mx-auto flex max-w-[420px] items-center justify-center gap-4 text-left">
+    <main className="min-h-screen bg-[#f4f7f9] px-4 py-8 text-neutral-950 sm:px-6 sm:py-12">
+      <section className="mx-auto flex min-h-[calc(100vh-64px)] max-w-[980px] items-center">
+        <div className="w-full overflow-hidden rounded-[12px] border border-neutral-200 bg-white shadow-[0_20px_65px_rgba(15,23,42,0.08)]">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-5 py-4 sm:px-8">
             <EvaloraLogo compact />
-            <div>
-              <h1 className="text-2xl font-black leading-tight text-neutral-950">Welcome to interview</h1>
-              <p className="mt-2 text-sm font-semibold text-neutral-500">Please enter your name to continue to assessment</p>
+            <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800">
+              <Icon name="shield" size={13} /> Private candidate interview
+            </span>
+          </header>
+
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="px-5 py-8 sm:px-8 sm:py-10">
+              <p className="text-xs font-bold uppercase text-sky-700">Interview for {session.targetRole ?? session.template.roleType}</p>
+              <h1 className="mt-3 max-w-[560px] text-3xl font-black leading-tight text-neutral-950 sm:text-4xl">
+                {session.template.title}
+              </h1>
+              <p className="mt-3 text-sm font-semibold text-neutral-600">Prepared for {session.candidateName}</p>
+              <p className="mt-6 max-w-[590px] text-sm leading-6 text-neutral-600">
+                This is a structured interview. Every candidate receives the same core stages, while relevant follow-up questions may be added to understand your reasoning in more depth.
+              </p>
+
+              <div className="mt-7 grid gap-4 border-y border-neutral-200 py-5 sm:grid-cols-3">
+                <WelcomeFact icon="clock" title={timeLabel} body="Available interview time" />
+                <WelcomeFact icon="clipboard" title={`${modules.length} stages`} body="Shown in order" />
+                <WelcomeFact icon="message" title="Guided conversation" body="Human and adaptive follow-ups" />
+              </div>
+
+              <div className="mt-7">
+                <h2 className="text-sm font-black text-neutral-900">Before you begin</h2>
+                <ul className="mt-3 space-y-2 text-sm leading-5 text-neutral-600">
+                  <li className="flex gap-2"><Icon className="mt-0.5 shrink-0 text-emerald-600" name="check" size={14} />Your responses save automatically and remain editable until final submission.</li>
+                  <li className="flex gap-2"><Icon className="mt-0.5 shrink-0 text-emerald-600" name="check" size={14} />A live interviewer may ask a question about an answer before the next turn.</li>
+                  <li className="flex gap-2"><Icon className="mt-0.5 shrink-0 text-emerald-600" name="check" size={14} />You will review the complete interview before closing it.</li>
+                </ul>
+              </div>
+
+              {error ? <p className="status-alert status-alert--error mt-5 rounded-[7px] border px-4 py-3 text-sm">{error}</p> : null}
+              <button className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-[7px] bg-primary-500 px-5 text-sm font-bold text-white transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60" disabled={starting} onClick={onStart} type="button">
+                {starting ? "Opening interview..." : "Start interview"}
+                {!starting ? <Icon className="-rotate-90" name="chevron" size={14} /> : null}
+              </button>
             </div>
+
+            <aside className="border-t border-neutral-200 bg-neutral-50 px-5 py-7 sm:px-8 lg:border-l lg:border-t-0">
+              <p className="text-xs font-bold uppercase text-neutral-400">Interview plan</p>
+              <ol className="mt-4 space-y-1">
+                {modules.map((module, index) => (
+                  <li className="flex items-center gap-3 border-b border-neutral-200 py-3 last:border-0" key={module.id}>
+                    <span className="grid size-7 shrink-0 place-items-center rounded-[6px] bg-white text-xs font-black text-neutral-500 ring-1 ring-neutral-200">{index + 1}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold text-neutral-900">{module.title}</span>
+                      <span className="mt-0.5 block text-xs text-neutral-500">{stageFormatLabel(module.type)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </aside>
           </div>
-
-          <div className="mx-auto mt-10 max-w-[540px]">
-            <label className="block">
-              <span className="text-sm font-bold text-neutral-900">Your Name <span className="text-red-500">*</span></span>
-              <input
-                autoComplete="name"
-                autoFocus
-                className="mt-4 h-12 w-full rounded-[7px] border border-transparent bg-neutral-50 px-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(47,178,228,0.14)]"
-                onChange={(event) => setCandidateName(event.target.value)}
-                placeholder="Enter your full name"
-                required
-                type="text"
-                value={candidateName}
-              />
-            </label>
-
-            {error ? <p className="status-alert status-alert--error mt-4 rounded-[7px] border px-4 py-3 text-sm">{error}</p> : null}
-
-            <button className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[7px] bg-primary-500 text-sm font-bold text-white transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60" disabled={starting || !candidateName.trim()} type="submit">
-              {starting ? "Starting interview" : "Continue to interview"}
-              {!starting ? <Icon className="-rotate-90" name="chevron" size={14} /> : null}
-            </button>
-
-          </div>
-        </form>
-
-        <div className="mx-auto mt-10 grid w-full max-w-[760px] gap-5 text-left sm:grid-cols-3 sm:divide-x sm:divide-neutral-300/80">
-          <WelcomeFact icon="shield" title="Secure & Private" body="Your information is protected." />
-          <WelcomeFact icon="clock" title={timeLabel} body="Complete at your own pace." />
-          <WelcomeFact icon="settings" title="Multiple Sections" body={`${modules.length} sections including AI, coding, behavioral, and communication.`} />
         </div>
       </section>
     </main>
@@ -778,21 +893,125 @@ function CandidateWelcome({ session, onStart, starting, error }: { session: Cand
 
 function WelcomeFact({ icon, title, body }: { icon: IconName; title: string; body: string }) {
   return (
-    <article className="flex gap-4 sm:px-6 sm:first:pl-0 sm:last:pr-0">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#c9c2ff] text-[#493cff]">
-        <Icon name={icon} size={18} />
+    <div className="flex gap-3">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-[6px] bg-sky-50 text-sky-700">
+        <Icon name={icon} size={15} />
       </span>
       <div>
-        <h2 className="text-sm font-black text-neutral-900">{title}</h2>
-        <p className="mt-3 text-xs font-semibold text-neutral-700">{body}</p>
+        <p className="text-sm font-black text-neutral-900">{title}</p>
+        <p className="mt-0.5 text-xs text-neutral-500">{body}</p>
       </div>
-    </article>
+    </div>
+  );
+}
+
+function StageBriefing({ module, stageIndex, stageTotal, onBegin }: { module: AssessmentModule; stageIndex: number; stageTotal: number; onBegin: () => void }) {
+  const questionCount = module.questions?.length ?? 0;
+  return (
+    <section className="mx-auto flex min-h-[520px] max-w-[860px] items-center">
+      <div className="w-full rounded-[10px] border border-neutral-200 bg-white px-6 py-9 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:px-10">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-[8px] bg-sky-50 text-sky-700">
+            <Icon name={moduleIcon(module.type)} size={18} />
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase text-sky-700">Stage {stageIndex + 1} of {stageTotal}</p>
+            <p className="mt-0.5 text-xs text-neutral-500">{stageFormatLabel(module.type)}</p>
+          </div>
+        </div>
+        <h1 className="mt-6 text-2xl font-black text-neutral-950 sm:text-3xl">{module.title}</h1>
+        <p className="mt-3 max-w-[650px] text-sm leading-6 text-neutral-600">{stageBriefingText(module)}</p>
+        <dl className="mt-7 flex flex-wrap gap-x-8 gap-y-3 border-y border-neutral-200 py-4 text-sm">
+          <div><dt className="text-xs text-neutral-400">Format</dt><dd className="mt-1 font-bold text-neutral-800">{stageFormatLabel(module.type)}</dd></div>
+          <div><dt className="text-xs text-neutral-400">Core prompts</dt><dd className="mt-1 font-bold text-neutral-800">{module.type === "coding" && questionCount === 0 ? "Coding workspace" : questionCount}</dd></div>
+          <div><dt className="text-xs text-neutral-400">Progress</dt><dd className="mt-1 font-bold text-neutral-800">{stageIndex + 1} / {stageTotal}</dd></div>
+        </dl>
+        <button autoFocus className="button-primary mt-7" onClick={onBegin} type="button">
+          Begin {module.title} <Icon className="-rotate-90" name="chevron" size={13} />
+        </button>
+      </div>
+    </section>
   );
 }
 
 function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error, busy = false, disabled, stream }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string; busy?: boolean; disabled?: boolean; stream: AiStream }) {
   const options = questionOptions(question.options);
-  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-sm text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-xs font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-lg font-black leading-7 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-xs leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-sm leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-xs font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-sm font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : module.type === "ai_interview" && questionIndex === 0 && (stream.streaming || stream.error) ? <AiFollowUpStream error={stream.error} streaming={stream.streaming} text={stream.text} /> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-sm ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled || busy} onClick={onBack} type="button">Back</button><button aria-busy={busy} className="button-primary transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:hover:translate-y-0" disabled={disabled || busy} onClick={onNext} type="button">{busy ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />Moving to next question...</> : <>Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></>}</button></div></article></div>;
+  const adaptive = question.id.startsWith("ai-adaptive-");
+  return (
+    <div className="mx-auto max-w-[860px]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase text-sky-700">{module.title}</p>
+          <p className="mt-1 text-xs text-neutral-500">Turn {questionIndex + 1} of {module.questions?.length ?? 1}</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-neutral-500 ring-1 ring-neutral-200">
+          {stageFormatLabel(module.type)}
+        </span>
+      </div>
+
+      <article className="overflow-hidden rounded-[10px] border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]">
+        <div className="border-b border-neutral-200 px-5 py-5 sm:px-7 sm:py-6">
+          <div className="flex items-center gap-3">
+            <span className={`grid size-9 shrink-0 place-items-center rounded-[8px] ${adaptive ? "bg-amber-50 text-amber-700" : "bg-sky-50 text-sky-700"}`}>
+              <Icon name={adaptive ? "sparkle" : "message"} size={16} />
+            </span>
+            <div>
+              <p className="text-xs font-black text-neutral-900">{adaptive ? "Adaptive interviewer" : "Structured interview question"}</p>
+              <p className="mt-0.5 text-xs text-neutral-400">{adaptive ? "Based on your earlier responses" : "From the interview plan"}</p>
+            </div>
+          </div>
+          <h2 className="mt-5 text-lg font-black leading-7 text-neutral-950">{question.questionText}</h2>
+          <p className="mt-2 text-xs leading-5 text-neutral-500">Use a concrete example and explain your actions, reasoning, and outcome.</p>
+        </div>
+
+        <div className="px-5 py-5 sm:px-7 sm:py-6">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <label className="text-xs font-black uppercase text-neutral-500" htmlFor={`candidate-answer-${question.id}`}>Your response</label>
+            {question.questionType !== "scale" && options.length === 0 ? (
+              <span className="text-xs text-neutral-400">{answer?.text.length ?? 0} characters</span>
+            ) : null}
+          </div>
+          {question.questionType === "scale" ? (
+            <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} />
+          ) : options.length ? (
+            <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} />
+          ) : (
+            <textarea
+              autoFocus
+              className="control min-h-[190px] text-sm leading-6"
+              id={`candidate-answer-${question.id}`}
+              maxLength={12_000}
+              onChange={(event) => onAnswer({ text: event.target.value })}
+              placeholder="Respond as you would in an interview..."
+              readOnly={disabled}
+              value={answer?.text ?? ""}
+            />
+          )}
+
+          {followUp ? (
+            <div className="mt-6 border-t border-neutral-200 pt-6">
+              <div className="rounded-[8px] bg-amber-50 p-4">
+                <p className="flex items-center gap-2 text-xs font-bold text-amber-800"><Icon name="sparkle" size={14} /> Adaptive follow-up</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-amber-950">{followUp.question}</p>
+              </div>
+              <label className="mt-4 block text-xs font-black uppercase text-neutral-500" htmlFor={`candidate-follow-up-${question.id}`}>Your follow-up response</label>
+              <textarea className="control mt-2 min-h-[130px]" id={`candidate-follow-up-${question.id}`} onChange={(event) => onFollowUp(event.target.value)} placeholder="Continue your answer..." readOnly={disabled} value={followUp.answer} />
+            </div>
+          ) : module.type === "ai_interview" && questionIndex === 0 && (stream.streaming || stream.error) ? (
+            <AiFollowUpStream error={stream.error} streaming={stream.streaming} text={stream.text} />
+          ) : null}
+
+          {error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-sm ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <button className="button-secondary" disabled={disabled || busy} onClick={onBack} type="button">Previous</button>
+            <button aria-busy={busy} className="button-primary transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:hover:translate-y-0" disabled={disabled || busy} onClick={onNext} type="button">
+              {busy ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />Preparing next turn...</> : <>Continue interview <Icon className="-rotate-90" name="chevron" size={13} /></>}
+            </button>
+          </div>
+        </div>
+      </article>
+    </div>
+  );
 }
 
 function QuestionLoading() {
@@ -801,7 +1020,7 @@ function QuestionLoading() {
 
 function ReviewPanel({ modules, answers, followUps, codingComplete, adaptiveReady, confirmed, onConfirm, onBack, onSubmit, submitting, error, pendingRequiredCount, onAnswerInterviewer }: { modules: AssessmentModule[]; answers: Record<string, Answer>; followUps: Record<string, FollowUp>; codingComplete: boolean; adaptiveReady: boolean; confirmed: boolean; onConfirm: (value: boolean) => void; onBack: () => void; onSubmit: () => void; submitting: boolean; error: string; pendingRequiredCount: number; onAnswerInterviewer: () => void }) {
   const complete = allModulesComplete(modules, answers, followUps, codingComplete, adaptiveReady);
-  return <div className="mx-auto max-w-[860px]"><p className="text-xs font-bold uppercase text-[#087aa4]">Final review</p><h1 className="mt-2 text-3xl font-black text-neutral-950">Ready to submit?</h1><p className="mt-2 text-sm leading-6 text-neutral-600">Check each module before closing access to this assessment.</p><div className="mt-6 border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]"><div className="divide-y divide-neutral-100">{modules.map((module) => { const done = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); return <div className="flex items-center gap-4 px-5 py-4 sm:px-6" key={module.id}><span className={`flex size-9 items-center justify-center rounded-[7px] ${done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}><Icon name={done ? "check" : moduleIcon(module.type)} size={16} /></span><div className="min-w-0 flex-1"><p className="text-sm font-bold text-neutral-900">{module.title}</p><p className="mt-0.5 text-xs text-neutral-500">{done ? "Complete" : "Response required"}</p></div></div>; })}</div><div className="border-t border-neutral-200 bg-neutral-50 p-5 sm:p-6"><PendingInterviewerNotice count={pendingRequiredCount} onAnswer={onAnswerInterviewer} /><label className="flex cursor-pointer items-start gap-3"><input checked={confirmed} className="mt-0.5 size-4 accent-[#159ac8]" onChange={(event) => onConfirm(event.target.checked)} type="checkbox" /><span className="text-sm leading-5 text-neutral-600">I confirm that I reviewed my responses and understand that submitting will close this private assessment link.</span></label>{error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}<div className="mt-5 flex justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Return to assessment</button><button className="button-primary" disabled={!complete || !confirmed || submitting || pendingRequiredCount > 0} onClick={onSubmit} type="button">{submitting ? "Submitting" : "Submit assessment"}</button></div></div></div><p className="mt-4 text-center text-xs leading-5 text-neutral-500">AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions.</p></div>;
+  return <div className="mx-auto max-w-[860px]"><p className="text-xs font-bold uppercase text-[#087aa4]">Interview close</p><h1 className="mt-2 text-3xl font-black text-neutral-950">Review the conversation</h1><p className="mt-2 text-sm leading-6 text-neutral-600">Check each stage before closing your interview. You can return to any incomplete stage.</p><div className="mt-6 border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]"><div className="divide-y divide-neutral-100">{modules.map((module) => { const done = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); return <div className="flex items-center gap-4 px-5 py-4 sm:px-6" key={module.id}><span className={`flex size-9 items-center justify-center rounded-[7px] ${done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}><Icon name={done ? "check" : moduleIcon(module.type)} size={16} /></span><div className="min-w-0 flex-1"><p className="text-sm font-bold text-neutral-900">{module.title}</p><p className="mt-0.5 text-xs text-neutral-500">{done ? "Stage complete" : "Response required"}</p></div></div>; })}</div><div className="border-t border-neutral-200 bg-neutral-50 p-5 sm:p-6"><PendingInterviewerNotice count={pendingRequiredCount} onAnswer={onAnswerInterviewer} /><label className="flex cursor-pointer items-start gap-3"><input checked={confirmed} className="mt-0.5 size-4 accent-[#159ac8]" onChange={(event) => onConfirm(event.target.checked)} type="checkbox" /><span className="text-sm leading-5 text-neutral-600">I reviewed my responses and understand that completing the interview closes this private link.</span></label>{error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}<div className="mt-5 flex justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Return to interview</button><button className="button-primary" disabled={!complete || !confirmed || submitting || pendingRequiredCount > 0} onClick={onSubmit} type="button">{submitting ? "Completing interview" : "Complete interview"}</button></div></div></div><p className="mt-4 text-center text-xs leading-5 text-neutral-500">AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions.</p></div>;
 }
 
 /**
@@ -841,25 +1060,46 @@ function isPendingInterviewerQuestionError(error: unknown): boolean {
   return code === "INTERVIEWER_FOLLOW_UP_REQUIRED" || error.status === 409;
 }
 
-function CandidateComplete({ candidateName, reportStatus }: { candidateName: string; reportStatus: "generated" | "pending" }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[620px] border border-neutral-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.09)] sm:p-12"><span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Icon name="check" size={23} /></span><h1 className="mt-5 text-3xl font-black text-neutral-950">Assessment submitted</h1><p className="mt-3 text-sm leading-6 text-neutral-600">Thank you, {firstName(candidateName)}. Your saved responses and coding evidence are now available to the authorized review team.</p><div className="mt-6 rounded-[7px] bg-neutral-50 px-4 py-3 text-xs leading-5 text-neutral-600">{reportStatus === "generated" ? "The reviewer report is ready inside the private workspace." : "Your submission is complete. Report processing will continue for the review team."}</div><p className="mt-7 text-xs text-neutral-500">You may close this window.</p></div></main>; }
-function CandidateLoading() { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9]"><div className="text-center"><span className="mx-auto block size-9 animate-spin rounded-full border-[3px] border-neutral-200 border-t-[#29b7e5]" /><p className="mt-4 text-sm font-semibold text-neutral-600">Validating private invitation</p></div></main>; }
-function CandidateError({ message }: { message: string }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[560px] border border-neutral-200 bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.08)]"><EvaloraLogo className="justify-center" href="/" /><span className="mx-auto mt-8 flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600"><Icon name="lock" size={20} /></span><h1 className="mt-4 text-xl font-black text-neutral-950">Assessment unavailable</h1><p className="mt-3 text-sm leading-6 text-neutral-600">{message}</p><Link className="button-secondary mt-6" href="/">Return to Evalora</Link></div></main>; }
+function CandidateComplete({ candidateName, reportStatus }: { candidateName: string; reportStatus: "generated" | "pending" }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[620px] border border-neutral-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.09)] sm:p-12"><span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Icon name="check" size={23} /></span><h1 className="mt-5 text-3xl font-black text-neutral-950">Interview complete</h1><p className="mt-3 text-sm leading-6 text-neutral-600">Thank you, {firstName(candidateName)}. Your conversation and coding evidence are now available to the authorized review team.</p><div className="mt-6 rounded-[7px] bg-neutral-50 px-4 py-3 text-xs leading-5 text-neutral-600">{reportStatus === "generated" ? "The reviewer report is ready inside the private workspace." : "Your interview is complete. Report processing will continue for the review team."}</div><p className="mt-7 text-xs text-neutral-500">You may close this window.</p></div></main>; }
+function CandidateLoading() { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9]"><div className="text-center"><span className="mx-auto block size-9 animate-spin rounded-full border-[3px] border-neutral-200 border-t-[#29b7e5]" /><p className="mt-4 text-sm font-semibold text-neutral-600">Preparing private interview</p></div></main>; }
+function CandidateError({ message }: { message: string }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[560px] border border-neutral-200 bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.08)]"><EvaloraLogo className="justify-center" href="/" /><span className="mx-auto mt-8 flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600"><Icon name="lock" size={20} /></span><h1 className="mt-4 text-xl font-black text-neutral-950">Interview unavailable</h1><p className="mt-3 text-sm leading-6 text-neutral-600">{message}</p><Link className="button-secondary mt-6" href="/">Return to Evalora</Link></div></main>; }
 
 function candidateModules(modules: AssessmentModule[]): AssessmentModule[] {
   const prepared = [...modules]
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map((module) => ({ ...module, questions: module.questions ?? [] }))
-    .filter((module) => module.type === "coding" || (module.questions?.length ?? 0) > 0);
+    .filter((module) => module.type === "coding" || module.type === "ai_interview" || (module.questions?.length ?? 0) > 0);
   // AI interview always comes last: it adapts to everything answered before it.
   return [...prepared.filter((module) => module.type !== "ai_interview"), ...prepared.filter((module) => module.type === "ai_interview")];
 }
 function toAdaptiveQuestions(questions: string[] | undefined): Question[] { return (questions ?? []).map((text, index) => ({ id: `ai-adaptive-${index}`, questionText: text.trim(), questionType: "short_answer" as const })).filter((question) => question.questionText); }
-function authoredQuestionsForModule(modules: AssessmentModule[], moduleId: string): Question[] { return modules.find((module) => module.id === moduleId)?.questions ?? []; }
-function questionResponsesComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>) { const questions = module.questions ?? []; return (module.type === "coding" && questions.length === 0) || (questions.length > 0 && questions.every((question, index) => Boolean(answers[question.id]?.text.trim()) && (module.type !== "ai_interview" || index !== 0 || question.id.startsWith("ai-adaptive-") || Boolean(followUps[question.id]?.answer.trim())))); }
+function questionResponsesComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>) { if (module.type === "coding") return true; const questions = module.questions ?? []; return questions.length > 0 && questions.every((question) => Boolean(answers[question.id]?.text.trim()) && (!followUps[question.id] || Boolean(followUps[question.id]?.answer.trim()))); }
 function moduleComplete(module: AssessmentModule, answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean, adaptiveReady: boolean) { return questionResponsesComplete(module, answers, followUps) && (module.type !== "coding" || codingComplete) && (module.type !== "ai_interview" || adaptiveReady); }
 function allModulesComplete(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean, adaptiveReady: boolean) { return modules.length > 0 && modules.every((module) => moduleComplete(module, answers, followUps, codingComplete, adaptiveReady)); }
 function completionPercent(modules: AssessmentModule[], answers: Record<string, Answer>, followUps: Record<string, FollowUp>, codingComplete: boolean, adaptiveReady: boolean) { return modules.length ? Math.round((modules.filter((module) => moduleComplete(module, answers, followUps, codingComplete, adaptiveReady)).length / modules.length) * 100) : 0; }
 function moduleIcon(type: AssessmentModule["type"]): IconName { return type === "coding" || type === "debugging" ? "code" : type === "leadership" ? "crown" : type === "communication" ? "paperPlane" : type === "behavioral" || type === "work_style" ? "users" : type === "problem_solving" ? "sparkle" : "message"; }
+function stageFormatLabel(type: AssessmentModule["type"]): string {
+  if (type === "coding") return "Coding exercise";
+  if (type === "ai_interview") return "Adaptive conversation";
+  if (type === "work_style") return "Work-style reflection";
+  if (type === "debugging" || type === "problem_solving") return "Technical discussion";
+  return "Structured conversation";
+}
+function stageBriefingText(module: AssessmentModule): string {
+  if (module.type === "coding") return "Work through the coding exercises in the language you are most comfortable using. Run sample inputs as often as needed, then submit each solution against the private test cases.";
+  if (module.type === "ai_interview") return "This closing conversation builds on what you shared earlier. The questions may adapt to your responses, but they are reviewed under the same evidence-based hiring process.";
+  if (module.type === "work_style") return "Share how you typically approach work. Answer honestly from your experience; there is no single preferred personality or style.";
+  if (module.type === "debugging" || module.type === "problem_solving") return "Talk through how you diagnose the situation, compare options, and reach a decision. Your reasoning is as important as the final answer.";
+  return "Answer from your own experience. Use a concrete situation where possible, then explain your actions, reasoning, and the result.";
+}
+function hasAiInterviewer(modules: AssessmentModule[]): boolean {
+  return modules.some((module) => module.type === "ai_interview");
+}
+function adaptiveQuestionCount(settings: JsonValue | undefined): number {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return 3;
+  const count = Number((settings as Record<string, JsonValue>).adaptiveQuestionCount);
+  return Number.isFinite(count) ? Math.min(5, Math.max(1, Math.trunc(count))) : 3;
+}
 function questionOptions(value: JsonValue | undefined): string[] { if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string"); if (value && typeof value === "object") { const record = value as Record<string, JsonValue>; for (const key of ["options", "choices", "answers"]) { const nested = record[key]; if (Array.isArray(nested)) return nested.map((item) => typeof item === "string" ? item : typeof item === "object" && item ? String((item as Record<string, JsonValue>).label ?? (item as Record<string, JsonValue>).value ?? "") : "").filter(Boolean); } } return []; }
 function ChoiceInput({ options, value, onChange, disabled }: { options: string[]; value: string; onChange: (value: string) => void; disabled?: boolean }) { return <div className="grid gap-2">{options.map((option) => <label className={`flex items-center gap-3 rounded-[7px] border px-4 py-3 text-sm font-semibold transition ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${value === option ? "border-sky-300 bg-sky-50 text-sky-950" : "border-neutral-200 hover:bg-neutral-50"}`} key={option}><input checked={value === option} className="size-4 accent-[#159ac8]" disabled={disabled} name="choice" onChange={() => onChange(option)} type="radio" />{option}</label>)}</div>; }
 function ScaleInput({ value, onChange, disabled }: { value?: number; onChange: (value: number) => void; disabled?: boolean }) { return <div><div className="grid grid-cols-5 gap-2">{[1, 2, 3, 4, 5].map((item) => <button className={`h-12 rounded-[6px] border text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${value === item ? "border-sky-400 bg-sky-500 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`} disabled={disabled} key={item} onClick={() => onChange(item)} type="button">{item}</button>)}</div><div className="mt-2 flex justify-between text-xs text-neutral-400"><span>Strongly disagree</span><span>Strongly agree</span></div></div>; }
@@ -881,6 +1121,6 @@ async function aiFollowUpQuestions(accessCode: string): Promise<Map<string, stri
   }
   return probes;
 }
-function parseAdaptiveSavedResponse(response: CandidateResponse): { question: string; answer: string } | undefined { const json = response.responseJson; if (!json || typeof json !== "object" || Array.isArray(json)) return undefined; const record = json as Record<string, JsonValue>; if (record.adaptive !== true || typeof record.question !== "string") return undefined; const marker = "\n\nResponse: "; const markerIndex = response.responseText.indexOf(marker); const answer = markerIndex >= 0 ? response.responseText.slice(markerIndex + marker.length).trim() : response.responseText.trim(); return answer ? { question: record.question, answer } : undefined; }
+function parseAdaptiveSavedResponse(response: CandidateResponse): { questionId: string; question: string; answer: string; followUp?: FollowUp } | undefined { const json = response.responseJson; if (!json || typeof json !== "object" || Array.isArray(json)) return undefined; const record = json as Record<string, JsonValue>; if (record.adaptive !== true || typeof record.question !== "string" || typeof record.questionId !== "string") return undefined; const marker = "\n\nResponse: "; const markerIndex = response.responseText.indexOf(marker); const answer = markerIndex >= 0 ? response.responseText.slice(markerIndex + marker.length).trim() : response.responseText.trim(); if (!answer) return undefined; const aiFollowUp = record.aiFollowUp && typeof record.aiFollowUp === "object" && !Array.isArray(record.aiFollowUp) ? record.aiFollowUp as Record<string, JsonValue> : undefined; const followUp = typeof aiFollowUp?.question === "string" ? { question: aiFollowUp.question, answer: typeof aiFollowUp.answer === "string" ? aiFollowUp.answer : "" } : undefined; return { questionId: record.questionId, question: record.question, answer, followUp }; }
 function firstName(name: string) { return name.trim().split(/\s+/)[0] || "Candidate"; }
 function formatTimer(seconds: number) { if (!Number.isFinite(seconds) || seconds < 0) return "--:--"; const minutes = Math.floor(seconds / 60); return `${String(minutes).padStart(2, "0")}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`; }

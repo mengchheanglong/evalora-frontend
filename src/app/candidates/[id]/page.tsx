@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
-import { InterviewerFollowUps } from "@/components/interviewer-follow-ups";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { SessionTranscriptView } from "@/components/session-transcript";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
@@ -52,6 +50,10 @@ export default function CandidateDetailPage() {
 
   useEffect(() => { void loadCandidate(); }, [loadCandidate]);
 
+  const handleSessionStatus = useCallback((status: SessionStatus) => {
+    setSession((current) => current && current.status !== status ? { ...current, status } : current);
+  }, []);
+
   async function generateReport() {
     setGenerating(true);
     setError("");
@@ -91,7 +93,7 @@ export default function CandidateDetailPage() {
   }
 
   return (
-    <AppShell active="candidates" breadcrumbs={[{ label: "Candidates", href: "/candidates" }, { label: session?.candidateName ?? "Candidate" }]} description="View comprehensive information and assessment history." title="Candidate Detail">
+    <AppShell active="candidates" breadcrumbs={[{ label: "Candidates", href: "/candidates" }, { label: session?.candidateName ?? "Candidate" }]} description="Review the candidate interview, evidence, and hiring report." title="Candidate Detail">
       {loading ? <PageLoader label="Loading candidate evidence" /> : null}
       {!loading && error && !session ? <ErrorState message={error} onRetry={() => void loadCandidate()} /> : null}
       {!loading && session && template ? (
@@ -99,28 +101,34 @@ export default function CandidateDetailPage() {
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
           {copied ? <InlineAlert tone="success">Private invitation link copied.</InlineAlert> : null}
           <ProfileHero session={session} template={template} />
-          <Tabs active={activeTab} onChange={setActiveTab} reportReady={Boolean(report)} />
+          <Tabs active={activeTab} onChange={setActiveTab} reportReady={Boolean(report)} sessionStatus={session.status} />
 
           {activeTab === "overview" ? (
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
               <div className="space-y-4">
                 <section className="grid gap-4 lg:grid-cols-2">
-                  <SessionDetailsCard session={session} template={template} />
+                  <SessionDetailsCard onMonitor={() => setActiveTab("transcript")} session={session} template={template} />
                   <SkillsCard report={report} template={template} />
                 </section>
                 <RecentActivityCard notes={notes} responses={responses} session={session} />
               </div>
               <aside className="space-y-4">
                 <OverallSummary report={report} session={session} />
-                <QuickActions copied={copied} copyInvite={copyInvite} generateReport={generateReport} generating={generating} onOpenReport={() => setActiveTab("report")} report={report} session={session} />
+                <QuickActions copied={copied} copyInvite={copyInvite} generateReport={generateReport} generating={generating} onMonitor={() => setActiveTab("transcript")} onOpenReport={() => setActiveTab("report")} report={report} session={session} />
               </aside>
             </div>
-          ) : activeTab === "responses" ? (
-            <InterviewerFollowUps responses={responses} sessionId={session.id} sessionStatus={session.status} template={template} />
           ) : activeTab === "transcript" ? (
-            <SessionTranscriptView sessionId={session.id} />
+            <SessionTranscriptView onStatusChange={handleSessionStatus} sessionId={session.id} />
           ) : report ? (
-            <ReportView notes={notes} onAddNote={addNote} report={report} role={session.targetRole ?? template.roleType} savingNote={savingNote} showIdentity={false} />
+            <ReportView
+              notes={notes}
+              onAddNote={addNote}
+              onViewInterview={() => setActiveTab("transcript")}
+              report={report}
+              role={session.targetRole ?? template.roleType}
+              savingNote={savingNote}
+              showIdentity={false}
+            />
           ) : (
             <ReportGeneratePrompt completed={session.status === "completed"} generating={generating} onGenerate={() => void generateReport()} />
           )}
@@ -158,13 +166,12 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
   );
 }
 
-type TabId = "overview" | "responses" | "transcript" | "report";
+type TabId = "overview" | "transcript" | "report";
 
-function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab: TabId) => void; reportReady: boolean }) {
+function Tabs({ active, onChange, reportReady, sessionStatus }: { active: TabId; onChange: (tab: TabId) => void; reportReady: boolean; sessionStatus: SessionStatus }) {
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: "clipboard" as const },
-    { id: "responses" as const, label: "Responses", icon: "message" as const },
-    { id: "transcript" as const, label: "Transcript", icon: "eye" as const },
+    { id: "transcript" as const, label: "Interview", icon: "eye" as const },
     { id: "report" as const, label: "Report", icon: "file" as const },
   ];
   return (
@@ -181,6 +188,9 @@ function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab
           >
             <Icon name={tab.icon} size={14} />
             {tab.label}
+            {tab.id === "transcript" && sessionStatus === "in_progress" ? (
+              <span className="live-status-dot size-1.5 animate-pulse rounded-full" title="Candidate is interviewing now" />
+            ) : null}
             {tab.id === "report" && reportReady ? <span className="size-1.5 rounded-full bg-[var(--color-primary-500)]" title="Report ready" /> : null}
             {isActive ? <span className="absolute inset-x-0 -bottom-px h-[2.5px] rounded-full bg-[var(--color-primary-600)]" /> : null}
           </button>
@@ -190,7 +200,7 @@ function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab
   );
 }
 
-function SessionDetailsCard({ session, template }: { session: InterviewSession; template: AssessmentTemplate }) {
+function SessionDetailsCard({ session, template, onMonitor }: { session: InterviewSession; template: AssessmentTemplate; onMonitor: () => void }) {
   const done = session.status === "completed";
   const active = session.status === "in_progress";
   return (
@@ -225,10 +235,10 @@ function SessionDetailsCard({ session, template }: { session: InterviewSession; 
           )}
         </div>
       </div>
-      {session.status !== "completed" && session.status !== "expired" ? (
-        <Link className="button-secondary mt-4 h-9 w-full rounded-[7px] text-[var(--text-micro)]" href={`/assessment/${encodeURIComponent(session.accessCode)}`}>
-          Open candidate link <Icon className="-rotate-90" name="chevron" size={12} />
-        </Link>
+      {session.status === "in_progress" ? (
+        <button className="button-secondary mt-4 h-9 w-full rounded-[7px] text-[var(--text-micro)]" onClick={onMonitor} type="button">
+          Monitor live <Icon className="-rotate-90" name="chevron" size={12} />
+        </button>
       ) : null}
     </article>
   );
@@ -349,11 +359,18 @@ function scoreMeta(score: number | null): ScoreMeta {
   return { label: "Needs review", ring: "text-[var(--theme-muted)]", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
 }
 
-function QuickActions({ session, report, copied, generating, copyInvite, generateReport, onOpenReport }: { session: InterviewSession; report: CandidateReport | null; copied: boolean; generating: boolean; copyInvite: () => Promise<void>; generateReport: () => Promise<void>; onOpenReport: () => void }) {
+function QuickActions({ session, report, copied, generating, copyInvite, generateReport, onOpenReport, onMonitor }: { session: InterviewSession; report: CandidateReport | null; copied: boolean; generating: boolean; copyInvite: () => Promise<void>; generateReport: () => Promise<void>; onOpenReport: () => void; onMonitor: () => void }) {
   return (
     <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
       <h2 className="text-sm font-semibold text-[var(--theme-heading)]">Quick Actions</h2>
       <div className="mt-3 divide-y divide-[var(--theme-border)]">
+        {session.status === "in_progress" ? (
+          <button className="flex w-full items-center gap-2.5 py-2.5 text-left text-xs font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={onMonitor} type="button">
+            <Icon name="eye" size={15} />
+            <span>Open live interview</span>
+            <Icon className="ml-auto -rotate-90" name="chevron" size={13} />
+          </button>
+        ) : null}
         <button className="flex w-full items-center gap-2.5 py-2.5 text-left text-xs font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={() => void copyInvite()} type="button">
           <Icon name="mail" size={15} />
           <span>{copied ? "Invitation copied" : "Copy assessment invitation"}</span>
@@ -407,9 +424,9 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
 }
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-[var(--theme-border)] pb-1.5 last:border-0 last:pb-0">
-      <dt className="text-[var(--theme-muted)]">{label}</dt>
-      <dd className="text-right font-semibold text-[var(--theme-heading)]">{value}</dd>
+    <div className="flex items-start justify-between gap-4 border-b border-[var(--theme-border)] pb-1.5 last:border-0 last:pb-0">
+      <dt className="shrink-0 text-[var(--theme-muted)]">{label}</dt>
+      <dd className="min-w-0 break-words text-right font-semibold leading-5 text-[var(--theme-heading)]">{value}</dd>
     </div>
   );
 }
@@ -426,7 +443,7 @@ function statusLabel(status: SessionStatus) {
   return { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];
 }
 function tagList(template: AssessmentTemplate) {
-  return template.modules.slice(0, 3).map((module) => module.title.replace(" Assessment", "")).join(", ") || "—";
+  return template.modules.map((module) => module.title.replace(" Assessment", "")).join(", ") || "—";
 }
 function formatDate(value?: string) {
   return value ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value)) : "—";

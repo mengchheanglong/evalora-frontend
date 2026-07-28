@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FilterPanelFrame, FilterSelectField, FilterToggleButton } from "@/components/filter-controls";
 import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
@@ -89,6 +90,7 @@ export default function SessionsPage() {
   const [dateFilter, setDateFilter] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<SessionRow | null>(null);
   const [actionError, setActionError] = useState("");
 
   // Fetch real data from backend
@@ -113,19 +115,21 @@ export default function SessionsPage() {
     void loadSessions();
   }, [loadSessions]);
 
-  const removeSession = useCallback(async (session: SessionRow) => {
-    if (!window.confirm(`Delete ${session.candidateName}'s session (${session.sessionId})? This permanently removes the session and its saved responses, submissions, and report.`)) return;
+  const removeSession = useCallback(async () => {
+    const session = pendingDelete;
+    if (!session || deletingId) return;
     setDeletingId(session.id);
     setActionError("");
     try {
       await apiDelete(`/sessions/${session.id}`);
+      setPendingDelete(null);
       await loadSessions();
     } catch (requestError) {
       setActionError(getErrorMessage(requestError, "Could not delete this session. Please try again."));
     } finally {
       setDeletingId(null);
     }
-  }, [loadSessions]);
+  }, [deletingId, loadSessions, pendingDelete]);
 
   const templates = useMemo(
     () => uniqueValues(sessions.map((session) => session.templateTitle)),
@@ -319,9 +323,10 @@ export default function SessionsPage() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             aria-label={`Delete ${session.candidateName}'s session`}
+                            className="rounded-lg p-1.5 text-[var(--theme-faint)] transition-colors hover:bg-rose-500/10 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
                             disabled={deletingId === session.id}
-                            onClick={() => void removeSession(session)}
-                            className="p-1.5 text-[var(--theme-faint)] hover:text-[var(--theme-muted)] hover:bg-[var(--theme-panel-soft)] rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={() => setPendingDelete(session)}
+                            type="button"
                           >
                             {deletingId === session.id
                               ? <span className="block size-4 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" />
@@ -346,6 +351,15 @@ export default function SessionsPage() {
           )}
         </section>
       </div>
+      <ConfirmDialog
+        confirmLabel="Delete session"
+        message={pendingDelete ? `${pendingDelete.candidateName}'s session (${pendingDelete.sessionId}) and all saved responses, code submissions, and report data will be permanently removed.` : undefined}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => void removeSession()}
+        open={pendingDelete !== null}
+        pending={deletingId !== null}
+        title="Delete this interview session?"
+      />
     </AppShell>
   );
 }

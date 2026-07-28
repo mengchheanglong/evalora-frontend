@@ -4,35 +4,30 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const GENERIC_FAILURE = "The follow-up question could not be prepared. You can continue without it.";
 
-/** Marks the sentences that were written for a person to read. */
 class StreamMessage extends Error {}
 
 export type AiStreamInput = {
+  questionId?: string;
+  moduleId?: string;
   question: string;
   answer: string;
   rubric?: string[];
 };
 
+export type AiFollowUpDecision = {
+  shouldAsk: boolean;
+  question: string;
+};
+
 type StreamFrame = {
   delta?: string;
   done?: boolean;
+  shouldAsk?: boolean;
   question?: string;
-  /**
-   * The server withdrawing what it already sent. It arrives when a truncated
-   * question was rewritten, or as "" alongside an error when the question could
-   * not be persisted — leaving that half-written text on screen would invite the
-   * candidate to answer a question the server has no record of.
-   */
   replace?: string;
   error?: string;
 };
 
-/**
- * The follow-up goes through the same-origin `/api/backend` proxy, which passes
- * server-sent events straight through. Naming the backend origin instead would
- * point a candidate on a phone at their own device and, on any other host, lose
- * the CORS preflight before the first byte.
- */
 const FOLLOW_UP_BASE = "/api/backend/ai/access";
 
 function followUpStreamUrl(accessCode: string): string {
@@ -43,11 +38,6 @@ function followUpUrl(accessCode: string): string {
   return `${FOLLOW_UP_BASE}/${encodeURIComponent(accessCode)}/follow-up`;
 }
 
-/**
- * Token-by-token AI follow-up. Failures before the first frame arrive as a
- * normal JSON error; after it, as an error frame — either way whatever text
- * already streamed stays on screen so the candidate never watches it vanish.
- */
 export function useAiStream(accessCode: string) {
   const [text, setText] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -71,8 +61,8 @@ export function useAiStream(accessCode: string) {
     setStreaming(false);
   }, []);
 
-  /** Resolves with the authoritative question text, or "" when it could not be prepared. */
-  const start = useCallback(async (input: AiStreamInput): Promise<string> => {
+  /** Resolves with the server's decision, or null when it could not be prepared. */
+  const start = useCallback(async (input: AiStreamInput): Promise<AiFollowUpDecision | null> => {
     controller.current?.abort();
     const abort = new AbortController();
     controller.current = abort;
@@ -81,8 +71,6 @@ export function useAiStream(accessCode: string) {
     setStreaming(true);
 
     let accumulated = "";
-    // A curated 4xx is a deliberate refusal (dead link, rejected answer, rate
-    // limit); asking the plain endpoint again would only repeat it.
     let refused = false;
     const publish = (value: string) => {
       if (mounted.current && !abort.signal.aborted) setText(value);
@@ -97,31 +85,29 @@ export function useAiStream(accessCode: string) {
         credentials: "same-origin",
         signal: abort.signal,
       });
-      // Failures before the first frame come back as an ordinary HTTP error, not SSE.
       if (!response.ok || !response.body) {
         refused = response.status >= 400 && response.status < 500;
         throw new StreamMessage(failureMessage(response.status));
       }
 
-      // The proxy answers from its built-in mock backend when Nest is unreachable,
-      // and that reply is plain JSON: take the question instead of waiting for frames.
       if (!isEventStream(response.headers.get("content-type"))) {
-        const question = await readQuestion(response);
-        if (!question) throw new StreamMessage(GENERIC_FAILURE);
-        publish(question);
+        const decision = await readDecision(response);
+        if (!decision) throw new StreamMessage(GENERIC_FAILURE);
+        publish(decision.question);
         if (mounted.current && !abort.signal.aborted) setStreaming(false);
-        return question;
+        return decision;
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let complete = "";
+      let decisionReceived = false;
+      let shouldAsk = false;
 
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        // A chunk is not a frame: hold the trailing partial until its "\n\n" lands.
         buffer += decoder.decode(value, { stream: true });
         let boundary = buffer.indexOf("\n\n");
         while (boundary >= 0) {
@@ -129,8 +115,6 @@ export function useAiStream(accessCode: string) {
           buffer = buffer.slice(boundary + 2);
           boundary = buffer.indexOf("\n\n");
           if (!frame) continue;
-          // Applied before the error check: the withdrawal frame carries both, and
-          // the half-written question must come off screen even as we throw.
           if (typeof frame.replace === "string") {
             accumulated = frame.replace;
             publish(accumulated);
@@ -141,34 +125,33 @@ export function useAiStream(accessCode: string) {
             publish(accumulated);
           }
           if (frame.done) {
-            // The done frame carries the full text — it wins over the deltas.
-            complete = frame.question?.trim() || accumulated.trim();
+            shouldAsk = frame.shouldAsk !== false;
+            complete = shouldAsk ? frame.question?.trim() || accumulated.trim() : "";
+            decisionReceived = true;
             publish(complete);
           }
         }
-        if (complete) {
+        if (decisionReceived) {
           await reader.cancel().catch(() => undefined);
           break;
         }
       }
 
-      if (!complete) throw new StreamMessage(GENERIC_FAILURE);
+      if (!decisionReceived || (shouldAsk && !complete)) throw new StreamMessage(GENERIC_FAILURE);
       if (mounted.current && !abort.signal.aborted) setStreaming(false);
-      return complete;
+      return { shouldAsk, question: complete };
     } catch (streamError) {
-      if (abort.signal.aborted || !mounted.current) return "";
-      // A candidate who cannot receive the stream must not be stranded on the
-      // question, so ask the plain endpoint once before showing the message.
-      const recovered = refused ? "" : await requestFollowUp(accessCode, input, abort.signal);
-      if (abort.signal.aborted || !mounted.current) return "";
+      if (abort.signal.aborted || !mounted.current) return null;
+      const recovered = refused ? null : await requestFollowUp(accessCode, input, abort.signal);
+      if (abort.signal.aborted || !mounted.current) return null;
       if (recovered) {
-        publish(recovered);
+        publish(recovered.question);
         setStreaming(false);
         return recovered;
       }
       setError(calmMessage(streamError));
       setStreaming(false);
-      return "";
+      return null;
     } finally {
       if (controller.current === abort) controller.current = null;
     }
@@ -177,8 +160,11 @@ export function useAiStream(accessCode: string) {
   return { text, streaming, error, start, reset };
 }
 
-/** The non-streaming twin of the endpoint, used only to rescue a failed stream. */
-async function requestFollowUp(accessCode: string, input: AiStreamInput, signal: AbortSignal): Promise<string> {
+async function requestFollowUp(
+  accessCode: string,
+  input: AiStreamInput,
+  signal: AbortSignal,
+): Promise<AiFollowUpDecision | null> {
   try {
     const response = await fetch(followUpUrl(accessCode), {
       method: "POST",
@@ -188,18 +174,21 @@ async function requestFollowUp(accessCode: string, input: AiStreamInput, signal:
       credentials: "same-origin",
       signal,
     });
-    return response.ok ? await readQuestion(response) : "";
+    return response.ok ? await readDecision(response) : null;
   } catch {
-    return "";
+    return null;
   }
 }
 
-async function readQuestion(response: Response): Promise<string> {
+async function readDecision(response: Response): Promise<AiFollowUpDecision | null> {
   try {
-    const payload = (await response.json()) as { question?: unknown };
-    return typeof payload.question === "string" ? payload.question.trim() : "";
+    const payload = (await response.json()) as { shouldAsk?: unknown; question?: unknown };
+    const question = typeof payload.question === "string" ? payload.question.trim() : "";
+    const shouldAsk = payload.shouldAsk === undefined ? Boolean(question) : payload.shouldAsk === true;
+    if (shouldAsk && !question) return null;
+    return { shouldAsk, question: shouldAsk ? question : "" };
   } catch {
-    return "";
+    return null;
   }
 }
 
@@ -214,7 +203,6 @@ function parseFrame(frame: string): StreamFrame | null {
     const parsed = JSON.parse(line.slice(5).trim()) as StreamFrame;
     return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
-    // Keep-alive comments and half-written frames are skipped, never fatal.
     return null;
   }
 }
@@ -227,8 +215,6 @@ function failureMessage(status: number): string {
 }
 
 function calmMessage(error: unknown): string {
-  // A network or parser message ("Load failed") would tell a candidate nothing,
-  // so only deliberately human sentences pass through.
   const message = error instanceof StreamMessage ? error.message.trim() : "";
   return message && message.length <= 200 ? message : GENERIC_FAILURE;
 }
