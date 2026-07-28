@@ -573,7 +573,7 @@ export default function SettingsPage() {
           <section className="card scroll-mt-[96px] overflow-hidden" id="data">
             <div className="p-5 sm:p-6">
               <SectionHeader
-                description="Live workspace counts, data export, and retention details."
+                description={isOwner ? "Live workspace counts, data export, and retention details." : "Live workspace counts and retention details."}
                 icon="shield"
                 title="Data & privacy"
               />
@@ -587,13 +587,17 @@ export default function SettingsPage() {
               ) : null}
             </div>
 
+            {/* Export is owner-only on the API (@Roles("organization","admin")),
+                so showing it to an interviewer only offers a guaranteed 403. */}
             <div className="divide-y divide-neutral-100 border-t border-neutral-100">
-              <PrivacyRow
-                title={exporting ? "Exporting…" : "Export organization data"}
-                body="Download JSON of templates, sessions, members, and reports"
-                disabled={exporting || !isOwner}
-                onClick={() => void exportWorkspaceData()}
-              />
+              {isOwner ? (
+                <PrivacyRow
+                  title={exporting ? "Exporting…" : "Export organization data"}
+                  body="Download JSON of templates, sessions, members, and reports"
+                  disabled={exporting}
+                  onClick={() => void exportWorkspaceData()}
+                />
+              ) : null}
               <PrivacyRow
                 title="Data retention"
                 body={
@@ -613,9 +617,6 @@ export default function SettingsPage() {
                 {privacy?.advisoryNotice ??
                   "AI feedback in Evalora is advisory and must be reviewed by a human interviewer. Behavioral results are not medical or mental-health diagnoses."}
               </p>
-              {!isOwner ? (
-                <p className="text-[11px] leading-5 text-neutral-500">Export and delete require workspace owner access.</p>
-              ) : null}
               <div className="flex flex-wrap gap-5">
                 <span className="text-[12px] font-bold text-neutral-700">Privacy Policy</span>
                 <span className="text-[12px] font-bold text-neutral-700">Terms of Service</span>
@@ -623,7 +624,10 @@ export default function SettingsPage() {
             </footer>
           </section>
 
-          {/* Danger zone */}
+          {/* Danger zone — owner only. Deleting organization data is owner-only
+              on the API, and an interviewer has no reason to see the workspace
+              framed as one button away from destruction. */}
+          {isOwner ? (
           <section className="scroll-mt-[96px] overflow-hidden rounded-[8px] border border-[#FF0000]/30 bg-white shadow-sm" id="danger">
             <div className="p-5 sm:p-6">
               <SectionHeader
@@ -641,7 +645,6 @@ export default function SettingsPage() {
                 </div>
                 <button
                   className="h-9 shrink-0 rounded-[6px] border border-[#FF0000]/35 bg-white px-3.5 text-[12px] font-bold text-[#FF0000] transition hover:bg-[#FF0000] hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!isOwner}
                   onClick={() => {
                     setPrivacyError("");
                     setDeleteConfirmName("");
@@ -652,11 +655,9 @@ export default function SettingsPage() {
                   Delete data…
                 </button>
               </div>
-              {!isOwner ? (
-                <p className="mt-3 text-[11px] text-neutral-500">Only the workspace owner can delete organization data.</p>
-              ) : null}
             </div>
           </section>
+          ) : null}
         </div>
       </div>
 
