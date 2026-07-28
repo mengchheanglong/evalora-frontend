@@ -36,13 +36,39 @@ export interface SessionSnapshot {
   serverTime: number;
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
 /**
  * The gateway lives on the backend origin, not behind the Next proxy — a
  * WebSocket upgrade cannot be proxied by a route handler.
+ *
+ * The configured origin is a loopback address in every local setup, which is
+ * correct only for a browser on the same machine. The dev server binds 0.0.0.0
+ * and assessments are handed out as links, so a candidate on a phone would dial
+ * their OWN device and silently fall back to the 30s poll. When the page is being
+ * served from somewhere other than loopback, the backend is reachable at that
+ * same host — so borrow it and keep the configured port.
  */
 export function realtimeUrl(): string {
-  const base = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/api\/?$/, "") ?? "http://localhost:4000";
-  return `${base.replace(/\/$/, "")}/interview`;
+  const configured = (process.env.NEXT_PUBLIC_BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api")
+    .replace(/\/api\/?$/, "")
+    .replace(/\/$/, "");
+
+  if (typeof window === "undefined") return `${configured}/interview`;
+
+  try {
+    const target = new URL(configured);
+    const pageHost = window.location.hostname;
+    if (LOOPBACK_HOSTS.has(target.hostname) && !LOOPBACK_HOSTS.has(pageHost)) {
+      target.hostname = pageHost;
+      // A page served over https cannot open an ws:// socket; follow the page.
+      if (window.location.protocol === "https:") target.protocol = "https:";
+      return `${target.origin}/interview`;
+    }
+  } catch {
+    // A malformed value is left exactly as configured rather than guessed at.
+  }
+  return `${configured}/interview`;
 }
 
 /** Exchanges the httpOnly session cookie for a short-lived socket ticket. */

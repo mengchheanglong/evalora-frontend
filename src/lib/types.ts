@@ -437,3 +437,75 @@ export interface CandidateCodeSubmission {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Where a transcript entry came from — the reviewer's provenance discriminator. */
+export type TranscriptOrigin = "template" | "ai_adaptive" | "interviewer_follow_up" | "code_submission";
+
+export type TranscriptFollowUpStatus = "sent" | "answered" | "cancelled";
+
+export interface TranscriptCodeArtifact {
+  language: string;
+  sourceCode: string;
+  stdout?: string;
+  stderr?: string;
+  testResults?: JsonValue;
+}
+
+export interface TranscriptEntry {
+  id: string;
+  origin: TranscriptOrigin;
+  moduleId?: string;
+  moduleTitle?: string;
+  moduleType?: string;
+  /** 1-based position in `entries`, so a reviewer can cite "line 7" of a transcript. */
+  sequence: number;
+  questionText: string;
+  answerText?: string;
+  /** Interviewer follow-ups only: the human who asked. */
+  askedBy?: { name: string };
+  askedAt?: string;
+  answeredAt?: string;
+  /** Interviewer follow-ups only. */
+  status?: TranscriptFollowUpStatus;
+  code?: TranscriptCodeArtifact;
+  /** True when this entry's ANSWER reached the scoring pipeline as candidate evidence. */
+  isEvidence: boolean;
+}
+
+export interface TranscriptCounts {
+  template: number;
+  aiAdaptive: number;
+  interviewerFollowUp: number;
+  codeSubmission: number;
+}
+
+/** Rows the backend leaves out per source when a session exceeds the read cap. */
+export interface TranscriptSourceCounts {
+  responses: number;
+  aiMessages: number;
+  codeSubmissions: number;
+  interviewerFollowUps: number;
+}
+
+/**
+ * A trail shown to a reviewer as complete evidence must never quietly stop short,
+ * so the backend states the shortfall instead of hiding it.
+ */
+export interface TranscriptTruncation {
+  truncated: boolean;
+  limit: number;
+  omitted: TranscriptSourceCounts;
+}
+
+/** Full evidence trail for one session from GET /sessions/:id/transcript. */
+export interface SessionTranscript {
+  sessionId: string;
+  status: SessionStatus;
+  startedAt?: string;
+  completedAt?: string;
+  candidate: { id: string; name: string; email: string };
+  templateTitle?: string;
+  entries: TranscriptEntry[];
+  counts: TranscriptCounts;
+  truncation: TranscriptTruncation;
+}

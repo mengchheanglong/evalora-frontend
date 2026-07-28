@@ -24,7 +24,10 @@ import type {
   ReviewerNote,
   ScoreDistributionBucket,
   SessionStatus,
+  SessionTranscript,
   TemplateUsageItem,
+  TranscriptCounts,
+  TranscriptEntry,
   UpcomingAssessment,
 } from "@/lib/types";
 
@@ -916,6 +919,12 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     );
   }
   if (segments[0] === "sessions" && segments[1] === "access" && segments[2]) return handleCandidateSession(method, decodeURIComponent(segments[2]), segments[3]);
+  // Must be registered before /sessions/:id
+  if (segments[0] === "sessions" && segments[1] && segments[2] === "transcript" && method === "GET") {
+    const session = sessions.find((item) => item.id === decodeURIComponent(segments[1]));
+    if (!session) return json({ message: "Session not found." }, 404);
+    return json(buildTranscript(session));
+  }
   if (segments[0] === "sessions" && segments[1] && method === "GET") {
     return jsonOr404(sessions.find((session) => session.id === decodeURIComponent(segments[1])), "Session not found.");
   }
@@ -1420,6 +1429,145 @@ function generateReportFor(session: InterviewSession): CandidateReport {
     advisoryNotice: "AI feedback is advisory and must be reviewed by a human interviewer before any decision.",
     generatedAt: new Date().toISOString(),
     persistence: { status: "persisted", evaluationCount: 3 },
+  };
+}
+
+/**
+ * The Transcript tab only demonstrates provenance when every origin badge is
+ * represented, so the demo trail deliberately mixes all four origins and keeps
+ * one cancelled interviewer follow-up that the report was not allowed to score.
+ */
+/** Mirrors the backend's per-source read cap so the shape matches the real API. */
+const DEFAULT_TRANSCRIPT_LIMIT = 500;
+
+function buildTranscript(session: InterviewSession): SessionTranscript {
+  const template = templates.find((item) => item.id === session.templateId);
+  const modules = template?.modules ?? [];
+  const interviewModule = modules.find((module) => module.type === "ai_interview") ?? modules[0];
+  const codingModule = modules.find((module) => module.type === "coding") ?? modules[1] ?? interviewModule;
+  const behavioralModule = modules.find((module) => module.type === "behavioral") ?? modules[modules.length - 1] ?? interviewModule;
+  const moduleFields = (module?: (typeof modules)[number]) => ({
+    moduleId: module?.id,
+    moduleTitle: module?.title,
+    moduleType: module?.type,
+  });
+  const questionOf = (module: (typeof modules)[number] | undefined, index: number, fallback: string) =>
+    module?.questions?.[index]?.questionText ?? fallback;
+
+  const startedAt = session.startedAt ?? session.createdAt ?? iso(-4);
+  const at = (minutes: number) => new Date(new Date(startedAt).getTime() + minutes * 60_000).toISOString();
+
+  const drafts: Array<Omit<TranscriptEntry, "sequence">> = [
+    {
+      id: `${session.id}-tr-1`,
+      origin: "template",
+      ...moduleFields(interviewModule),
+      questionText: questionOf(interviewModule, 0, "Tell us about a project you owned. What trade-offs did you make?"),
+      answerText:
+        "I owned a dashboard migration where delivery speed and long-term maintainability pulled in opposite directions. I mapped the riskiest user flows first, shipped behind a feature flag, and kept the old route live for two weeks so we could compare error rates before removing it.",
+      askedAt: at(2),
+      answeredAt: at(6),
+      isEvidence: true,
+    },
+    {
+      id: `${session.id}-tr-2`,
+      origin: "ai_adaptive",
+      ...moduleFields(interviewModule),
+      questionText: "Can you walk through one concrete trade-off you made, including the alternatives you rejected and how you measured the outcome?",
+      answerText:
+        "We rejected a full rewrite because it would have frozen feature work for a quarter. The measure was route-level error rate and p95 load time: both improved, so we deleted the legacy route in the following sprint.",
+      askedAt: at(7),
+      answeredAt: at(11),
+      isEvidence: true,
+    },
+    {
+      id: `${session.id}-tr-3`,
+      origin: "interviewer_follow_up",
+      ...moduleFields(interviewModule),
+      questionText: "Who else had to agree before you removed the legacy route, and how did you get that agreement?",
+      answerText:
+        "Support and the on-call engineer. I shared the two-week error-rate comparison in our weekly review and agreed a rollback plan with them before the deletion landed.",
+      askedBy: { name: mockUser.name },
+      status: "answered",
+      askedAt: at(14),
+      answeredAt: at(17),
+      isEvidence: true,
+    },
+    {
+      id: `${session.id}-tr-4`,
+      origin: "code_submission",
+      ...moduleFields(codingModule),
+      questionText: questionOf(codingModule, 0, "Implement a function that returns whether any two numbers sum to the target."),
+      code: {
+        language: "javascript",
+        sourceCode:
+          "function hasPairSum(numbers, target) {\n  const seen = new Set();\n  for (const value of numbers) {\n    if (seen.has(target - value)) return true;\n    seen.add(value);\n  }\n  return false;\n}\n",
+        stdout: "true\nfalse\n",
+        stderr: "",
+        testResults: [
+          { case: 1, passed: true, status: "Accepted", executionTime: 0.03 },
+          { case: 2, passed: true, status: "Accepted", executionTime: 0.04 },
+          { case: 3, passed: true, status: "Accepted", executionTime: 0.03 },
+          { case: 4, passed: false, status: "Wrong Answer", executionTime: 0.05 },
+        ],
+      },
+      askedAt: at(24),
+      answeredAt: at(35),
+      isEvidence: true,
+    },
+    {
+      id: `${session.id}-tr-5`,
+      origin: "interviewer_follow_up",
+      ...moduleFields(codingModule),
+      questionText: "Which edge case does your solution still miss, and how would you cover it?",
+      askedBy: { name: mockUser.name },
+      status: "cancelled",
+      askedAt: at(38),
+      isEvidence: false,
+    },
+    {
+      id: `${session.id}-tr-6`,
+      origin: "template",
+      ...moduleFields(behavioralModule),
+      questionText: questionOf(behavioralModule, 0, "Tell us about a disagreement with a teammate. What changed your mind or theirs?"),
+      answerText:
+        "A teammate wanted to keep a shared utility file that three teams edited weekly. I disagreed until they showed me the merge-conflict history was mostly formatting, not logic, so we added a formatter instead of splitting the file.",
+      askedAt: at(44),
+      answeredAt: at(48),
+      isEvidence: true,
+    },
+  ];
+
+  const entries = drafts.map((entry, index) => ({ ...entry, sequence: index + 1 }));
+  return {
+    sessionId: session.id,
+    status: session.status,
+    startedAt: session.startedAt,
+    completedAt: session.completedAt,
+    candidate: {
+      id: session.candidateId ?? `cand-${session.id}`,
+      name: session.candidateName,
+      email: session.candidateEmail ?? "candidate@example.com",
+    },
+    templateTitle: session.templateTitle ?? template?.title,
+    entries,
+    counts: transcriptCounts(entries),
+    // The sample is small by construction, so nothing is ever cut off here.
+    truncation: {
+      truncated: false,
+      limit: DEFAULT_TRANSCRIPT_LIMIT,
+      omitted: { responses: 0, aiMessages: 0, codeSubmissions: 0, interviewerFollowUps: 0 },
+    },
+  };
+}
+
+function transcriptCounts(entries: TranscriptEntry[]): TranscriptCounts {
+  const countOf = (origin: TranscriptEntry["origin"]) => entries.filter((entry) => entry.origin === origin).length;
+  return {
+    template: countOf("template"),
+    aiAdaptive: countOf("ai_adaptive"),
+    interviewerFollowUp: countOf("interviewer_follow_up"),
+    codeSubmission: countOf("code_submission"),
   };
 }
 

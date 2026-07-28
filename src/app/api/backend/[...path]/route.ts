@@ -71,7 +71,8 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
   }
 
   const target = `${BACKEND_URL}/${relativePath}${request.nextUrl.search}`;
-  const headers = new Headers({ Accept: "application/json" });
+  const wantsEventStream = acceptsEventStream(request.headers.get("accept"));
+  const headers = new Headers({ Accept: wantsEventStream ? "text/event-stream" : "application/json" });
   const contentType = request.headers.get("content-type");
   if (contentType) headers.set("Content-Type", contentType);
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -84,14 +85,33 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
       body: bodyBuffer,
       cache: "no-store",
       redirect: "manual",
-      // Prefer reusing TCP connections to Nest during multi-request page loads.
-      keepalive: true,
+      // Prefer reusing TCP connections to Nest during multi-request page loads,
+      // except when a stream is expected: keepalive forbids streamed bodies and
+      // caps the request size, so it would collapse token-by-token delivery.
+      ...(wantsEventStream ? {} : { keepalive: true }),
     });
     liveUnavailableUntil = 0;
 
     const upstreamContentType = backendResponse.headers.get("content-type");
     if (!backendResponse.ok) {
       return safeUpstreamErrorResponse(backendResponse, upstreamContentType ?? "");
+    }
+
+    // Server-sent events are handed to the browser frame by frame: reading the
+    // body as text here would hold every token back until the answer finished.
+    // Returning now also keeps a mid-stream failure inside the browser's reader,
+    // where it cannot be mistaken below for an unreachable backend.
+    if (acceptsEventStream(upstreamContentType)) {
+      return new NextResponse(backendResponse.body, {
+        status: backendResponse.status,
+        headers: new Headers({
+          "Content-Type": upstreamContentType ?? "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          // Nginx and friends buffer proxied responses unless told otherwise.
+          "X-Accel-Buffering": "no",
+          "X-Evalora-Data-Source": "live",
+        }),
+      });
     }
 
     // Auth responses need token stripping; stream other successful bodies through as text once.
@@ -152,6 +172,10 @@ async function safeMockBackendResponse(request: NextRequest, relativePath: strin
   } catch {
     return serviceUnavailableResponse(500, "mock");
   }
+}
+
+function acceptsEventStream(value: string | null): boolean {
+  return (value ?? "").toLowerCase().includes("text/event-stream");
 }
 
 function normalizeBackendMode(value: string | undefined): "true" | "false" | "auto" {

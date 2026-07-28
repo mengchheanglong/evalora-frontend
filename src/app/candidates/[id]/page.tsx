@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { InterviewerFollowUps } from "@/components/interviewer-follow-ups";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
+import { SessionTranscriptView } from "@/components/session-transcript";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
@@ -116,6 +117,8 @@ export default function CandidateDetailPage() {
             </div>
           ) : activeTab === "responses" ? (
             <InterviewerFollowUps responses={responses} sessionId={session.id} sessionStatus={session.status} template={template} />
+          ) : activeTab === "transcript" ? (
+            <SessionTranscriptView sessionId={session.id} />
           ) : report ? (
             <ReportView notes={notes} onAddNote={addNote} report={report} role={session.targetRole ?? template.roleType} savingNote={savingNote} showIdentity={false} />
           ) : (
@@ -155,12 +158,13 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
   );
 }
 
-type TabId = "overview" | "responses" | "report";
+type TabId = "overview" | "responses" | "transcript" | "report";
 
 function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab: TabId) => void; reportReady: boolean }) {
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: "clipboard" as const },
     { id: "responses" as const, label: "Responses", icon: "message" as const },
+    { id: "transcript" as const, label: "Transcript", icon: "eye" as const },
     { id: "report" as const, label: "Report", icon: "file" as const },
   ];
   return (

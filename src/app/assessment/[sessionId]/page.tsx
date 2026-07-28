@@ -7,14 +7,16 @@ import { CandidateInterviewerQuestions, useInterviewerFollowUps } from "@/compon
 import { ConnectionPill } from "@/components/realtime-indicators";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
+import { useAiStream } from "@/components/use-ai-stream";
 import { EvaloraLogo } from "@/components/logo";
-import { apiGet, apiPost, apiPut, getErrorMessage } from "@/lib/api";
-import type { AssessmentModule, CandidateAccessSession, CandidateCodeSubmission, CandidateResponse, JsonValue, Question } from "@/lib/types";
+import { ApiError, apiGet, apiPost, apiPut, getErrorMessage } from "@/lib/api";
+import type { AssessmentModule, CandidateAccessSession, CandidateCodeSubmission, CandidateResponse, InterviewerFollowUp, JsonValue, Question } from "@/lib/types";
 
 type View = "loading" | "welcome" | "assessment" | "review" | "interviewer" | "complete" | "error";
 type SaveState = "saved" | "saving" | "error";
 type Answer = { text: string; json?: JsonValue };
 type FollowUp = { question: string; answer: string };
+type AiStream = ReturnType<typeof useAiStream>;
 
 export default function CandidateAssessmentPage() {
   const { sessionId: rawAccessCode } = useParams<{ sessionId: string }>();
@@ -25,6 +27,8 @@ export default function CandidateAssessmentPage() {
   const [view, setView] = useState<View>("loading");
   // Human interviewer questions delivered mid-session (polled; REST is authoritative).
   const interviewer = useInterviewerFollowUps(accessCode, view === "assessment" || view === "review" || view === "interviewer");
+  // AI follow-up arrives token by token so the wait reads as a conversation.
+  const aiStream = useAiStream(accessCode);
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [codingComplete, setCodingComplete] = useState(false);
@@ -36,6 +40,10 @@ export default function CandidateAssessmentPage() {
   const advancingRef = useRef(false);
   const advancingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedAdaptiveAnswers = useRef(new Map<string, Answer>());
+  // Questions whose AI follow-up we already attempted. A follow-up is a bonus,
+  // never a gate: without this the candidate re-enters the same failing branch on
+  // every press and can never leave the question.
+  const followUpAttempts = useRef(new Set<string>());
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [pageError, setPageError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -44,6 +52,8 @@ export default function CandidateAssessmentPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [reportStatus, setReportStatus] = useState<"generated" | "pending">("pending");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  // Question to ring and scroll to once the interviewer view opens.
+  const [highlightFollowUpId, setHighlightFollowUpId] = useState("");
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const saveRequests = useRef(new Map<string, Promise<boolean>>());
   const answerRevisions = useRef(new Map<string, number>());
@@ -160,6 +170,20 @@ export default function CandidateAssessmentPage() {
     for (const timer of saveTimers.current.values()) clearTimeout(timer);
     if (advancingTimer.current) clearTimeout(advancingTimer.current);
   }, []);
+
+  // A question that arrives mid-assessment is the one worth jumping to, whether
+  // the candidate opens it from the alert now or from the sidebar later.
+  const arrivalId = interviewer.arrival?.id;
+  useEffect(() => {
+    if (arrivalId) setHighlightFollowUpId(arrivalId);
+  }, [arrivalId]);
+
+  function openInterviewerQuestions(followUpId?: string) {
+    if (followUpId) setHighlightFollowUpId(followUpId);
+    interviewer.dismissArrival();
+    setActionError("");
+    setView("interviewer");
+  }
 
   const modules = useMemo(() => {
     const base = candidateModules(session?.template.modules ?? []);
@@ -326,27 +350,42 @@ export default function CandidateAssessmentPage() {
     }
     setActionError("");
 
-    if (activeModule.type === "ai_interview" && displayedQuestionIndex === 0 && !activeQuestion.id.startsWith("ai-adaptive-") && !followUps[activeQuestion.id]) {
+    if (
+      activeModule.type === "ai_interview"
+      && displayedQuestionIndex === 0
+      && !activeQuestion.id.startsWith("ai-adaptive-")
+      && !followUps[activeQuestion.id]
+      && !followUpAttempts.current.has(activeQuestion.id)
+    ) {
       advancingRef.current = true;
       setAdvancing(true);
+      let generated = "";
       try {
         if (!(await ensureQuestionSaved(activeQuestion.id, answer))) {
           setActionError("Your response could not be saved. Check your connection and try again.");
           return;
         }
-        const generated = await apiPost<{ question: string }>(`/ai/access/${encodeURIComponent(accessCode)}/follow-up`, {
-          question: activeQuestion.questionText,
-          answer: answer.text,
-        });
-        setFollowUps((current) => ({ ...current, [activeQuestion.id]: { question: generated.question, answer: "" } }));
-        setActionError("One follow-up question was added based on your response.");
+        generated = await aiStream.start({ question: activeQuestion.questionText, answer: answer.text });
       } catch (requestError) {
         setActionError(getErrorMessage(requestError, "Your answer was saved, but the follow-up could not load. You can continue."));
       } finally {
         advancingRef.current = false;
         setAdvancing(false);
       }
-      return;
+
+      if (generated) {
+        setFollowUps((current) => ({ ...current, [activeQuestion.id]: { question: generated, answer: "" } }));
+        aiStream.reset();
+        setActionError("One follow-up question was added based on your response.");
+        return;
+      }
+
+      // The follow-up could not be produced. Record the attempt and fall through to
+      // the normal advance: a candidate must never be held on a question because an
+      // optional AI extra failed. Their answer is already saved above.
+      followUpAttempts.current.add(activeQuestion.id);
+      aiStream.reset();
+      setActionError("The follow-up question could not be loaded, so we moved on. Your answer was saved.");
     }
 
     const followUp = followUps[activeQuestion.id];
@@ -437,14 +476,18 @@ export default function CandidateAssessmentPage() {
     } catch (requestError) {
       // The server blocks submission while a required interviewer question is
       // unanswered (it can arrive after this screen opened) — send the candidate
-      // straight to it instead of showing a dead-end error.
-      const message = getErrorMessage(requestError, "Unable to submit. Your saved responses are still available.");
-      if (/interviewer question/i.test(message)) {
-        await interviewer.reload();
-        setActionError("Answer the required interviewer questions before submitting.");
-        setView("interviewer");
+      // straight to it instead of showing a dead-end error. This is the backstop;
+      // the banner on the review panel shows the block before they get here.
+      if (isPendingInterviewerQuestionError(requestError)) {
+        // Read the target from what reload() just returned: `interviewer` here is
+        // the object this render closed over, so its lists are still the stale ones.
+        const refreshed = await interviewer.reload();
+        const blocking = refreshed.find((item) => item.status === "sent" && item.required)
+          ?? refreshed.find((item) => item.status === "sent");
+        openInterviewerQuestions(blocking?.id);
+        setActionError("Answer the question your interviewer sent, then submit again.");
       } else {
-        setActionError(message);
+        setActionError(getErrorMessage(requestError, "Unable to submit. Your saved responses are still available."));
       }
     } finally {
       setSubmitting(false);
@@ -459,9 +502,19 @@ export default function CandidateAssessmentPage() {
 
   const completion = completionPercent(modules, answers, followUps, codingComplete, adaptiveReady);
   const timeUp = timeLeft === 0;
+  const pendingRequiredCount = interviewer.pendingRequired.length;
+  const linkDropped = interviewer.connection === "reconnecting" || interviewer.connection === "offline";
 
   return (
     <main className="min-h-screen bg-[#f5f7f9] text-neutral-950">
+      {/* Assertive is justified: an unanswered required question blocks submission,
+          so missing it leaves the candidate stuck with no explanation. */}
+      <div aria-atomic="true" aria-live="assertive" className="sr-only" role="alert">
+        {interviewer.arrival
+          ? `New ${interviewer.arrival.required ? "required " : ""}question from ${interviewer.arrival.askedBy.name}: ${interviewer.arrival.questionText}`
+          : ""}
+      </div>
+
       <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1480px] items-center gap-4 px-4 sm:px-6">
           <EvaloraLogo compact />
@@ -475,12 +528,24 @@ export default function CandidateAssessmentPage() {
         </div>
       </header>
 
+      {linkDropped ? (
+        <p
+          aria-live="polite"
+          className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[11px] font-semibold leading-5 text-amber-900 sm:px-6"
+          role="status"
+        >
+          <Icon className="mr-1.5 inline-block -translate-y-px" name="shield" size={13} />
+          {interviewer.connection === "offline" ? "The live connection is unavailable." : "Reconnecting to your interviewer."}{" "}
+          Everything you write keeps saving automatically — nothing is lost.
+        </p>
+      ) : null}
+
       <div className="mx-auto grid max-w-[1480px] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden min-h-[calc(100vh-64px)] border-r border-neutral-200 bg-white p-4 lg:block">
           <p className="px-2 pb-3 text-[10px] font-bold uppercase text-neutral-400">Assessment modules</p>
           <nav className="space-y-1">{modules.map((module, index) => { const complete = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); const active = index === activeModuleIndex && view === "assessment"; return <button className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left transition ${active ? "bg-sky-50 text-sky-900" : "text-neutral-600 hover:bg-neutral-50"}`} disabled={index > activeModuleIndex && !moduleComplete(modules[index - 1], answers, followUps, codingComplete, adaptiveReady)} key={module.id} onClick={() => { setActiveModuleIndex(index); setActiveQuestionIndex(0); setCodingSandboxActive(module.type === "coding" && questionResponsesComplete(module, answers, followUps)); setView("assessment"); }} type="button"><span className={`flex size-7 shrink-0 items-center justify-center rounded-[5px] ${complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-sky-100 text-sky-700" : "bg-neutral-100 text-neutral-500"}`}>{complete ? <Icon name="check" size={13} /> : <Icon name={moduleIcon(module.type)} size={13} />}</span><span className="min-w-0"><span className="block truncate text-[11px] font-bold">{module.title}</span><span className="mt-0.5 block text-[9px] text-neutral-400">{module.type === "coding" ? `${module.questions?.length ?? 0} questions + sandbox` : `${module.questions?.length ?? 0} questions`}</span></span></button>; })}</nav>
           {interviewer.followUps.length ? (
-            <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-[11px] font-bold ${view === "interviewer" ? "bg-violet-600 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("interviewer")} type="button">
+            <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-[11px] font-bold ${view === "interviewer" ? "bg-violet-600 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => openInterviewerQuestions()} type="button">
               <span className="flex size-7 items-center justify-center rounded-[5px] bg-violet-100 text-violet-700"><Icon name="user" size={13} /></span>
               Interviewer questions
               {interviewer.pending.length ? <span className="ml-auto grid size-5 place-items-center rounded-full bg-violet-600 text-[9px] font-black text-white">{interviewer.pending.length}</span> : null}
@@ -489,23 +554,81 @@ export default function CandidateAssessmentPage() {
           <button className={`mt-3 flex w-full items-center gap-3 rounded-[6px] px-3 py-3 text-left text-[11px] font-bold ${view === "review" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`} onClick={() => setView("review")} type="button"><span className="flex size-7 items-center justify-center rounded-[5px] bg-white/10"><Icon name="report" size={13} /></span>Review and submit</button>
         </aside>
 
-        <section className="min-w-0 p-4 sm:p-6 lg:p-8">
+        {/*
+          The arrival alert is fixed to the bottom, where on a narrow screen it
+          spans the full width and lands on top of the Back / Save and continue
+          row. Reserve the space it occupies so a tap never hits the toast
+          instead of the button underneath it.
+        */}
+        <section className={`min-w-0 p-4 sm:p-6 lg:p-8 ${interviewer.arrival && !timeUp ? "pb-52 sm:pb-6 lg:pb-8" : ""}`}>
           {view === "interviewer" ? (
-            <CandidateInterviewerQuestions accessCode={accessCode} disabled={timeUp} followUps={interviewer.followUps} onChanged={interviewer.reload} />
+            <>
+              {actionError ? <p className="mx-auto mb-3 max-w-[860px] rounded-[6px] bg-amber-50 px-3 py-2 text-[11px] text-amber-800">{actionError}</p> : null}
+              <CandidateInterviewerQuestions accessCode={accessCode} disabled={timeUp} followUps={interviewer.followUps} highlightId={highlightFollowUpId} onChanged={interviewer.reload} />
+            </>
           ) : view === "review" ? (
-            <ReviewPanel adaptiveReady={adaptiveReady} answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} submitting={submitting} />
+            <ReviewPanel adaptiveReady={adaptiveReady} answers={answers} codingComplete={codingComplete} confirmed={confirmed} error={actionError} followUps={followUps} modules={modules} onAnswerInterviewer={() => openInterviewerQuestions(interviewer.pendingRequired[0]?.id)} onBack={() => setView("assessment")} onConfirm={setConfirmed} onSubmit={() => void submitAssessment()} pendingRequiredCount={pendingRequiredCount} submitting={submitting} />
           ) : activeModule?.type === "coding" && (codingSandboxActive || !(activeModule.questions?.length ?? 0)) ? (
             <CandidateCodingAssessment accessCode={accessCode} locked={timeUp} onBack={() => { setCodingSandboxActive(false); setActiveQuestionIndex(Math.max(0, (activeModule.questions?.length ?? 1) - 1)); }} onContinue={() => { setCodingComplete(true); setCodingSandboxActive(false); if (activeModuleIndex < modules.length - 1) { setActiveModuleIndex((index) => index + 1); setActiveQuestionIndex(0); } else setView("review"); }} />
           ) : activeModule?.type === "ai_interview" && aiGenerating ? (
             <AiPreparing />
           ) : activeModule && activeQuestion ? (
-            <QuestionPanel answer={answers[activeQuestion.id]} busy={advancing} disabled={timeUp} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { if (timeLeft === 0) return; setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); answerRevisions.current.set(activeQuestion.id, (answerRevisions.current.get(activeQuestion.id) ?? 0) + 1); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={displayedQuestionIndex} />
+            <QuestionPanel answer={answers[activeQuestion.id]} busy={advancing} disabled={timeUp} error={actionError} followUp={followUps[activeQuestion.id]} module={activeModule} onAnswer={(answer) => updateAnswer(activeQuestion, answer)} onBack={previousQuestion} onFollowUp={(answer) => { if (timeLeft === 0) return; setFollowUps((current) => ({ ...current, [activeQuestion.id]: { ...current[activeQuestion.id], answer } })); answerRevisions.current.set(activeQuestion.id, (answerRevisions.current.get(activeQuestion.id) ?? 0) + 1); dirtyQuestions.current.add(activeQuestion.id); setSaveState("saving"); }} onNext={() => void nextQuestion()} question={activeQuestion} questionIndex={displayedQuestionIndex} stream={aiStream} />
           ) : <QuestionLoading />}
         </section>
       </div>
 
+      {interviewer.arrival && !timeUp ? (
+        <NewQuestionAlert
+          followUp={interviewer.arrival}
+          onDismiss={interviewer.dismissArrival}
+          onOpen={() => openInterviewerQuestions(interviewer.arrival?.id)}
+        />
+      ) : null}
+
       {timeUp ? <TimeUpModal /> : null}
     </main>
+  );
+}
+
+/**
+ * Visible counterpart to the assertive announcement: a question can land while
+ * the candidate is scrolled elsewhere, and a required one silently blocks their
+ * submission, so it stays until they open or dismiss it.
+ */
+function NewQuestionAlert({ followUp, onOpen, onDismiss }: { followUp: InterviewerFollowUp; onOpen: () => void; onDismiss: () => void }) {
+  return (
+    <div className="fixed inset-x-4 bottom-4 z-40 sm:inset-x-auto sm:right-6 sm:w-[380px]">
+      <div className="rounded-[10px] border border-violet-300 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
+        <div className="flex items-start gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700"><Icon name="user" size={15} /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-violet-700">
+              New question from {followUp.askedBy.name}
+            </p>
+            <p className="mt-1 line-clamp-3 text-[12px] leading-5 text-neutral-700">{followUp.questionText}</p>
+            <p className="mt-1 text-[10px] font-semibold text-neutral-500">
+              {followUp.required ? "An answer is needed before you can submit." : "Optional — answer it whenever you like."}
+            </p>
+          </div>
+          <button
+            aria-label="Dismiss this notification"
+            className="-mr-1 -mt-1 rounded-[6px] p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+            onClick={onDismiss}
+            type="button"
+          >
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+        <button
+          className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[8px] bg-violet-600 px-4 text-[12px] font-bold text-white transition hover:bg-violet-700"
+          onClick={onOpen}
+          type="button"
+        >
+          Read and answer <Icon className="-rotate-90" name="chevron" size={12} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -521,6 +644,33 @@ function AiPreparing() {
           <p className="text-[16px] font-black text-neutral-900">Preparing your tailored questions…</p>
           <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-6 text-neutral-500">Our AI is reviewing your earlier answers to ask a few follow-up questions matched to your experience.</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** The follow-up as it is being written: caret while tokens land, dots before the first one. */
+function AiFollowUpStream({ text, streaming, error }: { text: string; streaming: boolean; error: string }) {
+  return (
+    <div className="mt-6 border-t border-neutral-200 pt-6">
+      <div aria-busy={streaming} className="rounded-[7px] border border-sky-100 bg-sky-50 p-4">
+        <p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p>
+        {text ? (
+          // Announcing every token would flood a screen reader; the finished
+          // question is read out from the answerable card that replaces this one.
+          <p aria-hidden={streaming || undefined} className="mt-2 text-[13px] font-bold leading-6 text-sky-950">
+            {text}
+            {streaming ? <span className="ml-0.5 inline-block h-[13px] w-[6px] translate-y-[2px] rounded-[1px] bg-sky-500 motion-safe:animate-pulse" /> : null}
+          </p>
+        ) : streaming ? (
+          <p aria-live="polite" className="mt-2 flex items-center gap-2 text-[12px] font-semibold text-sky-700">
+            <span className="flex gap-1">
+              {[0, 160, 320].map((delay) => <span className="size-1.5 rounded-full bg-sky-400 motion-safe:animate-bounce" key={delay} style={{ animationDelay: `${delay}ms` }} />)}
+            </span>
+            Reading your answer…
+          </p>
+        ) : null}
+        {error ? <p className="mt-3 rounded-[5px] bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">{error}</p> : null}
       </div>
     </div>
   );
@@ -611,18 +761,55 @@ function WelcomeFact({ icon, title, body }: { icon: IconName; title: string; bod
   );
 }
 
-function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error, busy = false, disabled }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string; busy?: boolean; disabled?: boolean }) {
+function QuestionPanel({ module, question, questionIndex, answer, followUp, onAnswer, onFollowUp, onBack, onNext, error, busy = false, disabled, stream }: { module: AssessmentModule; question: Question; questionIndex: number; answer?: Answer; followUp?: FollowUp; onAnswer: (answer: Answer) => void; onFollowUp: (answer: string) => void; onBack: () => void; onNext: () => void; error: string; busy?: boolean; disabled?: boolean; stream: AiStream }) {
   const options = questionOptions(question.options);
-  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[18px] font-black leading-7 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled || busy} onClick={onBack} type="button">Back</button><button aria-busy={busy} className="button-primary transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:hover:translate-y-0" disabled={disabled || busy} onClick={onNext} type="button">{busy ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />Moving to next question...</> : <>Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></>}</button></div></article></div>;
+  return <div className="mx-auto max-w-[860px]"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase text-[#087aa4]">{module.title}</p><p className="mt-1 text-[11px] text-neutral-500">Question {questionIndex + 1} of {module.questions?.length ?? 1}</p></div><span className="rounded-[5px] bg-white px-3 py-2 text-[10px] font-semibold text-neutral-500 shadow-sm ring-1 ring-neutral-200">Answer from your real experience</span></div><article className="border border-neutral-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)] sm:p-8"><h2 className="text-[18px] font-black leading-7 text-neutral-950">{question.questionText}</h2><p className="mt-3 text-[12px] leading-5 text-neutral-500">Be specific about your actions, reasoning, trade-offs, and outcome where relevant.</p><div className="mt-7">{question.questionType === "scale" ? <ScaleInput disabled={disabled} value={numericAnswer(answer)} onChange={(value) => onAnswer({ text: String(value), json: { value } })} /> : options.length ? <ChoiceInput disabled={disabled} options={options} value={answer?.text ?? ""} onChange={(value) => onAnswer({ text: value, json: { selectedOption: value } })} /> : <textarea autoFocus className="control min-h-[210px] text-[13px] leading-6" maxLength={12_000} onChange={(event) => onAnswer({ text: event.target.value })} placeholder="Write your response here..." readOnly={disabled} value={answer?.text ?? ""} />}</div>{followUp ? <div className="mt-6 border-t border-neutral-200 pt-6"><div className="rounded-[7px] border border-sky-100 bg-sky-50 p-4"><p className="flex items-center gap-2 text-[10px] font-bold uppercase text-sky-700"><Icon name="sparkle" size={14} /> AI follow-up</p><p className="mt-2 text-[13px] font-bold leading-6 text-sky-950">{followUp.question}</p></div><textarea className="control mt-3 min-h-[130px]" onChange={(event) => onFollowUp(event.target.value)} placeholder="Answer the follow-up..." readOnly={disabled} value={followUp.answer} /></div> : module.type === "ai_interview" && questionIndex === 0 && (stream.streaming || stream.error) ? <AiFollowUpStream error={stream.error} streaming={stream.streaming} text={stream.text} /> : null}{error ? <p className={`mt-4 rounded-[5px] px-3 py-2 text-[11px] ${error.startsWith("One follow-up") ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-800"}`}>{error}</p> : null}<div className="mt-7 flex items-center justify-between gap-3"><button className="button-secondary" disabled={disabled || busy} onClick={onBack} type="button">Back</button><button aria-busy={busy} className="button-primary transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:hover:translate-y-0" disabled={disabled || busy} onClick={onNext} type="button">{busy ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />Moving to next question...</> : <>Save and continue <Icon className="-rotate-90" name="chevron" size={13} /></>}</button></div></article></div>;
 }
 
 function QuestionLoading() {
   return <div className="mx-auto flex min-h-[360px] max-w-[860px] items-center justify-center border border-neutral-200 bg-white"><span aria-label="Loading question" className="size-8 animate-spin rounded-full border-[3px] border-neutral-200 border-t-sky-500" /></div>;
 }
 
-function ReviewPanel({ modules, answers, followUps, codingComplete, adaptiveReady, confirmed, onConfirm, onBack, onSubmit, submitting, error }: { modules: AssessmentModule[]; answers: Record<string, Answer>; followUps: Record<string, FollowUp>; codingComplete: boolean; adaptiveReady: boolean; confirmed: boolean; onConfirm: (value: boolean) => void; onBack: () => void; onSubmit: () => void; submitting: boolean; error: string }) {
+function ReviewPanel({ modules, answers, followUps, codingComplete, adaptiveReady, confirmed, onConfirm, onBack, onSubmit, submitting, error, pendingRequiredCount, onAnswerInterviewer }: { modules: AssessmentModule[]; answers: Record<string, Answer>; followUps: Record<string, FollowUp>; codingComplete: boolean; adaptiveReady: boolean; confirmed: boolean; onConfirm: (value: boolean) => void; onBack: () => void; onSubmit: () => void; submitting: boolean; error: string; pendingRequiredCount: number; onAnswerInterviewer: () => void }) {
   const complete = allModulesComplete(modules, answers, followUps, codingComplete, adaptiveReady);
-  return <div className="mx-auto max-w-[860px]"><p className="text-[10px] font-bold uppercase text-[#087aa4]">Final review</p><h1 className="mt-2 text-[30px] font-black text-neutral-950">Ready to submit?</h1><p className="mt-2 text-sm leading-6 text-neutral-600">Check each module before closing access to this assessment.</p><div className="mt-6 border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]"><div className="divide-y divide-neutral-100">{modules.map((module) => { const done = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); return <div className="flex items-center gap-4 px-5 py-4 sm:px-6" key={module.id}><span className={`flex size-9 items-center justify-center rounded-[7px] ${done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}><Icon name={done ? "check" : moduleIcon(module.type)} size={16} /></span><div className="min-w-0 flex-1"><p className="text-[12px] font-bold text-neutral-900">{module.title}</p><p className="mt-0.5 text-[10px] text-neutral-500">{done ? "Complete" : "Response required"}</p></div></div>; })}</div><div className="border-t border-neutral-200 bg-neutral-50 p-5 sm:p-6"><label className="flex cursor-pointer items-start gap-3"><input checked={confirmed} className="mt-0.5 size-4 accent-[#159ac8]" onChange={(event) => onConfirm(event.target.checked)} type="checkbox" /><span className="text-[11px] leading-5 text-neutral-600">I confirm that I reviewed my responses and understand that submitting will close this private assessment link.</span></label>{error ? <p className="mt-3 text-[11px] text-red-700">{error}</p> : null}<div className="mt-5 flex justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Return to assessment</button><button className="button-primary" disabled={!complete || !confirmed || submitting} onClick={onSubmit} type="button">{submitting ? "Submitting" : "Submit assessment"}</button></div></div></div><p className="mt-4 text-center text-[10px] leading-5 text-neutral-500">AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions.</p></div>;
+  return <div className="mx-auto max-w-[860px]"><p className="text-[10px] font-bold uppercase text-[#087aa4]">Final review</p><h1 className="mt-2 text-[30px] font-black text-neutral-950">Ready to submit?</h1><p className="mt-2 text-sm leading-6 text-neutral-600">Check each module before closing access to this assessment.</p><div className="mt-6 border border-neutral-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]"><div className="divide-y divide-neutral-100">{modules.map((module) => { const done = moduleComplete(module, answers, followUps, codingComplete, adaptiveReady); return <div className="flex items-center gap-4 px-5 py-4 sm:px-6" key={module.id}><span className={`flex size-9 items-center justify-center rounded-[7px] ${done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}><Icon name={done ? "check" : moduleIcon(module.type)} size={16} /></span><div className="min-w-0 flex-1"><p className="text-[12px] font-bold text-neutral-900">{module.title}</p><p className="mt-0.5 text-[10px] text-neutral-500">{done ? "Complete" : "Response required"}</p></div></div>; })}</div><div className="border-t border-neutral-200 bg-neutral-50 p-5 sm:p-6"><PendingInterviewerNotice count={pendingRequiredCount} onAnswer={onAnswerInterviewer} /><label className="flex cursor-pointer items-start gap-3"><input checked={confirmed} className="mt-0.5 size-4 accent-[#159ac8]" onChange={(event) => onConfirm(event.target.checked)} type="checkbox" /><span className="text-[11px] leading-5 text-neutral-600">I confirm that I reviewed my responses and understand that submitting will close this private assessment link.</span></label>{error ? <p className="mt-3 text-[11px] text-red-700">{error}</p> : null}<div className="mt-5 flex justify-between gap-3"><button className="button-secondary" onClick={onBack} type="button">Return to assessment</button><button className="button-primary" disabled={!complete || !confirmed || submitting || pendingRequiredCount > 0} onClick={onSubmit} type="button">{submitting ? "Submitting" : "Submit assessment"}</button></div></div></div><p className="mt-4 text-center text-[10px] leading-5 text-neutral-500">AI-supported feedback is advisory. A human reviewer remains responsible for hiring decisions.</p></div>;
+}
+
+/**
+ * The server rejects a submission while a required interviewer question is open.
+ * Saying so next to the submit button turns a 409 dead-end into a visible,
+ * fixable step the candidate can act on before they try.
+ */
+function PendingInterviewerNotice({ count, onAnswer }: { count: number; onAnswer: () => void }) {
+  if (!count) return null;
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[7px] border border-violet-300 bg-violet-50 px-4 py-3">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700"><Icon name="user" size={15} /></span>
+      <p className="min-w-0 flex-1 text-[11px] font-semibold leading-5 text-violet-950">
+        {count === 1 ? "1 question from your interviewer needs an answer" : `${count} questions from your interviewer need an answer`} before you can submit.
+      </p>
+      <button
+        className="inline-flex h-9 items-center gap-1.5 rounded-[7px] bg-violet-600 px-3 text-[11px] font-bold text-white transition hover:bg-violet-700"
+        onClick={onAnswer}
+        type="button"
+      >
+        Go to {count === 1 ? "the question" : "the questions"} <Icon className="-rotate-90" name="chevron" size={12} />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The complete-by-access-code endpoint returns 409 for exactly one reason: an
+ * unanswered required interviewer question. Prefer the structured code when it
+ * survives the proxy, and fall back to the status — never to the English prose,
+ * which changes without notice.
+ */
+function isPendingInterviewerQuestionError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+  const details = error.details;
+  const code = details && typeof details === "object" ? (details as { code?: unknown }).code : undefined;
+  return code === "INTERVIEWER_FOLLOW_UP_REQUIRED" || error.status === 409;
 }
 
 function CandidateComplete({ candidateName, reportStatus }: { candidateName: string; reportStatus: "generated" | "pending" }) { return <main className="flex min-h-screen items-center justify-center bg-[#f4f8f9] px-5"><div className="w-full max-w-[620px] border border-neutral-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.09)] sm:p-12"><span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Icon name="check" size={23} /></span><h1 className="mt-5 text-[30px] font-black text-neutral-950">Assessment submitted</h1><p className="mt-3 text-sm leading-6 text-neutral-600">Thank you, {firstName(candidateName)}. Your saved responses and coding evidence are now available to the authorized review team.</p><div className="mt-6 rounded-[7px] bg-neutral-50 px-4 py-3 text-[11px] leading-5 text-neutral-600">{reportStatus === "generated" ? "The reviewer report is ready inside the private workspace." : "Your submission is complete. Report processing will continue for the review team."}</div><p className="mt-7 text-[11px] text-neutral-500">You may close this window.</p></div></main>; }
