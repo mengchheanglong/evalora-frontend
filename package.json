@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0 --port 3010",
     "test:errors": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/api-errors.test.mjs",
+    "test:responses": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/candidate-response-storage.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },

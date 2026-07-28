@@ -460,6 +460,8 @@ export interface TranscriptEntry {
   /** 1-based position in `entries`, so a reviewer can cite "line 7" of a transcript. */
   sequence: number;
   questionText: string;
+  questionTextIsSnapshot?: boolean;
+  liveQuestionText?: string;
   answerText?: string;
   /** Interviewer follow-ups only: the human who asked. */
   askedBy?: { name: string };

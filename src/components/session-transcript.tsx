@@ -267,6 +267,16 @@ function TranscriptEntryCard({ entry }: { entry: TranscriptEntry }) {
       </div>
 
       <h4 className="mt-1.5 whitespace-pre-wrap text-sm font-semibold leading-5 text-[var(--theme-heading)]">{entry.questionText}</h4>
+      {entry.liveQuestionText ? (
+        <details className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          <summary className="cursor-pointer font-bold">Question edited after this answer</summary>
+          <p className="mt-1 whitespace-pre-wrap leading-5">
+            Current template wording: {entry.liveQuestionText}
+          </p>
+        </details>
+      ) : entry.questionTextIsSnapshot ? (
+        <p className="mt-1 text-xs font-semibold text-[var(--theme-faint)]">Showing the wording asked at the time.</p>
+      ) : null}
 
       <div className="mt-2 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2">
         <p className="text-xs font-bold uppercase tracking-wide text-[var(--theme-faint)]">
