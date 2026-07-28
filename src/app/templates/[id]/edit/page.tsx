@@ -273,27 +273,27 @@ export default function EditTemplatePage() {
       <div className="mx-auto max-w-[1200px] space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[12px] text-neutral-500">
+            <div className="flex items-center gap-2 text-xs text-neutral-500">
               <Link className="font-semibold hover:text-neutral-900" href="/templates">
                 Templates
               </Link>
               <Icon className="rotate-180 text-neutral-400" name="chevron" size={12} />
               <span className="font-bold text-neutral-900">Edit questions</span>
             </div>
-            <h1 className="mt-1 text-[22px] font-black tracking-tight text-neutral-950">Edit assessment template</h1>
-            <p className="mt-1 text-[13px] text-neutral-600">
+            <h1 className="mt-1 text-xl font-black tracking-tight text-neutral-950">Edit assessment template</h1>
+            <p className="mt-1 text-sm text-neutral-600">
               {modules.length} modules · {questionCount} questions
               {dirty ? " · Unsaved changes" : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link className="button-secondary h-10 rounded-xl px-4 text-[12px]" href="/templates">
+            <Link className="button-secondary h-10 rounded-xl px-4 text-xs" href="/templates">
               Back
             </Link>
-            <Link className="button-secondary h-10 rounded-xl px-4 text-[12px]" href={`/assessment/create?templateId=${encodeURIComponent(templateId)}`}>
+            <Link className="button-secondary h-10 rounded-xl px-4 text-xs" href={`/assessment/create?templateId=${encodeURIComponent(templateId)}`}>
               Assign candidate
             </Link>
-            <button className="button-primary inline-flex h-10 items-center gap-1.5 rounded-xl px-4 text-[12px]" disabled={saving || !dirty} onClick={() => void handleSave()} type="button">
+            <button className="button-primary inline-flex h-10 items-center gap-1.5 rounded-xl px-4 text-xs" disabled={saving || !dirty} onClick={() => void handleSave()} type="button">
               {saving ? "Saving…" : dirty ? "Save changes" : <><Icon name="check" size={14} /> Saved</>}
             </button>
           </div>
@@ -303,11 +303,11 @@ export default function EditTemplatePage() {
         {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
         <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h2 className="text-[13px] font-black uppercase tracking-wide text-neutral-500">Template details</h2>
+          <h2 className="text-sm font-black uppercase tracking-wide text-neutral-500">Template details</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Title" required>
               <input
-                className="control h-10 w-full rounded-xl text-[13px]"
+                className="control h-10 w-full rounded-xl text-sm"
                 onChange={(event) => {
                   markDirty();
                   setTitle(event.target.value);
@@ -317,7 +317,7 @@ export default function EditTemplatePage() {
             </Field>
             <Field label="Target role" required>
               <input
-                className="control h-10 w-full rounded-xl text-[13px]"
+                className="control h-10 w-full rounded-xl text-sm"
                 onChange={(event) => {
                   markDirty();
                   setRoleType(event.target.value);
@@ -327,7 +327,7 @@ export default function EditTemplatePage() {
             </Field>
             <Field label="Time limit (minutes)">
               <input
-                className="control h-10 w-full rounded-xl text-[13px]"
+                className="control h-10 w-full rounded-xl text-sm"
                 min={1}
                 onChange={(event) => {
                   markDirty();
@@ -340,7 +340,7 @@ export default function EditTemplatePage() {
             <div className="sm:col-span-2">
               <Field label="Description">
                 <textarea
-                  className="control min-h-[84px] w-full rounded-xl text-[13px]"
+                  className="control min-h-[84px] w-full rounded-xl text-sm"
                   onChange={(event) => {
                     markDirty();
                     setDescription(event.target.value);
@@ -355,8 +355,8 @@ export default function EditTemplatePage() {
         <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
           <aside className="h-fit rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm lg:sticky lg:top-4">
             <div className="mb-2 flex items-center justify-between px-1">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">Modules</p>
-              <button className="text-[11px] font-bold text-primary-700 hover:underline" onClick={addModule} type="button">
+              <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Modules</p>
+              <button className="text-xs font-bold text-primary-700 hover:underline" onClick={addModule} type="button">
                 + Add
               </button>
             </div>
@@ -373,9 +373,9 @@ export default function EditTemplatePage() {
                     }}
                     type="button"
                   >
-                    <span className="text-[10px] font-bold text-neutral-400">M{index + 1}</span>
-                    <span className="mt-0.5 block truncate text-[12px] font-bold text-neutral-900">{module.title || "Untitled"}</span>
-                    <span className="text-[10px] font-medium text-neutral-500">{module.questions.length} questions</span>
+                    <span className="text-xs font-bold text-neutral-400">M{index + 1}</span>
+                    <span className="mt-0.5 block truncate text-xs font-bold text-neutral-900">{module.title || "Untitled"}</span>
+                    <span className="text-xs font-medium text-neutral-500">{module.questions.length} questions</span>
                   </button>
                 </li>
               ))}
@@ -385,9 +385,9 @@ export default function EditTemplatePage() {
           <div className="space-y-4">
             {modules.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center">
-                <p className="text-[14px] font-bold text-neutral-800">No modules yet</p>
-                <p className="mt-1 text-[12px] text-neutral-500">Add a module to start editing questions.</p>
-                <button className="button-primary mt-4 h-10 rounded-xl px-4 text-[12px]" onClick={addModule} type="button">
+                <p className="text-sm font-bold text-neutral-800">No modules yet</p>
+                <p className="mt-1 text-xs text-neutral-500">Add a module to start editing questions.</p>
+                <button className="button-primary mt-4 h-10 rounded-xl px-4 text-xs" onClick={addModule} type="button">
                   Add first module
                 </button>
               </div>
@@ -396,21 +396,21 @@ export default function EditTemplatePage() {
                 <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm" id={`edit-module-${module.key}`} key={module.key}>
                   <header className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 bg-neutral-50/80 px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">Module {moduleIndex + 1}</p>
+                      <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Module {moduleIndex + 1}</p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <label className="block text-[11px] font-semibold text-neutral-500">
+                        <label className="block text-xs font-semibold text-neutral-500">
                           Module title
                           <input
-                            className="control mt-1 h-10 rounded-xl text-[13px] font-bold"
+                            className="control mt-1 h-10 rounded-xl text-sm font-bold"
                             onChange={(event) => updateModule(module.key, { title: event.target.value })}
                             placeholder="e.g. Coding challenge"
                             value={module.title}
                           />
                         </label>
-                        <label className="block text-[11px] font-semibold text-neutral-500">
+                        <label className="block text-xs font-semibold text-neutral-500">
                           Category <span className="font-normal text-neutral-400">— sets scoring</span>
                           <select
-                            className="control mt-1 h-10 rounded-xl text-[13px]"
+                            className="control mt-1 h-10 rounded-xl text-sm"
                             onChange={(event) => updateModule(module.key, { type: event.target.value as ModuleType })}
                             value={module.type}
                           >
@@ -422,16 +422,16 @@ export default function EditTemplatePage() {
                           </select>
                         </label>
                         <textarea
-                          className="control min-h-[44px] rounded-xl text-[13px] leading-5 sm:col-span-2"
+                          className="control min-h-[44px] rounded-xl text-sm sm:col-span-2"
                           onChange={(event) => updateModule(module.key, { description: event.target.value })}
                           placeholder="Module description (optional)"
                           rows={2}
                           value={module.description}
                         />
-                        <label className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-neutral-600">
                           Weight
                           <input
-                            className="control h-9 w-24 rounded-xl text-[13px]"
+                            className="control h-9 w-24 rounded-xl text-sm"
                             min={0}
                             onChange={(event) => updateModule(module.key, { weight: event.target.value })}
                             step="0.05"
@@ -443,13 +443,13 @@ export default function EditTemplatePage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
-                        className="button-secondary h-9 rounded-lg px-3 text-[11px]"
+                        className="button-secondary h-9 rounded-lg px-3 text-xs"
                         onClick={() => updateModule(module.key, { collapsed: !module.collapsed })}
                         type="button"
                       >
                         {module.collapsed ? "Expand" : "Collapse"}
                       </button>
-                      <button className="h-9 rounded-lg border border-rose-200 px-3 text-[11px] font-bold text-rose-600 hover:bg-rose-50" onClick={() => setPendingModuleRemoval(module.key)} type="button">
+                      <button className="h-9 rounded-lg border border-rose-200 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50" onClick={() => setPendingModuleRemoval(module.key)} type="button">
                         Remove module
                       </button>
                     </div>
@@ -460,21 +460,21 @@ export default function EditTemplatePage() {
                       {module.questions.map((question, questionIndex) => (
                         <article className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-4" key={question.key}>
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-[12px] font-black text-neutral-800">
+                            <p className="text-xs font-black text-neutral-800">
                               Question {questionIndex + 1}
-                              <span className="ml-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-700">
+                              <span className="ml-2 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
                                 {question.questionType.replaceAll("_", " ")}
                               </span>
                             </p>
                             <div className="flex flex-wrap gap-1.5">
-                              <button className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-[11px] font-bold text-neutral-600 hover:bg-neutral-50" disabled={questionIndex === 0} onClick={() => moveQuestion(module.key, question.key, -1)} type="button">
+                              <button className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs font-bold text-neutral-600 hover:bg-neutral-50" disabled={questionIndex === 0} onClick={() => moveQuestion(module.key, question.key, -1)} type="button">
                                 ↑
                               </button>
-                              <button className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-[11px] font-bold text-neutral-600 hover:bg-neutral-50" disabled={questionIndex === module.questions.length - 1} onClick={() => moveQuestion(module.key, question.key, 1)} type="button">
+                              <button className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs font-bold text-neutral-600 hover:bg-neutral-50" disabled={questionIndex === module.questions.length - 1} onClick={() => moveQuestion(module.key, question.key, 1)} type="button">
                                 ↓
                               </button>
                               <button
-                                className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50"
+                                className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50"
                                 disabled={module.questions.length <= 1}
                                 onClick={() => removeQuestion(module.key, question.key)}
                                 type="button"
@@ -487,7 +487,7 @@ export default function EditTemplatePage() {
                           <div className="space-y-3">
                             <Field label="Question text" required>
                               <textarea
-                                className="control min-h-[88px] w-full rounded-xl text-[13px] leading-6"
+                                className="control min-h-[88px] w-full rounded-xl text-sm leading-6"
                                 onChange={(event) => updateQuestion(module.key, question.key, { questionText: event.target.value })}
                                 placeholder="Write the question candidates will see…"
                                 value={question.questionText}
@@ -496,7 +496,7 @@ export default function EditTemplatePage() {
                             <div className="grid gap-3 sm:grid-cols-2">
                               <Field label="Question type">
                                 <select
-                                  className="control h-10 w-full rounded-xl text-[13px]"
+                                  className="control h-10 w-full rounded-xl text-sm"
                                   onChange={(event) => updateQuestion(module.key, question.key, { questionType: event.target.value as QuestionType })}
                                   value={question.questionType}
                                 >
@@ -509,7 +509,7 @@ export default function EditTemplatePage() {
                               </Field>
                               <Field label="Rubric cues (comma-separated)">
                                 <input
-                                  className="control h-10 w-full rounded-xl text-[13px]"
+                                  className="control h-10 w-full rounded-xl text-sm"
                                   onChange={(event) => updateQuestion(module.key, question.key, { rubricText: event.target.value })}
                                   placeholder="clarity, ownership, impact"
                                   value={question.rubricText}
@@ -519,7 +519,7 @@ export default function EditTemplatePage() {
                             {question.questionType === "mcq" || question.questionType === "scale" ? (
                               <Field label={question.questionType === "mcq" ? "Options (one per line)" : "Scale labels (one per line)"}>
                                 <textarea
-                                  className="control min-h-[80px] w-full rounded-xl font-mono text-[12px] leading-5"
+                                  className="control min-h-[80px] w-full rounded-xl font-mono text-xs leading-5"
                                   onChange={(event) => updateQuestion(module.key, question.key, { optionsText: event.target.value })}
                                   placeholder={question.questionType === "mcq" ? "Option A\nOption B\nOption C" : "1 - Strongly disagree\n2\n3\n4\n5 - Strongly agree"}
                                   value={question.optionsText}
@@ -530,30 +530,30 @@ export default function EditTemplatePage() {
                         </article>
                       ))}
 
-                      <button className="button-secondary h-10 w-full rounded-xl text-[12px]" onClick={() => addQuestion(module.key)} type="button">
+                      <button className="button-secondary h-10 w-full rounded-xl text-xs" onClick={() => addQuestion(module.key)} type="button">
                         <Icon name="plus" size={14} /> Add question
                       </button>
                     </div>
                   ) : (
-                    <p className="px-4 py-3 text-[12px] text-neutral-500">{module.questions.length} questions collapsed</p>
+                    <p className="px-4 py-3 text-xs text-neutral-500">{module.questions.length} questions collapsed</p>
                   )}
                 </section>
               ))
             )}
 
-            <button className="button-secondary h-11 w-full rounded-xl text-[12px]" onClick={addModule} type="button">
+            <button className="button-secondary h-11 w-full rounded-xl text-xs" onClick={addModule} type="button">
               <Icon name="plus" size={15} /> Add module
             </button>
           </div>
         </div>
 
         <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-lg backdrop-blur">
-          <p className="px-2 text-[12px] font-medium text-neutral-600">
+          <p className="px-2 text-xs font-medium text-neutral-600">
             {dirty ? "You have unsaved edits." : "All changes saved."}
           </p>
           <div className="flex flex-wrap gap-2">
             <button
-              className="button-secondary h-10 rounded-xl px-4 text-[12px]"
+              className="button-secondary h-10 rounded-xl px-4 text-xs"
               disabled={saving}
               onClick={() => {
                 if (dirty && !window.confirm("Discard unsaved changes?")) return;
@@ -563,7 +563,7 @@ export default function EditTemplatePage() {
             >
               Reset
             </button>
-            <button className="button-primary h-10 rounded-xl px-5 text-[12px]" disabled={saving || !dirty} onClick={() => void handleSave()} type="button">
+            <button className="button-primary h-10 rounded-xl px-5 text-xs" disabled={saving || !dirty} onClick={() => void handleSave()} type="button">
               {saving ? "Saving…" : "Save template"}
             </button>
           </div>
@@ -588,7 +588,7 @@ export default function EditTemplatePage() {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+      <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-neutral-500">
         {label}
         {required ? <span className="text-rose-500"> *</span> : null}
       </span>

@@ -62,7 +62,7 @@ export default function DashboardPage() {
       active="dashboard"
       actions={
         <Link
-          className="session-blue-button h-10 px-4 text-[12px]"
+          className="session-blue-button h-10 px-4 text-xs"
           href="/assessment/create"
         >
           <Icon name="plus" size={15} /> New session
@@ -113,14 +113,14 @@ function OverviewContent({
               value={inFlight.toLocaleString()}
             />
             {summary.closedCompletionRate !== null ? (
-              <p className="mt-3 border-t border-[var(--theme-border)] pt-3 text-[11px] text-[var(--theme-muted)]">
+              <p className="mt-3 border-t border-[var(--theme-border)] pt-3 text-xs text-[var(--theme-muted)]">
                 <span className="font-bold text-[var(--theme-heading)]">{summary.closedCompletionRate}%</span> of finished
                 sessions were completed
               </p>
             ) : null}
           </div>
           <div className="min-w-0">
-            <h2 className="mb-3 text-[14px] font-extrabold text-[var(--theme-heading)]">Assessment pipeline</h2>
+            <h2 className="mb-3 text-sm font-extrabold text-[var(--theme-heading)]">Assessment pipeline</h2>
             {summary.totalSessions ? (
               <>
                 <PipelineBar segments={segments} />
@@ -139,7 +139,7 @@ function OverviewContent({
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <Panel>
           <PanelHeader
-            action={<Link className="text-[11px] font-bold text-[var(--color-primary-700)]" href="/analytics">Full analytics</Link>}
+            action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/analytics">Full analytics</Link>}
             title="Average score by day"
           />
           {trend.length > 1 ? (
@@ -181,17 +181,17 @@ function OverviewContent({
 
       <section className="grid gap-5 xl:grid-cols-2">
         <Panel>
-          <PanelHeader action={<Link className="text-[11px] font-bold text-[var(--color-primary-700)]" href="/assessment">View sessions</Link>} title="Next active assessments" />
+          <PanelHeader action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/assessment">View sessions</Link>} title="Next active assessments" />
           {upcoming.length ? <UpcomingList items={upcoming} /> : <EmptyState description="New invitations and active sessions will appear here." title="No active assessments" />}
         </Panel>
         <Panel>
-          <PanelHeader action={<Link className="text-[11px] font-bold text-[var(--color-primary-700)]" href="/candidates">View candidates</Link>} title="Newly ready reports" />
+          <PanelHeader action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/candidates">View candidates</Link>} title="Newly ready reports" />
           {readyReports.length ? <ReadyReportList items={readyReports} /> : <EmptyState description="Completed sessions with persisted reports will appear here." title="No newly ready reports" />}
         </Panel>
       </section>
 
       <Panel>
-        <PanelHeader action={<Link className="text-[11px] font-bold text-[var(--color-primary-700)]" href="/assessment">View all</Link>} title="Recent session updates" />
+        <PanelHeader action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/assessment">View all</Link>} title="Recent session updates" />
         {activity.length ? <ActivityList items={activity.slice(0, 8)} /> : <EmptyState description="Session state changes will appear here." title="No recent updates" />}
       </Panel>
     </div>
@@ -205,7 +205,7 @@ function Panel({ children }: { children: React.ReactNode }) {
 function PanelHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="text-[14px] font-extrabold text-[var(--theme-heading)]">{title}</h2>
+      <h2 className="text-sm font-extrabold text-[var(--theme-heading)]">{title}</h2>
       {action}
     </div>
   );
@@ -239,11 +239,11 @@ function AttentionRow({
         <Icon name={icon} size={15} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] font-bold text-[var(--theme-heading)]">{label}</span>
-        <span className="mt-0.5 block truncate text-[10px] text-[var(--theme-muted)]">{note}</span>
+        <span className="block truncate text-sm font-bold text-[var(--theme-heading)]">{label}</span>
+        <span className="mt-0.5 block truncate text-xs text-[var(--theme-muted)]">{note}</span>
       </span>
       <span
-        className={`shrink-0 text-[20px] font-bold tabular-nums leading-none ${
+        className={`shrink-0 text-xl font-bold tabular-nums leading-none ${
           active ? "text-[var(--theme-heading)]" : "text-[var(--theme-faint)]"
         }`}
       >
@@ -262,12 +262,12 @@ function UpcomingList({ items }: { items: UpcomingAssessment[] }) {
             <Icon name={item.status === "in_progress" ? "clock" : "calendar"} size={16} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12px] font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
-            <span className="mt-0.5 block truncate text-[10px] text-[var(--theme-muted)]">{item.targetRole}</span>
+            <span className="block truncate text-sm font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
+            <span className="mt-0.5 block truncate text-xs text-[var(--theme-muted)]">{item.targetRole}</span>
           </span>
           <span className="shrink-0 text-right">
-            <span className="block text-[10px] font-bold text-[var(--theme-text)]">{item.status === "in_progress" ? "In progress" : "Awaiting start"}</span>
-            <span className="mt-0.5 block text-[9px] text-[var(--theme-faint)]">{formatMoment(item.scheduledAt ?? item.expiresAt)}</span>
+            <span className="block text-xs font-bold text-[var(--theme-text)]">{item.status === "in_progress" ? "In progress" : "Awaiting start"}</span>
+            <span className="mt-0.5 block text-xs text-[var(--theme-faint)]">{formatMoment(item.scheduledAt ?? item.expiresAt)}</span>
           </span>
         </Link>
       ))}
@@ -284,10 +284,10 @@ function ReadyReportList({ items }: { items: ActivityItem[] }) {
             <Icon name="report" size={16} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12px] font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
-            <span className="mt-0.5 block truncate text-[10px] text-[var(--theme-muted)]">{item.assessmentName}</span>
+            <span className="block truncate text-sm font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
+            <span className="mt-0.5 block truncate text-xs text-[var(--theme-muted)]">{item.assessmentName}</span>
           </span>
-          <span className="shrink-0 text-[9px] font-medium text-[var(--theme-faint)]">{formatRelative(item.createdAt)}</span>
+          <span className="shrink-0 text-xs font-medium text-[var(--theme-faint)]">{formatRelative(item.createdAt)}</span>
         </Link>
       ))}
     </div>
@@ -303,8 +303,8 @@ function ActivityList({ items }: { items: ActivityItem[] }) {
             <Icon name={item.status === "completed" ? "check" : "clock"} size={14} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold leading-4 text-[var(--theme-heading)]">{item.message}</p>
-            <p className="mt-1 text-[9px] text-[var(--theme-faint)]">{formatRelative(item.createdAt)}</p>
+            <p className="text-sm font-semibold text-[var(--theme-heading)]">{item.message}</p>
+            <p className="mt-1 text-xs text-[var(--theme-faint)]">{formatRelative(item.createdAt)}</p>
           </div>
         </div>
       ))}

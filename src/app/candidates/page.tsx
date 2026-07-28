@@ -142,7 +142,7 @@ export default function CandidatesPage() {
                   <input className="min-w-0 flex-1 border-0 bg-transparent text-xs font-medium text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]" onChange={(event) => setQuery(event.target.value)} placeholder="Search candidates..." type="search" value={query} />
                   <Icon className="pointer-events-none relative -top-px shrink-0 text-[var(--color-primary-700)]/70 transition group-focus-within:text-[var(--color-primary-700)]" name="search" size={15} />
                 </label>
-                <span className="ml-auto hidden text-[11px] font-semibold text-[var(--theme-faint)] sm:inline">
+                <span className="ml-auto hidden text-xs font-semibold text-[var(--theme-faint)] sm:inline">
                   {visible.length} {visible.length === 1 ? "candidate" : "candidates"}
                 </span>
                 <FilterToggleButton activeCount={activeFilterCount} controls="candidate-filters" onToggle={() => setFiltersOpen((open) => !open)} open={filtersOpen} subject="candidate" />
@@ -172,7 +172,7 @@ export default function CandidatesPage() {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[860px] text-left text-xs">
-                      <thead className="bg-[var(--theme-panel-soft)] text-[10px] font-semibold uppercase tracking-wide text-[var(--theme-faint)]">
+                      <thead className="bg-[var(--theme-panel-soft)] text-xs font-semibold uppercase tracking-wide text-[var(--theme-faint)]">
                         <tr className="border-b border-[var(--theme-border)]">
                           <th className="px-3 py-2.5 pl-4 sm:pl-5">Candidate</th>
                           <th className="px-3 py-2.5">Position</th>
@@ -188,22 +188,22 @@ export default function CandidatesPage() {
                           <tr className="transition hover:bg-[var(--theme-panel-soft)]/70" key={session.id}>
                             <td className="px-3 py-2.5 pl-4 sm:pl-5">
                               <div className="flex items-center gap-2.5">
-                                <span className={`flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-[10px] font-bold ${candidateAvatarTone(session.candidateName)}`}>
+                                <span className={`flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-xs font-bold ${candidateAvatarTone(session.candidateName)}`}>
                                   {candidateInitials(session.candidateName)}
                                 </span>
                                 <Link className="group" href={`/candidates/${session.id}`}>
                                 <span>
                                   <span className="block text-xs font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</span>
-                                  <span className="mt-0.5 block text-[11px] text-[var(--theme-muted)]">{session.candidateEmail ?? "No email"}</span>
+                                  <span className="mt-0.5 block text-xs text-[var(--theme-muted)]">{session.candidateEmail ?? "No email"}</span>
                                 </span>
                                 </Link>
                               </div>
                             </td>
                             <td className="px-3 py-2.5 font-medium text-[var(--theme-text)]">{session.targetRole ?? "Not specified"}</td>
-                            <td className="px-3 py-2.5"><p className="font-medium text-[var(--theme-text)]">{session.templateTitle ?? "Assessment"}</p><p className="mt-0.5 text-[11px] text-[var(--theme-faint)]">{formatDate(session.updatedAt ?? session.createdAt)}</p></td>
+                            <td className="px-3 py-2.5"><p className="font-medium text-[var(--theme-text)]">{session.templateTitle ?? "Assessment"}</p><p className="mt-0.5 text-xs text-[var(--theme-faint)]">{formatDate(session.updatedAt ?? session.createdAt)}</p></td>
                             <td className="px-3 py-2.5"><StatusBadge status={session.status} /></td>
                             <td className="px-3 py-2.5"><ScoreCircle score={session.overallScore} /></td>
-                            <td className="px-3 py-2.5 text-[11px] font-medium text-[var(--theme-muted)]">{formatDate(session.createdAt)}</td>
+                            <td className="px-3 py-2.5 text-xs font-medium text-[var(--theme-muted)]">{formatDate(session.createdAt)}</td>
                             <td className="px-3 py-2.5">
                               <div className="flex justify-end gap-2">
                                 <button aria-label={`Delete ${session.candidateName}`} className="flex size-7 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-faint)] transition hover:border-[var(--theme-border-strong)] hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-muted)] disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === session.id} onClick={() => void removeCandidate(session)} type="button">{deletingId === session.id ? <span className="size-3 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" /> : <Icon name="trash" size={13} />}</button>
@@ -297,19 +297,19 @@ function FiltersPanel({
           {departments.map((department) => <option key={department} value={department}>{department}</option>)}
         </FilterSelectField>
         <div className="rounded-[7px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-2.5">
-          <p className="mb-1.5 text-[10px] font-bold text-[var(--theme-muted)]">Score range</p>
+          <p className="mb-1.5 text-xs font-bold text-[var(--theme-muted)]">Score range</p>
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-            <input aria-label="Minimum score" className="control h-8 min-w-0 rounded-[6px] px-2 text-[11px]" max={scoreMax || 100} min={0} onChange={(event) => setScoreMin(event.target.value)} placeholder="Min" type="number" value={scoreMin} />
+            <input aria-label="Minimum score" className="control h-8 min-w-0 rounded-[6px] px-2 text-xs" max={scoreMax || 100} min={0} onChange={(event) => setScoreMin(event.target.value)} placeholder="Min" type="number" value={scoreMin} />
             <span className="text-[var(--theme-faint)]">-</span>
-            <input aria-label="Maximum score" className="control h-8 min-w-0 rounded-[6px] px-2 text-[11px]" max={100} min={scoreMin || 0} onChange={(event) => setScoreMax(event.target.value)} placeholder="Max" type="number" value={scoreMax} />
+            <input aria-label="Maximum score" className="control h-8 min-w-0 rounded-[6px] px-2 text-xs" max={100} min={scoreMin || 0} onChange={(event) => setScoreMax(event.target.value)} placeholder="Max" type="number" value={scoreMax} />
           </div>
         </div>
         <div className="rounded-[7px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-2.5 md:col-span-2 xl:col-span-2">
-          <p className="mb-1.5 text-[10px] font-bold text-[var(--theme-muted)]">Added date</p>
+          <p className="mb-1.5 text-xs font-bold text-[var(--theme-muted)]">Added date</p>
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-            <input aria-label="Added from date" className="control h-8 min-w-0 rounded-[6px] px-2 text-[11px] [color-scheme:light]" max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
+            <input aria-label="Added from date" className="control h-8 min-w-0 rounded-[6px] px-2 text-xs [color-scheme:light]" max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
             <span className="text-[var(--theme-faint)]">-</span>
-            <input aria-label="Added to date" className="control h-8 min-w-0 rounded-[6px] px-2 text-[11px] [color-scheme:light]" min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
+            <input aria-label="Added to date" className="control h-8 min-w-0 rounded-[6px] px-2 text-xs [color-scheme:light]" min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
           </div>
         </div>
     </FilterPanelFrame>
@@ -322,9 +322,9 @@ function Pagination({ total, page, pageSize, onPageChange }: { total: number; pa
   const last = Math.min(page * pageSize, total);
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--theme-border)] px-5 py-2.5">
-      <p className="text-[11px] font-semibold text-[var(--theme-muted)]">Showing {first} to {last} of {total.toLocaleString()} candidates</p>
+      <p className="text-xs font-semibold text-[var(--theme-muted)]">Showing {first} to {last} of {total.toLocaleString()} candidates</p>
       <div className="flex items-center gap-2">
-        <span className="mr-1 text-[10px] font-semibold text-[var(--theme-faint)]">{page} / {pageCount}</span>
+        <span className="mr-1 text-xs font-semibold text-[var(--theme-faint)]">{page} / {pageCount}</span>
         <button aria-label="Previous page" className="flex size-7 items-center justify-center rounded-[7px] border border-[var(--theme-border)] bg-[var(--theme-panel)] text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50" disabled={page <= 1} onClick={() => onPageChange(page - 1)} type="button">
           <Icon className="rotate-90" name="chevron" size={13} />
         </button>
@@ -339,13 +339,13 @@ function Pagination({ total, page, pageSize, onPageChange }: { total: number; pa
 function StatusBadge({ status }: { status: SessionStatus }) {
   const style = { not_started: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]", in_progress: "bg-[var(--theme-active)] text-[var(--theme-active-text)]", completed: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)]", expired: "bg-[var(--theme-panel-soft)] text-[var(--theme-faint)]" }[status];
   const label = { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];
-  return <span className={`rounded-[5px] px-2 py-1 text-[10px] font-semibold ${style}`}>{label}</span>;
+  return <span className={`rounded-[5px] px-2 py-1 text-xs font-semibold ${style}`}>{label}</span>;
 }
 function ScoreCircle({ score }: { score?: number }) {
   if (score === undefined) return <span className="text-[var(--text-caption)] font-semibold text-[var(--theme-faint)]">-</span>;
   const value = Math.round(score <= 5 ? score * 20 : score);
   return (
-    <span className="grid size-8 place-items-center rounded-full text-[10px] font-bold text-[var(--color-primary-700)]" style={{ background: `conic-gradient(var(--color-primary-500) ${value * 3.6}deg, var(--theme-panel-soft) 0deg)` }}>
+    <span className="grid size-8 place-items-center rounded-full text-xs font-bold text-[var(--color-primary-700)]" style={{ background: `conic-gradient(var(--color-primary-500) ${value * 3.6}deg, var(--theme-panel-soft) 0deg)` }}>
       <span className="grid size-6 place-items-center rounded-full bg-[var(--theme-panel)]">{value}%</span>
     </span>
   );

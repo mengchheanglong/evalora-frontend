@@ -218,7 +218,7 @@ export default function SessionsPage() {
               />
               <Icon className="pointer-events-none relative -top-px shrink-0 text-[var(--color-primary-700)]/70 transition group-focus-within:text-[var(--color-primary-700)]" name="search" size={15} />
             </label>
-            <span className="ml-auto hidden text-[11px] font-semibold text-[var(--theme-faint)] sm:inline">
+            <span className="ml-auto hidden text-xs font-semibold text-[var(--theme-faint)] sm:inline">
               {filteredSessions.length} {filteredSessions.length === 1 ? "session" : "sessions"}
             </span>
             <FilterToggleButton activeCount={activeFilterCount} controls="session-filters" onToggle={() => setFiltersOpen((open) => !open)} open={filtersOpen} subject="session" />
@@ -285,7 +285,7 @@ export default function SessionsPage() {
                       </td>
                       <td className="px-4 py-4">
                         <p className="font-medium text-[var(--theme-heading)]">{session.templateTitle}</p>
-                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(session.category)}`}>
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${getCategoryColor(session.category)}`}>
                           {session.category}
                         </span>
                       </td>
@@ -337,7 +337,7 @@ export default function SessionsPage() {
           ) : (
             <div className="p-10 text-center">
               <EmptyState 
-                action={<Link href="/assessment/create" className="session-blue-button min-h-11 px-5 text-[13px]">Create Session</Link>}
+                action={<Link href="/assessment/create" className="session-blue-button min-h-11 px-5 text-sm">Create Session</Link>}
                 title="No sessions found" 
                 description="Try adjusting your search or filter, or create a new session." 
                 icon="message" 

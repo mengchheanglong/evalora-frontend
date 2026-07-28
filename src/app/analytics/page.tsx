@@ -196,13 +196,13 @@ function AnalyticsContent({
       <section>
         <div className="flex flex-col gap-3 rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--color-primary-700)]">Comparable evidence</p>
-            <h2 className="mt-1 text-[15px] font-extrabold text-[var(--theme-heading)]">Compare one exact assessment template</h2>
-            <p className="mt-1 text-[11px] leading-4 text-[var(--theme-muted)]">Different template IDs are never mixed. Historical template edits are not versioned yet, so interpret edited templates cautiously.</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--color-primary-700)]">Comparable evidence</p>
+            <h2 className="mt-1 text-base font-extrabold text-[var(--theme-heading)]">Compare one exact assessment template</h2>
+            <p className="mt-1 text-xs text-[var(--theme-muted)]">Different template IDs are never mixed. Historical template edits are not versioned yet, so interpret edited templates cautiously.</p>
           </div>
           <label className="min-w-0 sm:w-[320px]">
-            <span className="mb-1 block text-[10px] font-bold text-[var(--theme-muted)]">Assessment template</span>
-            <select className="control h-10 text-[12px]" disabled={!usage.length} onChange={(event) => onTemplateChange(event.target.value)} value={selectedTemplateId}>
+            <span className="mb-1 block text-xs font-bold text-[var(--theme-muted)]">Assessment template</span>
+            <select className="control h-10 text-sm" disabled={!usage.length} onChange={(event) => onTemplateChange(event.target.value)} value={selectedTemplateId}>
               {usage.length ? usage.map((item) => <option key={item.templateId} value={item.templateId}>{item.title}</option>) : <option value="">No assigned templates</option>}
             </select>
           </label>
@@ -254,8 +254,8 @@ function AnalyticsContent({
 function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-2">
-      <h2 className="text-[15px] font-extrabold text-[var(--theme-heading)]">{title}</h2>
-      <p className="text-[10px] font-medium text-[var(--theme-faint)]">{description}</p>
+      <h2 className="text-base font-extrabold text-[var(--theme-heading)]">{title}</h2>
+      <p className="text-xs font-medium text-[var(--theme-faint)]">{description}</p>
     </div>
   );
 }
@@ -263,8 +263,8 @@ function SectionHeading({ title, description }: { title: string; description: st
 function ChartCard({ title, caption, className = "", children }: { title: string; caption: string; className?: string; children: React.ReactNode }) {
   return (
     <article className={`card rounded-[10px] p-4 sm:p-5 ${className}`}>
-      <h3 className="text-[14px] font-extrabold leading-5 text-[var(--theme-heading)]">{title}</h3>
-      <p className="mt-1 text-[10px] leading-4 text-[var(--theme-muted)]">{caption}</p>
+      <h3 className="text-sm font-extrabold text-[var(--theme-heading)]">{title}</h3>
+      <p className="mt-1 text-xs text-[var(--theme-muted)]">{caption}</p>
       <div className="mt-4">{children}</div>
     </article>
   );

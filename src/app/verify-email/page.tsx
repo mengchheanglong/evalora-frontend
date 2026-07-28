@@ -78,15 +78,15 @@ export default function VerifyEmailPage() {
 
         {state === "checking" ? (
           <>
-            <h1 className="text-[28px] font-black text-[#151922]">Verifying your email</h1>
-            <p className="text-[13px] text-neutral-500">Please wait while we activate your workspace.</p>
+            <h1 className="text-3xl font-black text-[#151922]">Verifying your email</h1>
+            <p className="text-base text-neutral-500">Please wait while we activate your workspace.</p>
             <span className="mx-auto block size-5 animate-spin rounded-full border-2 border-primary-100 border-t-primary-600" />
           </>
         ) : (
           <>
             <div>
-              <h1 className="text-[28px] font-black text-[#151922]">Check your inbox</h1>
-              <p className="mt-3 text-[13px] leading-6 text-neutral-500">
+              <h1 className="text-3xl font-black text-[#151922]">Check your inbox</h1>
+              <p className="mt-3 text-base leading-6 text-neutral-500">
                 We sent a verification link{email ? <> to <strong className="text-neutral-800">{email}</strong></> : ""}.
               </p>
             </div>
@@ -95,18 +95,18 @@ export default function VerifyEmailPage() {
             {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
             {email ? (
-              <button className="button-secondary h-11 w-full rounded-lg text-[12px] font-bold" disabled={resending} onClick={() => void resend()} type="button">
+              <button className="button-secondary h-11 w-full rounded-lg text-sm font-bold" disabled={resending} onClick={() => void resend()} type="button">
                 {resending ? "Sending..." : "Resend verification email"}
               </button>
             ) : null}
 
             {fallbackUrl ? (
-              <a className="button-primary flex h-11 w-full items-center justify-center rounded-lg text-[12px] font-bold" href={fallbackUrl}>
+              <a className="button-primary flex h-11 w-full items-center justify-center rounded-lg text-sm font-bold" href={fallbackUrl}>
                 Continue verification
               </a>
             ) : null}
 
-            <p className="text-[12px] text-neutral-500">
+            <p className="text-sm text-neutral-500">
               Already verified? <Link className="font-bold !text-primary-700 hover:!text-primary-600" href="/login">Back to sign in</Link>
             </p>
           </>

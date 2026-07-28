@@ -140,7 +140,7 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
             <StatusBadge status={session.status} />
           </div>
           <p className="mt-1 text-xs font-semibold text-[var(--theme-muted)]">{session.targetRole ?? template.roleType}</p>
-          <div className="mt-2 grid gap-1 text-[11px] text-[var(--theme-muted)]">
+          <div className="mt-2 grid gap-1 text-xs text-[var(--theme-muted)]">
             <ProfileMeta icon="mail" text={`Email: ${session.candidateEmail ?? "No email"}`} />
             <ProfileMeta icon="calendar" text={`Invited: ${formatDate(session.createdAt)}`} />
           </div>
@@ -192,10 +192,10 @@ function SessionDetailsCard({ session, template }: { session: InterviewSession; 
   return (
     <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Session details</h2>
+        <h2 className="text-sm font-bold text-[var(--theme-heading)]">Session details</h2>
         <StatusBadge status={session.status} />
       </div>
-      <p className="mt-1.5 text-xs leading-5 text-[var(--theme-muted)]">
+      <p className="mt-1.5 text-sm text-[var(--theme-muted)]">
         Assessment invite for {session.targetRole ?? "the assigned role"}.
       </p>
       <dl className="mt-3 space-y-2 text-xs">
@@ -207,7 +207,7 @@ function SessionDetailsCard({ session, template }: { session: InterviewSession; 
         <Meta label="Language" value={session.language ?? "—"} />
       </dl>
       <div className="mt-3">
-        <div className="mb-1 flex justify-between text-[10px] font-semibold leading-4 text-[var(--theme-muted)]">
+        <div className="mb-1 flex justify-between text-xs font-semibold text-[var(--theme-muted)]">
           <span>Progress</span>
           <span>{done ? "Completed" : statusLabel(session.status)}</span>
         </div>
@@ -236,7 +236,7 @@ function SkillsCard({ report, template }: { report: CandidateReport | null; temp
     : template.modules.slice(0, 5).map((module) => ({ label: module.title, value: null as number | null }));
   return (
     <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
-      <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Module scores</h2>
+      <h2 className="text-sm font-bold text-[var(--theme-heading)]">Module scores</h2>
       <div className="mt-3 space-y-2">
         {skills.map((skill) => (
           <div className="grid grid-cols-[1fr_auto] items-center gap-2 text-xs" key={skill.label}>
@@ -258,13 +258,13 @@ function RecentActivityCard({ session, responses, notes }: { session: InterviewS
   ];
   return (
     <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
-      <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Recent Activity</h2>
+      <h2 className="text-sm font-bold text-[var(--theme-heading)]">Recent Activity</h2>
       <div className="mt-3 space-y-3">
         {activities.map((activity) => (
           <div className="grid grid-cols-[32px_1fr_auto] gap-2.5 text-xs" key={activity.title}>
             <span className={`flex size-8 items-center justify-center rounded-[7px] ${activity.tone}`}><Icon name={activity.icon} size={14} /></span>
             <div><p className="font-semibold text-[var(--theme-heading)]">{activity.title}</p><p className="mt-0.5 leading-4 text-[var(--theme-muted)]">{activity.detail}</p></div>
-            <span className="hidden whitespace-nowrap text-[11px] text-[var(--theme-faint)] sm:block">{formatDateTime(activity.date)}</span>
+            <span className="hidden whitespace-nowrap text-xs text-[var(--theme-faint)] sm:block">{formatDateTime(activity.date)}</span>
           </div>
         ))}
       </div>
@@ -280,15 +280,15 @@ function OverallSummary({ report, session }: { report: CandidateReport | null; s
     <article className="card overflow-hidden rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)]">
       <div className="p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[13px] font-bold text-[var(--theme-heading)]">Overall summary</h2>
-          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${meta.badge}`}>
+          <h2 className="text-sm font-bold text-[var(--theme-heading)]">Overall summary</h2>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ring-1 ${meta.badge}`}>
             <span className={`size-1.5 rounded-full ${meta.dot}`} /> {meta.label}
           </span>
         </div>
         <div className="mt-3 grid place-items-center">
           <ScoreDonut meta={meta} score={score} />
         </div>
-        <p className="mt-3 text-center text-[13px] leading-5 text-[var(--theme-muted)]">
+        <p className="mt-3 text-center text-sm text-[var(--theme-muted)]">
           {report?.summary ?? `${session.candidateName} is progressing through the assessment — a full advisory summary appears once the report is generated.`}
         </p>
         {report ? (
@@ -298,7 +298,7 @@ function OverallSummary({ report, session }: { report: CandidateReport | null; s
           </>
         ) : null}
         {report?.advisoryNotice ? (
-          <p className="mt-3 border-t border-[var(--theme-border)] pt-2.5 text-center text-xs leading-[18px] text-[var(--theme-faint)]">{report.advisoryNotice}</p>
+          <p className="mt-3 border-t border-[var(--theme-border)] pt-2.5 text-center text-xs text-[var(--theme-faint)]">{report.advisoryNotice}</p>
         ) : null}
       </div>
     </article>
@@ -348,7 +348,7 @@ function scoreMeta(score: number | null): ScoreMeta {
 function QuickActions({ session, report, copied, generating, copyInvite, generateReport, onOpenReport }: { session: InterviewSession; report: CandidateReport | null; copied: boolean; generating: boolean; copyInvite: () => Promise<void>; generateReport: () => Promise<void>; onOpenReport: () => void }) {
   return (
     <article className="card rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4">
-      <h2 className="text-xs font-semibold text-[var(--theme-heading)]">Quick Actions</h2>
+      <h2 className="text-sm font-semibold text-[var(--theme-heading)]">Quick Actions</h2>
       <div className="mt-3 divide-y divide-[var(--theme-border)]">
         <button className="flex w-full items-center gap-2.5 py-2.5 text-left text-xs font-medium text-[var(--theme-text)] transition-colors hover:text-[var(--color-primary-700)]" onClick={() => void copyInvite()} type="button">
           <Icon name="mail" size={15} />
@@ -392,8 +392,8 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
   return (
     <div className="mt-2.5">
-      <h4 className="text-[13px] font-bold text-[var(--theme-heading)]">{title}</h4>
-      <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs leading-[18px] text-[var(--theme-muted)]">
+      <h4 className="text-sm font-bold text-[var(--theme-heading)]">{title}</h4>
+      <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-[var(--theme-muted)]">
         {items.slice(0, 3).map((item) => (
           <li key={item}>{item}</li>
         ))}
@@ -416,7 +416,7 @@ function StatusBadge({ status }: { status: SessionStatus }) {
     completed: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)]",
     expired: "bg-[var(--theme-panel-soft)] text-[var(--theme-faint)]",
   }[status];
-  return <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-[5px] px-2 py-0.5 text-[10px] font-bold leading-4 ${style}`}>{statusLabel(status)}</span>;
+  return <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-[5px] px-2 py-0.5 text-xs font-bold ${style}`}>{statusLabel(status)}</span>;
 }
 function statusLabel(status: SessionStatus) {
   return { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];

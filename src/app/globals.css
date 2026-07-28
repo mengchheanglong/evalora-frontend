@@ -85,32 +85,42 @@
    */
   --font-sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-  --text-display: 4rem; /* 64px hero headline */
+  /* Type ladder. Every step below is a rung on the stock Tailwind scale, so
+   * `text-h2` and `text-2xl` resolve to the same metrics and the two systems can
+   * be mixed without drift. Sizes ascend monotonically — the previous set had
+   * h3 (17px) rendering *smaller* than label (20px) and body-lg (22px), which is
+   * why headings and form labels read as though they were swapped.
+   * 12px is the floor; nothing in the product should be smaller. */
+
+  --text-display: 3rem; /* 48px landing hero headline */
   --text-display--line-height: 1.08;
 
-  --text-h1: 2.25rem; /* 36px section / auth headings */
-  --text-h1--line-height: 2.6875rem;
+  --text-h1: 1.875rem; /* 30px page titles */
+  --text-h1--line-height: 2.25rem;
 
-  --text-h2: 1.5rem; /* 24px card-level headings */
-  --text-h2--line-height: 1.75rem;
+  --text-h2: 1.5rem; /* 24px card / panel titles */
+  --text-h2--line-height: 2rem;
 
-  --text-h3: 1.0625rem; /* 17px feature/step titles */
-  --text-h3--line-height: 1.25rem;
+  --text-h3: 1.25rem; /* 20px section subheadings */
+  --text-h3--line-height: 1.75rem;
 
-  --text-label: 1.25rem; /* 20px form field labels */
-  --text-label--line-height: 1.5rem;
+  --text-h4: 1.125rem; /* 18px small card headings */
+  --text-h4--line-height: 1.75rem;
 
-  --text-body-lg: 1.375rem; /* 22px auth sub-copy */
-  --text-body-lg--line-height: 1.5rem;
+  --text-body-lg: 1.125rem; /* 18px lead-in / auth sub-copy */
+  --text-body-lg--line-height: 1.75rem;
 
-  --text-body: 1rem; /* 16px base copy */
+  --text-body: 1rem; /* 16px paragraph copy */
   --text-body--line-height: 1.5rem;
 
-  --text-caption: 0.8125rem; /* 13px nav links, button labels */
-  --text-caption--line-height: 1rem;
+  --text-label: 0.875rem; /* 14px form field labels, default UI text */
+  --text-label--line-height: 1.25rem;
 
-  --text-micro: 0.6875rem; /* 11px feature card descriptions */
-  --text-micro--line-height: 0.8125rem;
+  --text-caption: 0.875rem; /* 14px nav links, button labels, table cells */
+  --text-caption--line-height: 1.25rem;
+
+  --text-micro: 0.75rem; /* 12px chips, badges, eyebrow labels — the floor */
+  --text-micro--line-height: 1rem;
 
   /* ---- Radius & shadow ---------------------------------------------------*/
   --radius-card: 8px;
@@ -179,7 +189,7 @@
   background: var(--color-surface);
   padding: 0 16px;
   color: var(--color-neutral-900);
-  font-size: 12px;
+  font-size: 14px;
   outline: none;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
@@ -286,7 +296,7 @@ textarea.control {
   background: #1a202c;
   padding: 0 16px;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
@@ -321,7 +331,7 @@ textarea.control {
   background: #ffffff;
   padding: 0 14px;
   color: #3a4150;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   transition: background 160ms ease, border-color 160ms ease;
 }

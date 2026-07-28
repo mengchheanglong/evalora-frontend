@@ -92,7 +92,7 @@ export default function AcceptInvitePage() {
       >
         <div className="space-y-4">
           <InlineAlert tone="error">{loadError || "Invitation not found."}</InlineAlert>
-          <Link className="button-primary inline-flex h-11 items-center justify-center rounded-[8px] px-5 text-[13px]" href="/login">
+          <Link className="button-primary inline-flex h-11 items-center justify-center rounded-[8px] px-5 text-sm" href="/login">
             Go to sign in
           </Link>
         </div>
@@ -107,8 +107,8 @@ export default function AcceptInvitePage() {
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
-          <p className="text-[11px] font-bold uppercase text-[#118bb5]">Workspace invite</p>
-          <h1 className="mt-2 text-[28px] font-black leading-tight text-[#151922]">Create your account</h1>
+          <p className="text-xs font-bold uppercase text-[#118bb5]">Workspace invite</p>
+          <h1 className="mt-2 text-3xl font-black leading-tight text-[#151922]">Create your account</h1>
           <p className="mt-2 text-sm leading-6 text-neutral-600">
             You are joining <strong>{preview.organizationName}</strong> as an <strong>{preview.roleLabel}</strong>. Email is fixed to the invitation.
           </p>
@@ -117,21 +117,21 @@ export default function AcceptInvitePage() {
         {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
 
         <label className="block">
-          <span className="mb-2 block text-[12px] font-bold text-neutral-800">Work email</span>
-          <input className="control h-11 w-full rounded-[8px] px-4 text-[13px] text-neutral-500" disabled readOnly value={preview.email} />
+          <span className="mb-2 block text-sm font-bold text-neutral-800">Work email</span>
+          <input className="control h-11 w-full rounded-[8px] px-4 text-sm text-neutral-500" disabled readOnly value={preview.email} />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-[12px] font-bold text-neutral-800">Full name</span>
-          <input className="control h-11 w-full rounded-[8px] px-4 text-[13px]" name="name" placeholder="Alex Morgan" required autoComplete="name" />
+          <span className="mb-2 block text-sm font-bold text-neutral-800">Full name</span>
+          <input className="control h-11 w-full rounded-[8px] px-4 text-sm" name="name" placeholder="Alex Morgan" required autoComplete="name" />
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-[12px] font-bold text-neutral-800">Password</span>
+            <span className="mb-2 block text-sm font-bold text-neutral-800">Password</span>
             <div className="relative">
               <input
-                className="control h-11 w-full rounded-[8px] px-4 pr-12 text-[13px]"
+                className="control h-11 w-full rounded-[8px] px-4 pr-12 text-sm"
                 minLength={8}
                 name="password"
                 onChange={(event) => setPassword(event.target.value)}
@@ -141,15 +141,15 @@ export default function AcceptInvitePage() {
                 autoComplete="new-password"
                 value={password}
               />
-              <button className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-primary-700" onClick={() => setShowPassword((v) => !v)} type="button">
+              <button className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-primary-700" onClick={() => setShowPassword((v) => !v)} type="button">
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
           </label>
           <label className="block">
-            <span className="mb-2 block text-[12px] font-bold text-neutral-800">Confirm password</span>
+            <span className="mb-2 block text-sm font-bold text-neutral-800">Confirm password</span>
             <input
-              className="control h-11 w-full rounded-[8px] px-4 text-[13px]"
+              className="control h-11 w-full rounded-[8px] px-4 text-sm"
               minLength={8}
               name="confirmation"
               placeholder="Repeat password"
@@ -160,7 +160,7 @@ export default function AcceptInvitePage() {
           </label>
         </div>
 
-        <ul className="space-y-1.5 text-[11px] text-neutral-600">
+        <ul className="space-y-1.5 text-xs text-neutral-600">
           {PASSWORD_RULES.map((rule) => {
             const ok = password.length > 0 && rule.test(password);
             return (
@@ -172,15 +172,15 @@ export default function AcceptInvitePage() {
           })}
         </ul>
 
-        <p className="text-[11px] text-neutral-500">
+        <p className="text-xs text-neutral-500">
           Expires {new Date(preview.expiresAt).toLocaleString()}. Candidates still use assessment links only — this is a workspace login.
         </p>
 
-        <button className="button-primary h-11 w-full rounded-[8px] text-[13px]" disabled={submitting} type="submit">
+        <button className="button-primary h-11 w-full rounded-[8px] text-sm" disabled={submitting} type="submit">
           {submitting ? "Joining workspace…" : "Join workspace"}
         </button>
 
-        <p className="text-center text-[12px] text-neutral-500">
+        <p className="text-center text-sm text-neutral-500">
           Already have an account?{" "}
           <Link className="font-bold text-primary-700 hover:text-primary-600" href="/login">
             Sign in

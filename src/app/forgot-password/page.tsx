@@ -55,8 +55,8 @@ export default function ForgotPasswordPage() {
             <Icon name="mail" size={56} />
           </div>
           <div>
-            <h1 className="text-[28px] font-bold leading-[34px] tracking-[-0.02em] text-neutral-950">Check your email</h1>
-            <p className="mx-auto mt-2 max-w-[340px] text-[14px] leading-5 text-neutral-500">{result.message}</p>
+            <h1 className="text-3xl font-bold tracking-[-0.02em] text-neutral-950">Check your email</h1>
+            <p className="mx-auto mt-2 max-w-[340px] text-base text-neutral-500">{result.message}</p>
           </div>
 
           {result.emailDelivery?.status === "sent" ? (
@@ -71,13 +71,13 @@ export default function ForgotPasswordPage() {
 
           {result.resetUrl ? (
             <div className="status-alert status-alert--warning rounded-[8px] border p-4 text-left">
-              <p className="text-[12px] font-bold">Email was not delivered</p>
-              <p className="mt-1 text-[12px] leading-5">
+              <p className="text-sm font-bold">Email was not delivered</p>
+              <p className="mt-1 text-sm">
                 {result.emailDelivery?.reason ??
                   "Copy this one-time link to choose a new password (local/demo mode)."}
               </p>
               <a
-                className="mt-3 block break-all text-[12px] font-semibold text-primary-700 hover:underline"
+                className="mt-3 block break-all text-xs font-semibold text-primary-700 hover:underline"
                 href={result.resetUrl}
               >
                 {result.resetUrl}
@@ -85,11 +85,11 @@ export default function ForgotPasswordPage() {
             </div>
           ) : null}
 
-          <Link className="inline-flex h-12 w-full items-center justify-center rounded-[6px] bg-primary text-[14px] font-semibold text-white hover:bg-primary-600" href="/login">
+          <Link className="inline-flex h-12 w-full items-center justify-center rounded-[6px] bg-primary text-sm font-semibold text-white hover:bg-primary-600" href="/login">
             Back to sign in
           </Link>
           <button
-            className="w-full text-[12px] font-bold text-primary-700 hover:underline"
+            className="w-full text-sm font-bold text-primary-700 hover:underline"
             onClick={() => {
               setResult(null);
               setEmail("");
@@ -102,8 +102,8 @@ export default function ForgotPasswordPage() {
       ) : (
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="mb-2 text-center">
-            <h1 className="text-[28px] font-bold leading-[34px] tracking-[-0.02em] text-neutral-950">Reset password</h1>
-            <p className="mt-2 text-[14px] leading-5 text-neutral-500">
+            <h1 className="text-3xl font-bold tracking-[-0.02em] text-neutral-950">Reset password</h1>
+            <p className="mt-2 text-base text-neutral-500">
               We&apos;ll email a secure link if this address has a workspace account.
             </p>
           </div>
@@ -111,13 +111,13 @@ export default function ForgotPasswordPage() {
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
 
           <label className="block text-left">
-            <span className="text-[13px] font-bold text-neutral-800">Work email</span>
+            <span className="text-sm font-bold text-neutral-800">Work email</span>
             <span className="relative mt-2 block">
               <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" name="mail" size={16} />
               <input
                 autoComplete="email"
                 autoFocus
-                className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-[13px] focus:border-primary-400 focus:bg-white"
+                className="control h-[52px] rounded-lg border-transparent bg-neutral-50 !pl-12 pr-4 text-sm focus:border-primary-400 focus:bg-white"
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@company.com"
                 required
@@ -128,7 +128,7 @@ export default function ForgotPasswordPage() {
           </label>
 
           <button
-            className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-[13px] font-bold hover:!bg-primary-600"
+            className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-sm font-bold hover:!bg-primary-600"
             disabled={submitting}
             type="submit"
           >
@@ -136,7 +136,7 @@ export default function ForgotPasswordPage() {
             {submitting ? "Sending link" : "Send reset link"}
           </button>
 
-          <p className="text-center text-[12px] text-neutral-500">
+          <p className="text-center text-sm text-neutral-500">
             Remembered it?{" "}
             <Link className="font-bold !text-primary-700 hover:!text-primary-600 hover:underline" href="/login">
               Back to sign in

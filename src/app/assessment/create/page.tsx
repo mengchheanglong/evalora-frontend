@@ -192,10 +192,10 @@ export default function CreateSessionPage() {
             <InlineAlert tone="success">{success}</InlineAlert>
             {createdLink ? (
               <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-3 text-sm">
-                <p className="text-[11px] font-bold text-primary-800">Assessment link</p>
-                <code className="mt-1 block break-all text-[12px] text-neutral-800">{createdLink}</code>
+                <p className="text-xs font-bold text-primary-800">Assessment link</p>
+                <code className="mt-1 block break-all text-xs text-neutral-800">{createdLink}</code>
                 <button
-                  className="mt-2 text-[12px] font-bold text-primary-700 hover:text-primary-600"
+                  className="mt-2 text-xs font-bold text-primary-700 hover:text-primary-600"
                   onClick={() => void navigator.clipboard.writeText(createdLink)}
                   type="button"
                 >

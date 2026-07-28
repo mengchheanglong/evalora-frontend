@@ -168,7 +168,7 @@ export function AppShell({
                   {orgLogo ? (
                     <img alt="" className="size-full object-cover" src={orgLogo} />
                   ) : (
-                    <span className="flex size-full items-center justify-center bg-neutral-950 text-[11px] font-black text-white">
+                    <span className="flex size-full items-center justify-center bg-neutral-950 text-xs font-black text-white">
                       {avatarLabel}
                     </span>
                   )}
@@ -185,22 +185,22 @@ export function AppShell({
                           {orgLogo ? (
                             <img alt="" className="size-full object-cover" src={orgLogo} />
                           ) : (
-                            <span className="flex size-full items-center justify-center bg-neutral-950 text-[13px] font-black text-white">
+                            <span className="flex size-full items-center justify-center bg-neutral-950 text-sm font-black text-white">
                               {avatarLabel}
                             </span>
                           )}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-[13px] font-bold text-neutral-900">{displayOrgName}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-neutral-500">{user.email}</p>
-                          <p className="mt-0.5 text-[10px] font-semibold capitalize text-neutral-400">{user.role === "organization" ? "Workspace owner" : user.role}</p>
+                          <p className="truncate text-sm font-bold text-neutral-900">{displayOrgName}</p>
+                          <p className="mt-0.5 truncate text-xs text-neutral-500">{user.email}</p>
+                          <p className="mt-0.5 text-xs font-semibold capitalize text-neutral-400">{user.role === "organization" ? "Workspace owner" : user.role}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="p-1.5">
                       <button
-                        className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-[12px] font-semibold text-red-600 transition hover:bg-red-50"
+                        className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50"
                         onClick={() => void handleLogout()}
                         role="menuitem"
                         type="button"
@@ -221,7 +221,7 @@ export function AppShell({
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
               <div>
                 {breadcrumbs?.length ? (
-                  <div className="mb-3 flex items-center gap-2 text-[12px] font-semibold text-neutral-500">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-500">
                     {breadcrumbs.map((crumb, index) => (
                       <span className="flex items-center gap-2" key={`${crumb.label}-${index}`}>
                         {crumb.href ? <Link className="hover:text-neutral-900" href={crumb.href}>{crumb.label}</Link> : <span className="text-neutral-800">{crumb.label}</span>}
@@ -230,8 +230,8 @@ export function AppShell({
                     ))}
                   </div>
                 ) : null}
-                <h1 className="text-[26px] font-extrabold leading-tight text-[#151922] sm:text-[30px]">{title}</h1>
-                {description ? <p className="mt-2 max-w-3xl text-[13px] leading-5 text-neutral-600 sm:text-sm">{description}</p> : null}
+                <h1 className="text-2xl font-extrabold leading-tight text-[#151922] sm:text-3xl">{title}</h1>
+                {description ? <p className="mt-2 max-w-3xl text-sm text-neutral-600">{description}</p> : null}
               </div>
             </div>
           ) : null}
@@ -252,11 +252,11 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
         <div className="space-y-2">
           {navigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
-        <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Workspace</p>
+        <p className="mt-7 px-4 text-xs font-bold uppercase text-neutral-500">Workspace</p>
         <div className="mt-3 space-y-2">
           {workspaceNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
-        <p className="mt-7 px-4 text-[12px] font-bold uppercase text-neutral-500">Account</p>
+        <p className="mt-7 px-4 text-xs font-bold uppercase text-neutral-500">Account</p>
         <div className="mt-3 space-y-2">
           {sharedSecondaryNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
@@ -267,7 +267,7 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
 
 function SidebarLink({ active, item, onNavigate }: { active: boolean; item: { label: string; href: string; icon: IconName }; onNavigate?: () => void }) {
   return (
-    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"}`} href={item.href} onClick={onNavigate} onFocus={() => prefetchWorkspacePage(item.href)} onMouseEnter={() => prefetchWorkspacePage(item.href)}>
+    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-sm font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"}`} href={item.href} onClick={onNavigate} onFocus={() => prefetchWorkspacePage(item.href)} onMouseEnter={() => prefetchWorkspacePage(item.href)}>
       <Icon className={active ? "text-[var(--theme-active-text)]" : "text-neutral-950"} name={item.icon} size={21} />
       <span>{item.label}</span>
     </Link>

@@ -87,10 +87,10 @@ export function LanguagePicker({
   disabled?: boolean;
 }) {
   return (
-    <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300">
       <span className="sr-only">Programming language</span>
       <select
-        className="h-8 rounded-md border border-white/15 bg-[#161c26] px-2 text-[11px] text-slate-200 outline-none disabled:opacity-50"
+        className="h-8 rounded-md border border-white/15 bg-[#161c26] px-2 text-xs text-slate-200 outline-none disabled:opacity-50"
         disabled={disabled}
         onChange={(event) => onChange(event.target.value as CodeLanguage)}
         value={language}

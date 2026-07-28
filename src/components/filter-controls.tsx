@@ -30,7 +30,7 @@ export function FilterToggleButton({
     >
       <Icon name="filter" size={15} />
       <span className="hidden sm:inline">Filters</span>
-      {activeCount ? <span className="grid size-4.5 place-items-center rounded-full bg-[var(--color-primary-700)] text-[9px] text-white">{activeCount}</span> : null}
+      {activeCount ? <span className="grid size-4.5 place-items-center rounded-full bg-[var(--color-primary-700)] text-xs text-white">{activeCount}</span> : null}
       <Icon className={`hidden transition-transform duration-200 sm:block ${open ? "rotate-180" : ""}`} name="chevron" size={12} />
     </button>
   );
@@ -52,9 +52,9 @@ export function FilterPanelFrame({
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xs font-bold text-[var(--theme-heading)]">{title}</h2>
-          <p className="mt-0.5 text-[11px] text-[var(--theme-muted)]">{description}</p>
+          <p className="mt-0.5 text-xs text-[var(--theme-muted)]">{description}</p>
         </div>
-        <button className="rounded-[6px] px-2 py-1 text-[11px] font-bold text-[var(--color-primary-700)] transition hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)]" onClick={onClear} type="button">
+        <button className="rounded-[6px] px-2 py-1 text-xs font-bold text-[var(--color-primary-700)] transition hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)]" onClick={onClear} type="button">
           Clear filters
         </button>
       </div>
@@ -78,7 +78,7 @@ export function FilterSelectField({
 }) {
   return (
     <label className="block rounded-[7px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-2.5">
-      <span className="mb-1.5 block text-[10px] font-bold text-[var(--theme-muted)]">{label}</span>
+      <span className="mb-1.5 block text-xs font-bold text-[var(--theme-muted)]">{label}</span>
       <select className="control h-8 rounded-[6px] text-xs" onChange={(event) => onChange(event.target.value)} value={value}>
         {children}
       </select>

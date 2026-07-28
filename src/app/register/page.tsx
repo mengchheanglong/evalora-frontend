@@ -80,8 +80,8 @@ export default function RegisterPage() {
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
-          <p className="text-[11px] font-bold uppercase text-[#118bb5]">Create your workspace</p>
-          <h1 className="mt-2 text-[32px] font-black leading-tight text-[#151922]">Set up Evalora</h1>
+          <p className="text-xs font-bold uppercase text-[#118bb5]">Create your workspace</p>
+          <h1 className="mt-2 text-3xl font-black leading-tight text-[#151922]">Set up Evalora</h1>
           <p className="mt-2 text-sm leading-6 text-neutral-600">Your account becomes the workspace owner. Invite teammates later from Team — candidates still use assessment links only.</p>
         </div>
 
@@ -90,7 +90,7 @@ export default function RegisterPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field autoComplete="name" label="Full name" name="name" placeholder="Alex Morgan" />
           <label className="block">
-            <span className="text-[12px] font-bold text-neutral-800">Organization</span>
+            <span className="text-sm font-bold text-neutral-800">Organization</span>
             <input
               autoComplete="organization"
               className="control mt-2 h-12"
@@ -119,7 +119,7 @@ export default function RegisterPage() {
             shown={showConfirmationPassword}
           />
         </div>
-        <ul className="space-y-1.5 text-[11px] text-neutral-600">
+        <ul className="space-y-1.5 text-xs text-neutral-600">
           {PASSWORD_RULES.map((rule) => {
             const ok = password.length > 0 && rule.test(password);
             return (
@@ -132,23 +132,23 @@ export default function RegisterPage() {
             );
           })}
         </ul>
-        <p className="text-[11px] leading-5 text-neutral-500">This signup creates the organization owner. Interviewers join by invite; candidates use assessment links.</p>
+        <p className="text-xs leading-5 text-neutral-500">This signup creates the organization owner. Interviewers join by invite; candidates use assessment links.</p>
 
-        <label className="flex items-center gap-2 text-[11px] leading-5 text-neutral-500">
+        <label className="flex items-center gap-2 text-xs leading-5 text-neutral-500">
           <input className="size-5 shrink-0 rounded-md border border-neutral-200 bg-white text-primary-500 accent-primary-500" name="termsAccepted" required type="checkbox" />
           <span>
             I agree to the <strong className="font-bold text-neutral-700">Terms of Service</strong> and <strong className="font-bold text-neutral-700">Privacy Policy</strong>
           </span>
         </label>
 
-        <button className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-[13px] font-bold hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} type="submit">
+        <button className="button-primary h-[52px] w-full rounded-lg !bg-primary-500 text-sm font-bold hover:!bg-primary-600 hover:shadow-[0_10px_22px_rgba(47,178,228,0.22)]" disabled={submitting} type="submit">
           {submitting ? <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : null}
           {submitting ? "Creating workspace" : "Create workspace"}
         </button>
 
         <GoogleSignInButton disabled={submitting} mode="signup" onCredential={finishGoogleSignUp} onError={setError} />
 
-        <p className="text-center text-[13px] text-neutral-500">
+        <p className="text-center text-sm text-neutral-500">
           Already have an account? <a className="font-bold !text-primary-700 hover:!text-primary-600" href="/login">Log in</a>
         </p>
       </form>
@@ -159,7 +159,7 @@ export default function RegisterPage() {
 function Field({ label, name, placeholder, type = "text", autoComplete }: { label: string; name: string; placeholder: string; type?: string; autoComplete: string }) {
   return (
     <label className="block">
-      <span className="text-[12px] font-bold text-neutral-800">{label}</span>
+      <span className="text-sm font-bold text-neutral-800">{label}</span>
       <input autoComplete={autoComplete} className="control mt-2 h-12" name={name} placeholder={placeholder} required={name !== "organizationName"} type={type} />
     </label>
   );
@@ -182,7 +182,7 @@ function PasswordField({
 }) {
   return (
     <label className="block">
-      <span className="text-[12px] font-bold text-neutral-800">{label}</span>
+      <span className="text-sm font-bold text-neutral-800">{label}</span>
       <span className="relative mt-2 block">
         <input
           autoComplete="new-password"

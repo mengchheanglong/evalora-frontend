@@ -101,9 +101,9 @@ export default function HomePage() {
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-6 px-5 sm:px-8">
           <Link className="inline-flex items-center gap-2.5" href="/">
             <LogoMark className="size-9" />
-            <span className="text-[18px] font-extrabold tracking-[-0.01em] text-neutral-950">Evalora</span>
+            <span className="text-lg font-extrabold tracking-[-0.01em] text-neutral-950">Evalora</span>
           </Link>
-          <nav className="hidden items-center gap-8 text-[13px] font-medium text-neutral-600 lg:flex">
+          <nav className="hidden items-center gap-8 text-sm font-medium text-neutral-600 lg:flex">
             {navLinks.map((link) => (
               <a className="transition-colors hover:text-neutral-950" href={link.href} key={link.label}>
                 {link.label}
@@ -114,10 +114,10 @@ export default function HomePage() {
             <span className="hidden xl:inline-flex">
               <ThemeSwitcher compact />
             </span>
-            <ButtonLink className="hidden h-10 px-4 text-[13px] sm:inline-flex" href="/login" variant="ghost">
+            <ButtonLink className="hidden h-10 px-4 text-sm sm:inline-flex" href="/login" variant="ghost">
               Log in
             </ButtonLink>
-            <ButtonLink className="h-10 !rounded-lg px-5 text-[13px]" href="/register">
+            <ButtonLink className="h-10 !rounded-lg px-5 text-sm" href="/register">
               Get started
             </ButtonLink>
           </div>
@@ -133,29 +133,29 @@ export default function HomePage() {
 
         <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-5 pb-16 pt-10 sm:px-8 lg:grid-cols-[540px_1fr] lg:gap-14 lg:pt-14">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white py-1 pl-1.5 pr-3.5 text-[12px] font-semibold text-neutral-600 shadow-sm">
-              <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-700">New</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white py-1 pl-1.5 pr-3.5 text-xs font-semibold text-neutral-600 shadow-sm">
+              <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-bold text-primary-700">New</span>
               Adaptive follow-up questions in AI interviews
             </span>
-            <h1 className="mt-6 text-[44px] font-extrabold leading-[1.06] tracking-[-0.03em] text-neutral-950 sm:text-[60px]">
+            <h1 className="mt-6 text-5xl font-extrabold leading-[1.06] tracking-[-0.03em] text-neutral-950 sm:text-5xl">
               Smarter hiring.
               <span className="block bg-gradient-to-r from-primary-700 via-primary-500 to-primary-400 bg-clip-text pb-1.5 text-transparent">
                 Better decisions.
               </span>
             </h1>
-            <p className="mt-5 max-w-[480px] text-[17px] leading-[27px] text-neutral-600">
+            <p className="mt-5 max-w-[480px] text-lg text-neutral-600">
               Structured AI interviews, coding tasks, and behavioral evaluations — turned into evidence-backed reports.
               AI is advisory; your reviewers make the final call.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <ButtonLink className="h-12 !rounded-lg px-7 text-[14px]" href="/register">
+              <ButtonLink className="h-12 !rounded-lg px-7 text-sm" href="/register">
                 Get started
               </ButtonLink>
-              <ButtonLink className="h-12 !rounded-lg px-7 text-[14px]" href="/assessment/demo-session" variant="outline">
+              <ButtonLink className="h-12 !rounded-lg px-7 text-sm" href="/assessment/demo-session" variant="outline">
                 Watch demo
               </ButtonLink>
             </div>
-            <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 text-[13px] font-medium text-neutral-500">
+            <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-medium text-neutral-500">
               {["Free pilot workspace", "Private candidate links", "Humans make final decisions"].map((item) => (
                 <span className="inline-flex items-center gap-2" key={item}>
                   <Icon className="shrink-0 text-primary-600" name="check" size={15} />
@@ -170,10 +170,10 @@ export default function HomePage() {
 
         {/* TRUSTED BY */}
         <div className="relative mx-auto max-w-[1200px] border-t border-neutral-100 px-5 py-10 sm:px-8">
-          <p className="text-center text-[12px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+          <p className="text-center text-xs font-bold uppercase tracking-[0.14em] text-neutral-400">
             Trusted by hiring teams worldwide
           </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-14 gap-y-4 text-[15px] font-extrabold tracking-tight text-neutral-400">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-14 gap-y-4 text-base font-extrabold tracking-tight text-neutral-400">
             {customerLogos.map((logo) => (
               <span className="opacity-80 transition-opacity hover:opacity-100" key={logo}>
                 {logo}
@@ -188,9 +188,9 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-y-10 px-5 py-12 sm:px-8 md:grid-cols-4 md:divide-x md:divide-neutral-200">
           {landingStats.map((stat) => (
             <article className="px-4 text-center md:px-8" key={stat.label}>
-              <p className="text-[26px] font-extrabold tracking-tight text-neutral-950 md:text-[28px]">{stat.value}</p>
-              <p className="mt-2 text-[13px] font-semibold text-neutral-700">{stat.label}</p>
-              <p className="mt-1 text-[12px] text-neutral-400">{stat.detail}</p>
+              <p className="text-2xl font-extrabold tracking-tight text-neutral-950 md:text-3xl">{stat.value}</p>
+              <p className="mt-2 text-sm font-semibold text-neutral-700">{stat.label}</p>
+              <p className="mt-1 text-xs text-neutral-400">{stat.detail}</p>
             </article>
           ))}
         </div>
@@ -199,11 +199,11 @@ export default function HomePage() {
       {/* FEATURES */}
       <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-16 sm:py-20 sm:px-8" id="features">
         <div className="mx-auto max-w-[680px] text-center">
-          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Platform</p>
-          <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Platform</p>
+          <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
             Everything you need to evaluate with confidence
           </h2>
-          <p className="mt-4 text-[16px] leading-[26px] text-neutral-500">
+          <p className="mt-4 text-base text-neutral-500">
             Comprehensive assessment modules powered by AI, built to support — not replace — your hiring team.
           </p>
         </div>
@@ -220,8 +220,8 @@ export default function HomePage() {
                 <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
                   <Icon name={feature.icon} size={22} />
                 </span>
-                <h3 className="mt-5 text-[16px] font-bold text-neutral-900">{feature.title}</h3>
-                <p className="mt-2 text-[14px] leading-[22px] text-neutral-500">{feature.description}</p>
+                <h3 className="mt-5 text-base font-bold text-neutral-900">{feature.title}</h3>
+                <p className="mt-2 text-sm text-neutral-500">{feature.description}</p>
                 {index === 0 && <InterviewMock />}
                 {index === 1 && <CodingMock />}
               </article>
@@ -234,11 +234,11 @@ export default function HomePage() {
       <section className="scroll-mt-24 border-y border-neutral-100 bg-[#fafbfc]" id="workflow">
         <div className="mx-auto max-w-[1200px] px-5 py-16 sm:py-20 sm:px-8">
           <div className="mx-auto max-w-[640px] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Workflow</p>
-            <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Workflow</p>
+            <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
               How Evalora works
             </h2>
-            <p className="mt-4 text-[16px] leading-[26px] text-neutral-500">
+            <p className="mt-4 text-base text-neutral-500">
               From template to hiring decision in four structured steps.
             </p>
           </div>
@@ -246,13 +246,13 @@ export default function HomePage() {
             {howItWorks.map((step, index) => (
               <li key={step.title}>
                 <div className="flex items-center gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-[13px] font-extrabold text-primary-700 shadow-sm">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-sm font-extrabold text-primary-700 shadow-sm">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   {index < howItWorks.length - 1 && <span aria-hidden="true" className="hidden h-px flex-1 bg-neutral-200 md:block" />}
                 </div>
-                <h3 className="mt-5 text-[16px] font-bold text-neutral-900">{step.title}</h3>
-                <p className="mt-2 max-w-[240px] text-[13px] leading-[20px] text-neutral-500">{step.description}</p>
+                <h3 className="mt-5 text-base font-bold text-neutral-900">{step.title}</h3>
+                <p className="mt-2 max-w-[240px] text-sm text-neutral-500">{step.description}</p>
               </li>
             ))}
           </ol>
@@ -263,15 +263,15 @@ export default function HomePage() {
       <section className="scroll-mt-24" id="security">
         <div className="mx-auto grid max-w-[1200px] items-start gap-12 px-5 py-16 sm:py-20 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
           <div>
-            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Trust &amp; security</p>
-            <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Trust &amp; security</p>
+            <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
               Enterprise controls. Human decisions.
             </h2>
-            <p className="mt-4 max-w-[440px] text-[16px] leading-[26px] text-neutral-500">
+            <p className="mt-4 max-w-[440px] text-base text-neutral-500">
               Evalora is built for teams that take candidate data and fair review seriously — access is scoped, links
               are private, and AI never makes the hiring call.
             </p>
-            <div className="mt-8 flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-[13px] leading-[20px] text-neutral-600">
+            <div className="mt-8 flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
               <Icon className="mt-0.5 shrink-0 text-primary-700" name="shield" size={16} />
               <span>
                 <strong className="font-bold text-neutral-900">Advisory by design.</strong> AI feedback supports
@@ -285,8 +285,8 @@ export default function HomePage() {
                 <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
                   <Icon name={item.icon} size={17} />
                 </span>
-                <h3 className="mt-3.5 text-[14px] font-bold text-neutral-900">{item.title}</h3>
-                <p className="mt-1.5 text-[13px] leading-[20px] text-neutral-500">{item.description}</p>
+                <h3 className="mt-3.5 text-sm font-bold text-neutral-900">{item.title}</h3>
+                <p className="mt-1.5 text-sm text-neutral-500">{item.description}</p>
               </article>
             ))}
           </div>
@@ -297,11 +297,11 @@ export default function HomePage() {
       <section className="scroll-mt-24 border-y border-neutral-100 bg-[#fafbfc]" id="customers">
         <div className="mx-auto max-w-[1200px] px-5 py-16 sm:py-20 sm:px-8">
           <div className="mx-auto max-w-[640px] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Customers</p>
-            <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Customers</p>
+            <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
               Loved by hiring teams
             </h2>
-            <p className="mt-4 text-[16px] leading-[26px] text-neutral-500">
+            <p className="mt-4 text-base text-neutral-500">
               See what teams using Evalora have to say.
             </p>
           </div>
@@ -313,16 +313,16 @@ export default function HomePage() {
                     <Icon fill="currentColor" key={star} name="star" size={13} />
                   ))}
                 </div>
-                <blockquote className="mt-4 text-[15px] leading-[24px] text-neutral-700">
+                <blockquote className="mt-4 text-base text-neutral-700">
                   &ldquo;{testimonial.quote}&rdquo;
                 </blockquote>
                 <figcaption className="mt-auto flex items-center gap-3 border-t border-neutral-100 pt-5">
-                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-[12px] font-extrabold text-primary-700">
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-extrabold text-primary-700">
                     {testimonial.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
                   </span>
                   <span>
-                    <span className="block text-[14px] font-bold text-neutral-950">{testimonial.name}</span>
-                    <span className="mt-0.5 block text-[12px] text-neutral-500">{testimonial.role}</span>
+                    <span className="block text-sm font-bold text-neutral-950">{testimonial.name}</span>
+                    <span className="mt-0.5 block text-xs text-neutral-500">{testimonial.role}</span>
                   </span>
                 </figcaption>
               </figure>
@@ -334,40 +334,40 @@ export default function HomePage() {
       {/* PRICING */}
       <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-16 sm:py-20 sm:px-8" id="pricing">
         <div className="mx-auto max-w-[640px] text-center">
-          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary-700">Pricing</p>
-          <h2 className="mt-3 text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-[38px]">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Pricing</p>
+          <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
             Simple private pricing for every team
           </h2>
-          <p className="mt-4 text-[16px] leading-[26px] text-neutral-500">
+          <p className="mt-4 text-base text-neutral-500">
             One plan, every module included — scoped to your hiring volume and review standards.
           </p>
         </div>
 
         <div className="mx-auto mt-12 max-w-[1000px] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_24px_60px_-24px_rgba(15,23,42,0.18)] lg:grid lg:grid-cols-[1.05fr_1fr]">
           <div className="p-8 sm:p-10">
-            <span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-primary-700">
+            <span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-primary-700">
               For all teams
             </span>
-            <h3 className="mt-5 text-[38px] font-extrabold tracking-[-0.02em] text-neutral-950">Let&apos;s talk</h3>
-            <p className="mt-3 max-w-[400px] text-[14px] leading-[22px] text-neutral-500">
+            <h3 className="mt-5 text-4xl font-extrabold tracking-[-0.02em] text-neutral-950">Let&apos;s talk</h3>
+            <p className="mt-3 max-w-[400px] text-sm text-neutral-500">
               Build the assessment workflow that fits your hiring process, team size, and review standards — with
               guided onboarding from day one.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <ButtonLink className="h-11 !rounded-lg px-6 text-[13px]" href="/register">
+              <ButtonLink className="h-11 !rounded-lg px-6 text-sm" href="/register">
                 Contact sales
               </ButtonLink>
-              <ButtonLink className="h-11 !rounded-lg px-6 text-[13px]" href="/assessment/demo-session" variant="outline">
+              <ButtonLink className="h-11 !rounded-lg px-6 text-sm" href="/assessment/demo-session" variant="outline">
                 Try the live demo
               </ButtonLink>
             </div>
-            <p className="mt-5 text-[12px] text-neutral-400">Pilot-friendly — start with a single role.</p>
+            <p className="mt-5 text-xs text-neutral-400">Pilot-friendly — start with a single role.</p>
           </div>
           <div className="border-t border-neutral-200 bg-neutral-50 p-8 sm:p-10 lg:border-l lg:border-t-0">
-            <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-neutral-500">Everything included</p>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Everything included</p>
             <ul className="mt-5 grid gap-x-6 gap-y-3 sm:grid-cols-2">
               {pricingIncluded.map((item) => (
-                <li className="flex items-start gap-2.5 text-[13px] font-medium leading-[19px] text-neutral-700" key={item}>
+                <li className="flex items-start gap-2.5 text-sm font-medium text-neutral-700" key={item}>
                   <Icon className="mt-0.5 shrink-0 text-primary-600" name="check" size={15} />
                   {item}
                 </li>
@@ -382,18 +382,18 @@ export default function HomePage() {
         <div className="relative overflow-hidden rounded-3xl bg-navy px-6 py-12 text-center sm:px-16 sm:py-14">
           <div aria-hidden="true" className="pointer-events-none absolute -top-28 left-1/2 h-64 w-[560px] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 right-0 h-64 w-[420px] rounded-full bg-primary/20 blur-3xl" />
-          <h2 className="relative text-[30px] font-extrabold leading-[1.15] tracking-[-0.02em] text-white sm:text-[36px]">
+          <h2 className="relative text-3xl font-extrabold leading-[1.15] tracking-[-0.02em] text-white sm:text-4xl">
             Ready to hire smarter?
           </h2>
-          <p className="relative mx-auto mt-4 max-w-[520px] text-[15px] leading-[24px] text-slate-300">
+          <p className="relative mx-auto mt-4 max-w-[520px] text-base text-slate-300">
             Set up your workspace, invite your team, and run your first structured assessment today.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
-            <ButtonLink className="h-12 !rounded-lg px-7 text-[14px]" href="/register">
+            <ButtonLink className="h-12 !rounded-lg px-7 text-sm" href="/register">
               Get started
             </ButtonLink>
             <Link
-              className="inline-flex h-12 items-center justify-center rounded-lg border border-white/25 px-7 text-[14px] font-bold text-white transition-colors hover:bg-white/10"
+              className="inline-flex h-12 items-center justify-center rounded-lg border border-white/25 px-7 text-sm font-bold text-white transition-colors hover:bg-white/10"
               href="/assessment/demo-session"
             >
               Watch demo
@@ -408,24 +408,24 @@ export default function HomePage() {
           <div className="flex flex-col justify-between gap-10 border-b border-neutral-100 pb-10 md:flex-row md:items-start">
             <div className="max-w-[280px] space-y-4">
               <EvaloraLogo href="/" size="auth" />
-              <p className="text-[13px] leading-[20px] text-neutral-500">
+              <p className="text-sm text-neutral-500">
                 AI-powered assessments for modern hiring teams. Advisory feedback, human decisions.
               </p>
             </div>
             <div className="w-full max-w-[400px]">
-              <h4 className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-900">Product updates</h4>
-              <p className="mt-2 text-[13px] leading-[20px] text-neutral-500">
+              <h4 className="text-xs font-bold uppercase tracking-[0.1em] text-neutral-900">Product updates</h4>
+              <p className="mt-2 text-sm text-neutral-500">
                 Stay updated with the latest features and insights.
               </p>
               <form className="mt-4 flex gap-2">
                 <input
-                  className="h-10 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 text-[13px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-300 focus:bg-white"
+                  className="h-10 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 text-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-300 focus:bg-white"
                   placeholder="Enter your email"
                   suppressHydrationWarning
                   type="email"
                 />
                 <button
-                  className="h-10 shrink-0 cursor-pointer rounded-lg bg-primary px-4 text-[13px] font-bold text-white transition-colors hover:bg-primary-600"
+                  className="h-10 shrink-0 cursor-pointer rounded-lg bg-primary px-4 text-sm font-bold text-white transition-colors hover:bg-primary-600"
                   suppressHydrationWarning
                   type="submit"
                 >
@@ -438,11 +438,11 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-8 pt-10 sm:grid-cols-4">
             {Object.entries(footerLinks).map(([category, links]) => (
               <div key={category}>
-                <h4 className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-900">{category}</h4>
+                <h4 className="text-xs font-bold uppercase tracking-[0.1em] text-neutral-900">{category}</h4>
                 <ul className="mt-4 space-y-2.5">
                   {links.map((link) => (
                     <li key={link.label}>
-                      <a className="text-[13px] text-neutral-500 transition-colors hover:text-neutral-950" href={link.href}>
+                      <a className="text-sm text-neutral-500 transition-colors hover:text-neutral-950" href={link.href}>
                         {link.label}
                       </a>
                     </li>
@@ -453,8 +453,8 @@ export default function HomePage() {
           </div>
 
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-neutral-100 pt-6 sm:flex-row">
-            <span className="text-[12px] text-neutral-400">&copy; 2026 Evalora. All rights reserved.</span>
-            <div className="flex items-center gap-5 text-[12px] text-neutral-400">
+            <span className="text-xs text-neutral-400">&copy; 2026 Evalora. All rights reserved.</span>
+            <div className="flex items-center gap-5 text-xs text-neutral-400">
               <a className="transition-colors hover:text-neutral-700" href="#">Privacy</a>
               <a className="transition-colors hover:text-neutral-700" href="#">Terms</a>
               <a className="transition-colors hover:text-neutral-700" href="#security">Security</a>
@@ -469,13 +469,13 @@ export default function HomePage() {
 function InterviewMock() {
   return (
     <div className="mt-6 space-y-2.5 rounded-xl border border-neutral-100 bg-neutral-50 p-4">
-      <div className="max-w-[85%] rounded-lg rounded-tl-sm border border-neutral-200 bg-white px-3 py-2 text-[12px] leading-[18px] text-neutral-600 shadow-sm">
+      <div className="max-w-[85%] rounded-lg rounded-tl-sm border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
         How would you roll back a failed deployment with zero downtime?
       </div>
-      <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-sm bg-primary-50 px-3 py-2 text-[12px] leading-[18px] text-neutral-700">
+      <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-sm bg-primary-50 px-3 py-2 text-xs text-neutral-700">
         I&apos;d shift traffic back to the previous release with a blue-green swap, then…
       </div>
-      <p className="inline-flex items-center gap-1.5 pt-1 text-[11px] font-semibold text-primary-700">
+      <p className="inline-flex items-center gap-1.5 pt-1 text-xs font-semibold text-primary-700">
         <Icon name="sparkle" size={12} /> Follow-up generated from this answer
       </p>
     </div>
@@ -485,13 +485,13 @@ function InterviewMock() {
 function CodingMock() {
   return (
     <div className="mt-6 rounded-xl bg-neutral-950 p-4">
-      <div className="font-mono text-[11px] leading-[19px]">
+      <div className="font-mono text-xs">
         <p><span className="text-blue-300">function</span> <span className="text-sky-300">maxProfit</span><span className="text-slate-300">(prices) {"{"}</span></p>
         <p className="pl-4 text-slate-400">let low = Infinity, best = 0;</p>
         <p className="pl-4 text-slate-400">for (const p of prices) {"{ … }"}</p>
         <p className="text-slate-300">{"}"}</p>
       </div>
-      <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
+      <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
         <Icon name="check" size={12} /> 12/12 hidden tests passed
       </p>
     </div>
@@ -646,17 +646,17 @@ function HeroPreview() {
           <Icon name="check" size={16} />
         </span>
         <span>
-          <span className="block text-[13px] font-bold text-neutral-900">Report ready</span>
-          <span className="mt-0.5 block text-[11px] text-neutral-500">Evidence attached · for your review</span>
+          <span className="block text-sm font-bold text-neutral-900">Report ready</span>
+          <span className="mt-0.5 block text-xs text-neutral-500">Evidence attached · for your review</span>
         </span>
       </div>
       <div className="absolute -right-4 -top-9 hidden items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 shadow-[0_18px_44px_-14px_rgba(15,23,42,0.3)] sm:flex">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-[11px] font-extrabold text-primary-700">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-extrabold text-primary-700">
           EM
         </span>
         <span>
-          <span className="block text-[13px] font-bold text-neutral-900">Emma Johnson</span>
-          <span className="mt-0.5 block text-[11px] text-neutral-500">Score 92 · advisory</span>
+          <span className="block text-sm font-bold text-neutral-900">Emma Johnson</span>
+          <span className="mt-0.5 block text-xs text-neutral-500">Score 92 · advisory</span>
         </span>
       </div>
     </div>

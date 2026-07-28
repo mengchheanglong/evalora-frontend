@@ -19,8 +19,8 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
             }}
           >
             <div style={{ color: "#149bc8", fontSize: 14, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>Evalora</div>
-            <h1 style={{ color: "#0b2f45", fontSize: 28, margin: "16px 0 0" }}>Something went wrong</h1>
-            <p style={{ color: "#557181", fontSize: 15, lineHeight: 1.6, margin: "14px 0 0" }}>
+            <h1 style={{ color: "#0b2f45", fontSize: 30, margin: "16px 0 0" }}>Something went wrong</h1>
+            <p style={{ color: "#557181", fontSize: 16, lineHeight: 1.6, margin: "14px 0 0" }}>
               We could not open Evalora right now. No internal error details were exposed. Please retry or reload the application.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 28 }}>

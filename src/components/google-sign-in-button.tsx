@@ -167,14 +167,14 @@ export function GoogleSignInButton({
       <div className={`space-y-3 ${className}`}>
         <AuthDivider label="or continue with" />
         <button
-          className="h-[52px] w-full rounded-lg border border-solid border-[#cbd5df] bg-white text-[13px] font-bold text-neutral-700 inline-flex items-center justify-center gap-3 shadow-sm cursor-not-allowed opacity-70"
+          className="h-[52px] w-full rounded-lg border border-solid border-[#cbd5df] bg-white text-sm font-bold text-neutral-700 inline-flex items-center justify-center gap-3 shadow-sm cursor-not-allowed opacity-70"
           disabled
           type="button"
         >
           <GoogleIcon />
           <span>{mode === "signup" ? "Sign up with Google" : "Sign in with Google"}</span>
         </button>
-        <p className="text-center text-[11px] text-neutral-400">
+        <p className="text-center text-xs text-neutral-400">
           Set <code className="font-mono">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> and backend{" "}
           <code className="font-mono">GOOGLE_CLIENT_ID</code> to enable Google.
         </p>
@@ -187,11 +187,11 @@ export function GoogleSignInButton({
       <AuthDivider label="or continue with" />
       <div className={`relative h-[52px] w-full overflow-hidden rounded-lg ${disabled || busy ? "pointer-events-none opacity-60" : ""}`}>
         {!scriptReady ? (
-          <div className="flex h-full w-full items-center justify-center border border-solid border-[#cbd5df] bg-white text-[12px] font-semibold text-neutral-500">
+          <div className="flex h-full w-full items-center justify-center border border-solid border-[#cbd5df] bg-white text-sm font-semibold text-neutral-500">
             Loading Google sign-in...
           </div>
         ) : (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 border border-solid border-[#cbd5df] bg-white text-[13px] font-semibold text-neutral-800 shadow-sm">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 border border-solid border-[#cbd5df] bg-white text-sm font-semibold text-neutral-800 shadow-sm">
             <GoogleIcon />
             <span>{mode === "signup" ? "Sign up with Google" : "Sign in with Google"}</span>
           </div>
@@ -201,8 +201,8 @@ export function GoogleSignInButton({
           className={`${scriptReady ? "flex" : "hidden"} absolute inset-0 h-full w-full items-center justify-center overflow-hidden opacity-[0.01] [&>div]:!w-full [&_iframe]:!h-[52px] [&_iframe]:!w-full`}
         />
       </div>
-      {busy ? <p className="text-center text-[12px] text-neutral-500">Signing in with Google…</p> : null}
-      {localError ? <p className="text-center text-[12px] text-rose-600">{localError}</p> : null}
+      {busy ? <p className="text-center text-xs text-neutral-500">Signing in with Google…</p> : null}
+      {localError ? <p className="text-center text-xs text-rose-600">{localError}</p> : null}
     </div>
   );
 }

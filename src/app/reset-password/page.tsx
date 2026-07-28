@@ -84,8 +84,8 @@ function ResetPasswordForm() {
           <div className="mb-4 flex justify-center text-primary-700">
             <Icon name="lock" size={56} />
           </div>
-          <h1 className="text-[28px] font-bold leading-[34px] tracking-[-0.02em] text-neutral-950">Reset your password</h1>
-          <p className="mx-auto mt-2 max-w-[340px] text-[14px] leading-5 text-neutral-500">
+          <h1 className="text-3xl font-bold tracking-[-0.02em] text-neutral-950">Reset your password</h1>
+          <p className="mx-auto mt-2 max-w-[340px] text-base text-neutral-500">
             Enter and confirm your new password to continue.
           </p>
         </div>
@@ -103,11 +103,11 @@ function ResetPasswordForm() {
         {success ? <InlineAlert tone="success">{success}</InlineAlert> : null}
 
         <label className="block text-left">
-          <span className="text-[13px] font-bold text-neutral-800">New password</span>
+          <span className="text-sm font-bold text-neutral-800">New password</span>
           <span className="relative mt-2 block">
             <input
               autoComplete="new-password"
-              className="form-field h-12 pr-10 text-[13px]"
+              className="form-field h-12 pr-10 text-sm"
               minLength={8}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter new password"
@@ -127,11 +127,11 @@ function ResetPasswordForm() {
         </label>
 
         <label className="block text-left">
-          <span className="text-[13px] font-bold text-neutral-800">Confirm new password</span>
+          <span className="text-sm font-bold text-neutral-800">Confirm new password</span>
           <span className="relative mt-2 block">
             <input
               autoComplete="new-password"
-              className="form-field h-12 pr-10 text-[13px]"
+              className="form-field h-12 pr-10 text-sm"
               minLength={8}
               onChange={(event) => setConfirmation(event.target.value)}
               placeholder="Confirm new password"
@@ -142,7 +142,7 @@ function ResetPasswordForm() {
           </span>
         </label>
 
-        <ul className="space-y-2 text-left text-[13px] text-neutral-600">
+        <ul className="space-y-2 text-left text-xs text-neutral-600">
           {ruleState.map((rule) => (
             <li className="flex items-center gap-2" key={rule.id}>
               <span
@@ -158,14 +158,14 @@ function ResetPasswordForm() {
         </ul>
 
         <button
-          className="button-primary h-12 w-full rounded-[6px] !text-[14px] font-semibold"
+          className="button-primary h-12 w-full rounded-[6px] !text-sm font-semibold"
           disabled={submitting || !token || Boolean(success)}
           type="submit"
         >
           {submitting ? "Updating password" : "Reset password"}
         </button>
 
-        <Link className="block text-center text-[13px] font-bold text-primary-700 hover:underline" href="/login">
+        <Link className="block text-center text-sm font-bold text-primary-700 hover:underline" href="/login">
           &larr; Back to login
         </Link>
       </form>

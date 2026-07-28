@@ -381,10 +381,10 @@ export default function CreateTemplatePage() {
                               type="button"
                             >
                               <div className="flex items-center gap-2">
-                                <span className="flex size-6 items-center justify-center rounded bg-gray-100 text-[10px] font-bold text-gray-600">M{index + 1}</span>
+                                <span className="flex size-6 items-center justify-center rounded bg-gray-100 text-xs font-bold text-gray-600">M{index + 1}</span>
                                 <span className="flex-1 truncate text-sm font-semibold text-gray-900">{module.title || "Untitled"}</span>
                               </div>
-                              <p className="mt-1 text-[10px] text-gray-500">{module.questions.length} questions</p>
+                              <p className="mt-1 text-xs text-gray-500">{module.questions.length} questions</p>
                             </button>
                           </li>
                         ))}
@@ -461,7 +461,7 @@ export default function CreateTemplatePage() {
                       {module.questions.map((question, qIndex) => (
                         <li className="px-6 py-4" key={question.key}>
                           <div className="mb-2 flex items-center gap-2">
-                            <span className="flex size-6 items-center justify-center rounded bg-gray-900 text-[10px] font-bold text-white">{qIndex + 1}</span>
+                            <span className="flex size-6 items-center justify-center rounded bg-gray-900 text-xs font-bold text-white">{qIndex + 1}</span>
                             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">{question.questionType.replaceAll("_", " ")}</span>
                           </div>
                           <p className="text-sm font-semibold leading-6 text-gray-900">{question.questionText}</p>
@@ -615,7 +615,7 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
             <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4" key={question.key}>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="flex size-6 items-center justify-center rounded bg-gray-900 text-[10px] font-bold text-white">{qIndex + 1}</span>
+                  <span className="flex size-6 items-center justify-center rounded bg-gray-900 text-xs font-bold text-white">{qIndex + 1}</span>
                   <p className="text-sm font-semibold text-gray-700">Question</p>
                 </div>
                 <div className="flex gap-1.5">
