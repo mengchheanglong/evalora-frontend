@@ -120,7 +120,7 @@ function OverviewContent({
             ) : null}
           </div>
           <div className="min-w-0">
-            <h2 className="mb-3 text-sm font-extrabold text-[var(--theme-heading)]">Assessment pipeline</h2>
+            <h2 className="mb-3 text-base font-extrabold text-[var(--theme-heading)]">Assessment pipeline</h2>
             {summary.totalSessions ? (
               <>
                 <PipelineBar segments={segments} />
@@ -205,7 +205,7 @@ function Panel({ children }: { children: React.ReactNode }) {
 function PanelHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="text-sm font-extrabold text-[var(--theme-heading)]">{title}</h2>
+      <h2 className="text-base font-extrabold text-[var(--theme-heading)]">{title}</h2>
       {action}
     </div>
   );
@@ -239,7 +239,7 @@ function AttentionRow({
         <Icon name={icon} size={15} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-[var(--theme-heading)]">{label}</span>
+        <span className="block truncate text-xs font-bold text-[var(--theme-heading)]">{label}</span>
         <span className="mt-0.5 block truncate text-xs text-[var(--theme-muted)]">{note}</span>
       </span>
       <span
@@ -262,7 +262,7 @@ function UpcomingList({ items }: { items: UpcomingAssessment[] }) {
             <Icon name={item.status === "in_progress" ? "clock" : "calendar"} size={16} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
+            <span className="block truncate text-xs font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
             <span className="mt-0.5 block truncate text-xs text-[var(--theme-muted)]">{item.targetRole}</span>
           </span>
           <span className="shrink-0 text-right">
@@ -284,7 +284,7 @@ function ReadyReportList({ items }: { items: ActivityItem[] }) {
             <Icon name="report" size={16} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
+            <span className="block truncate text-xs font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
             <span className="mt-0.5 block truncate text-xs text-[var(--theme-muted)]">{item.assessmentName}</span>
           </span>
           <span className="shrink-0 text-xs font-medium text-[var(--theme-faint)]">{formatRelative(item.createdAt)}</span>
@@ -294,18 +294,66 @@ function ReadyReportList({ items }: { items: ActivityItem[] }) {
   );
 }
 
+const ACTIVITY_ICON: Record<SessionStatus, "check" | "clock" | "calendar"> = {
+  completed: "check",
+  expired: "clock",
+  in_progress: "clock",
+  not_started: "calendar",
+};
+
+/**
+ * A feed, so the timestamp sits on the same line as the message rather than
+ * stacked beneath it — that filled the dead horizontal space at wide widths and
+ * lets the eye scan the times down a single edge. Dots reuse the pipeline's
+ * state colours so "green" means the same thing on every screen.
+ */
 function ActivityList({ items }: { items: ActivityItem[] }) {
+  /* Two independent lists rather than one row-major grid. The gutter and the
+     per-row rules make this read as two stacked lists, so it has to fill that
+     way too — `grid-cols-2` fills left-to-right, which parked the second-newest
+     update at the top of the *right* column, where nobody scanning a feed
+     called "recent" thinks to look. */
+  const half = Math.ceil(items.length / 2);
+  const columns = [
+    { key: "left", rows: items.slice(0, half) },
+    { key: "right", rows: items.slice(half) },
+  ];
   return (
-    <div className="grid gap-x-5 sm:grid-cols-2">
-      {items.map((item) => (
-        <div className="flex items-start gap-3 border-b border-[var(--theme-border)] py-3" key={item.id}>
-          <span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-[8px] ${item.status === "completed" ? "bg-emerald-50 text-emerald-600" : "bg-[var(--theme-panel-soft)] text-[var(--color-primary-700)]"}`}>
-            <Icon name={item.status === "completed" ? "check" : "clock"} size={14} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-[var(--theme-heading)]">{item.message}</p>
-            <p className="mt-1 text-xs text-[var(--theme-faint)]">{formatRelative(item.createdAt)}</p>
-          </div>
+    <div className="grid gap-x-8 sm:grid-cols-2">
+      {columns.map((column) => (
+        /* divide-y, not `border-b ... last:border-0`: `last:` matched only the
+           final cell of the whole grid, so the bottom-left row kept a rule that
+           ran into nothing. Dividing per column also ends each list cleanly. */
+        <div className="divide-y divide-[var(--theme-border)]" key={column.key}>
+          {column.rows.map((item) => (
+            <Link
+              className="-mx-2 flex items-center gap-2.5 rounded-[6px] px-2 py-2.5 transition-colors hover:bg-[var(--theme-panel-soft)]"
+              href={`/candidates/${item.sessionId}`}
+              key={item.id}
+            >
+              <span
+                className="flex size-6 shrink-0 items-center justify-center rounded-full"
+                style={{ background: `color-mix(in srgb, ${STATUS_META[item.status].color} 18%, transparent)`, color: STATUS_META[item.status].color }}
+              >
+                <Icon name={ACTIVITY_ICON[item.status]} size={12} />
+              </span>
+              {/* Composed from the parts rather than the server's sentence, which
+                  repeats "<name> reached the expiry date for <assessment>" on every
+                  row and pushes the useful words off the end. */}
+              <p className="min-w-0 flex-1 truncate text-sm" title={item.message}>
+                <span className="font-bold text-[var(--theme-heading)]">{item.candidateName}</span>
+                <span className="text-[var(--theme-muted)]"> · {item.assessmentName}</span>
+              </p>
+              {/* Text stays in text tokens; the dot carries the colour. The state
+                  hues land between 3.5:1 and 5.8:1 on the panel depending on the
+                  theme, so colouring the label would fail AA for in_progress on
+                  light and not_started on dark. */}
+              <span className="shrink-0 text-xs tabular-nums text-[var(--theme-muted)]">
+                {STATUS_META[item.status].label}
+                <span className="text-[var(--theme-faint)]"> · {formatRelative(item.createdAt)}</span>
+              </span>
+            </Link>
+          ))}
         </div>
       ))}
     </div>

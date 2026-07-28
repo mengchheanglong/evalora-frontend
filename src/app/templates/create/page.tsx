@@ -233,21 +233,21 @@ export default function CreateTemplatePage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Link className="font-semibold hover:text-gray-900" href="/templates">Templates</Link>
-              <Icon className="rotate-180 text-gray-400" name="chevron" size={12} />
-              <span className="font-semibold text-gray-900">Create from scratch</span>
+            <div className="flex items-center gap-2 text-sm text-[var(--theme-muted)]">
+              <Link className="font-semibold hover:text-[var(--theme-heading)]" href="/templates">Templates</Link>
+              <Icon className="rotate-180 text-[var(--theme-faint)]" name="chevron" size={12} />
+              <span className="font-semibold text-[var(--theme-heading)]">Create from scratch</span>
             </div>
-            <h1 className="mt-2 text-3xl font-bold text-gray-900">Create Assessment Template</h1>
-            <p className="mt-1 text-gray-500">Define the assessment, build modules and questions, then save to your workspace.</p>
+            <h1 className="mt-2 text-3xl font-bold text-[var(--theme-heading)]">Create Assessment Template</h1>
+            <p className="mt-1 text-[var(--theme-muted)]">Define the assessment, build modules and questions, then save to your workspace.</p>
           </div>
-          <Link className="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50" href="/templates">
+          <Link className="inline-flex h-10 items-center rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-4 text-sm font-medium text-[var(--theme-text)] hover:bg-[var(--theme-panel-soft)]" href="/templates">
             Cancel
           </Link>
         </div>
 
         {/* Stepper */}
-        <div className="rounded-xl border border-gray-200 bg-white p-2">
+        <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-2">
           <ol className="grid grid-cols-3 gap-2">
             <StepButton active={step === 1} done={step > 1} number={1} onClick={() => goToStep(1)} subtitle="Name, role, settings" title="Basics" />
             <StepButton active={step === 2} done={step > 2} number={2} onClick={() => goToStep(2)} subtitle="Build the assessment" title="Modules & Questions" />
@@ -267,7 +267,7 @@ export default function CreateTemplatePage() {
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Template name" required>
           <input 
-            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            className="block w-full rounded-lg border border-[var(--theme-border-strong)] bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-[var(--theme-panel)]" 
             onChange={(e) => setTitle(e.target.value)} 
             placeholder="e.g. Backend Engineer Screen" 
             value={title} 
@@ -275,7 +275,7 @@ export default function CreateTemplatePage() {
         </Field>
         <Field label="Target role" required>
           <input 
-            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            className="block w-full rounded-lg border border-[var(--theme-border-strong)] bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-[var(--theme-panel)]" 
             onChange={(e) => setRoleType(e.target.value)} 
             placeholder="e.g. Backend Engineer" 
             value={roleType} 
@@ -283,7 +283,7 @@ export default function CreateTemplatePage() {
         </Field>
         <Field label="Experience level">
           <select 
-            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            className="block w-full rounded-lg border border-[var(--theme-border-strong)] bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-[var(--theme-panel)]" 
             onChange={(e) => setExperienceLevel(e.target.value)} 
             value={experienceLevel}
           >
@@ -296,7 +296,7 @@ export default function CreateTemplatePage() {
         </Field>
         <Field label="Time limit (minutes)">
           <input 
-            className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+            className="block w-full rounded-lg border border-[var(--theme-border-strong)] bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-[var(--theme-panel)]" 
             min={5} 
             onChange={(e) => setTimeLimitMin(e.target.value)} 
             type="number" 
@@ -307,7 +307,7 @@ export default function CreateTemplatePage() {
         <div className="sm:col-span-2">
           <Field label="Pass score (1–5 scale)">
             <input 
-              className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+              className="block w-full rounded-lg border border-[var(--theme-border-strong)] bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-[var(--theme-panel)]" 
               max={5} 
               min={1} 
               onChange={(e) => setPassScore(e.target.value)} 
@@ -321,7 +321,7 @@ export default function CreateTemplatePage() {
         <div className="sm:col-span-2">
           <Field label="Description">
             <textarea 
-              className="block w-full rounded-lg border border-gray-300 bg-sky-50 px-3 py-2.5 text-sm leading-6 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-white" 
+              className="block w-full rounded-lg border border-[var(--theme-border-strong)] bg-sky-50 px-3 py-2.5 text-sm leading-6 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-[var(--theme-panel)]" 
               onChange={(e) => setDescription(e.target.value)} 
               placeholder="What does this assessment measure? Who is it for?" 
               rows={3} 
@@ -354,8 +354,8 @@ export default function CreateTemplatePage() {
                           <Icon name={starter.icon} size={18} />
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-semibold text-gray-900">{starter.title}</p>
-                          <p className="text-xs text-gray-500">{starter.description}</p>
+                          <p className="text-sm font-semibold text-[var(--theme-heading)]">{starter.title}</p>
+                          <p className="text-xs text-[var(--theme-muted)]">{starter.description}</p>
                         </div>
                       </button>
                     ))}
@@ -364,27 +364,27 @@ export default function CreateTemplatePage() {
 
                 <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
                   {/* Module List Sidebar */}
-                  <aside className="rounded-xl border border-gray-200 bg-white p-3">
+                  <aside className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-3">
                     <div className="mb-3 flex items-center justify-between px-2">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Modules</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--theme-faint)]">Modules</p>
                       <button className="text-xs font-semibold text-sky-600 hover:underline" onClick={() => addModule()} type="button">+ Add</button>
                     </div>
                     {modules.length === 0 ? (
-                      <p className="px-2 py-6 text-center text-sm text-gray-500">No modules yet</p>
+                      <p className="px-2 py-6 text-center text-sm text-[var(--theme-muted)]">No modules yet</p>
                     ) : (
                       <ul className="space-y-1">
                         {modules.map((module, index) => (
                           <li key={module.key}>
                             <button
-                              className={`w-full rounded-lg px-3 py-2.5 text-left transition ${activeModuleKey === module.key ? "bg-sky-50 ring-1 ring-sky-200" : "hover:bg-gray-50"}`}
+                              className={`w-full rounded-lg px-3 py-2.5 text-left transition ${activeModuleKey === module.key ? "bg-sky-50 ring-1 ring-sky-200" : "hover:bg-[var(--theme-panel-soft)]"}`}
                               onClick={() => { setActiveModuleKey(module.key); document.getElementById(`module-${module.key}`)?.scrollIntoView({ behavior: "smooth" }); }}
                               type="button"
                             >
                               <div className="flex items-center gap-2">
-                                <span className="flex size-6 items-center justify-center rounded bg-gray-100 text-xs font-bold text-gray-600">M{index + 1}</span>
-                                <span className="flex-1 truncate text-sm font-semibold text-gray-900">{module.title || "Untitled"}</span>
+                                <span className="flex size-6 items-center justify-center rounded bg-[var(--theme-panel-soft)] text-xs font-bold text-[var(--theme-muted)]">M{index + 1}</span>
+                                <span className="flex-1 truncate text-sm font-semibold text-[var(--theme-heading)]">{module.title || "Untitled"}</span>
                               </div>
-                              <p className="mt-1 text-xs text-gray-500">{module.questions.length} questions</p>
+                              <p className="mt-1 text-xs text-[var(--theme-muted)]">{module.questions.length} questions</p>
                             </button>
                           </li>
                         ))}
@@ -446,25 +446,25 @@ export default function CreateTemplatePage() {
                 </SectionCard>
 
                 {modules.map((module, index) => (
-                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white" key={module.key}>
-                    <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Module {index + 1}</p>
-                      <h3 className="mt-1 text-lg font-bold text-gray-900">{module.title}</h3>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500">
-                        <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium ring-1 ring-gray-200">{module.type.replaceAll("_", " ")}</span>
+                  <div className="overflow-hidden rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)]" key={module.key}>
+                    <div className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-6 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--theme-faint)]">Module {index + 1}</p>
+                      <h3 className="mt-1 text-lg font-bold text-[var(--theme-heading)]">{module.title}</h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--theme-muted)]">
+                        <span className="rounded-full bg-[var(--theme-panel)] px-2.5 py-0.5 text-xs font-medium ring-1 ring-gray-200">{module.type.replaceAll("_", " ")}</span>
                         <span>Weight: {module.weight}</span>
                         <span>·</span>
                         <span>{module.questions.length} questions</span>
                       </div>
                     </div>
-                    <ol className="divide-y divide-gray-100">
+                    <ol className="divide-y divide-[var(--theme-border)]">
                       {module.questions.map((question, qIndex) => (
                         <li className="px-6 py-4" key={question.key}>
                           <div className="mb-2 flex items-center gap-2">
-                            <span className="flex size-6 items-center justify-center rounded bg-gray-900 text-xs font-bold text-white">{qIndex + 1}</span>
+                            <span className="flex size-6 items-center justify-center rounded bg-[var(--color-primary-600)] text-xs font-bold text-white">{qIndex + 1}</span>
                             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">{question.questionType.replaceAll("_", " ")}</span>
                           </div>
-                          <p className="text-sm font-semibold leading-6 text-gray-900">{question.questionText}</p>
+                          <p className="text-sm font-semibold leading-6 text-[var(--theme-heading)]">{question.questionText}</p>
                         </li>
                       ))}
                     </ol>
@@ -483,18 +483,18 @@ export default function CreateTemplatePage() {
 
           {/* Sidebar */}
           <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Live Summary</p>
+            <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--theme-faint)]">Live Summary</p>
               <div className="mt-4 flex items-start gap-3">
                 <div className="flex size-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
                   <Icon name="clipboard" size={18} />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-gray-900">{title.trim() || "Untitled template"}</p>
+                  <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{title.trim() || "Untitled template"}</p>
                   <p className="text-xs text-sky-600">{roleType.trim() || "No role yet"}</p>
                 </div>
               </div>
-              <dl className="mt-5 space-y-3 border-t border-gray-100 pt-4 text-sm">
+              <dl className="mt-5 space-y-3 border-t border-[var(--theme-border)] pt-4 text-sm">
                 <SummaryRow label="Current step" value={`${step} of 3`} />
                 <SummaryRow label="Time limit" value={timeLimitMin ? `${timeLimitMin} min` : "—"} />
                 <SummaryRow label="Pass score" value={passScore || "—"} />
@@ -503,9 +503,9 @@ export default function CreateTemplatePage() {
               </dl>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <p className="text-sm font-bold text-gray-900">Tips</p>
-              <ul className="mt-3 space-y-3 text-sm text-gray-600">
+            <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-6">
+              <p className="text-sm font-bold text-[var(--theme-heading)]">Tips</p>
+              <ul className="mt-3 space-y-3 text-sm text-[var(--theme-muted)]">
                 <li className="flex gap-2"><Icon className="mt-0.5 shrink-0 text-sky-600" name="check" size={14} /> Keep 1–2 practical modules for short screens</li>
                 <li className="flex gap-2"><Icon className="mt-0.5 shrink-0 text-sky-600" name="check" size={14} /> Write questions candidates will actually see</li>
                 <li className="flex gap-2"><Icon className="mt-0.5 shrink-0 text-sky-600" name="check" size={14} /> You can edit everything after creating</li>
@@ -536,36 +536,54 @@ export default function CreateTemplatePage() {
 // Helper Components
 function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6">
+    <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-6">
       <div className="mb-6">
-        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-        {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+        <h2 className="text-lg font-bold text-[var(--theme-heading)]">{title}</h2>
+        {description && <p className="mt-1 text-sm text-[var(--theme-muted)]">{description}</p>}
       </div>
       {children}
     </div>
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+/** Sentence case, not uppercase — ordinary labels should not shout over the
+ *  inputs they describe. `hint` carries the format note off the label itself. */
+function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">
-        {label}{required && <span className="text-rose-500"> *</span>}
+      <span className="mb-1.5 block text-xs font-semibold text-[var(--theme-text)]">
+        {label}{required && <span className="text-[var(--color-status-critical)]"> *</span>}
+        {hint ? <span className="ml-1.5 font-normal text-[var(--theme-faint)]">{hint}</span> : null}
       </span>
       {children}
     </label>
   );
 }
 
+function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      aria-label={label}
+      className="inline-flex size-7 items-center justify-center rounded-lg text-sm font-bold text-[var(--theme-text)] transition-colors hover:bg-[var(--theme-panel)] hover:text-[var(--theme-heading)] disabled:pointer-events-none disabled:opacity-25"
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
 function StepButton({ number, title, subtitle, active, done, onClick }: { number: number; title: string; subtitle: string; active: boolean; done: boolean; onClick: () => void }) {
   return (
-    <button className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition ${active ? "bg-sky-500 text-white" : done ? "bg-sky-50 text-sky-900" : "hover:bg-gray-50"}`} onClick={onClick} type="button">
-      <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${active ? "bg-white text-sky-600" : done ? "bg-sky-500 text-white" : "bg-white text-gray-500 ring-1 ring-gray-200"}`}>
+    <button className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition ${active ? "bg-sky-500 text-white" : done ? "bg-sky-50 text-sky-900" : "hover:bg-[var(--theme-panel-soft)]"}`} onClick={onClick} type="button">
+      <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${active ? "bg-[var(--theme-panel)] text-sky-600" : done ? "bg-sky-500 text-white" : "bg-[var(--theme-panel)] text-[var(--theme-muted)] ring-1 ring-gray-200"}`}>
         {done && !active ? "✓" : number}
       </span>
       <div>
-        <p className={`text-sm font-bold ${active ? "text-white" : "text-gray-900"}`}>{title}</p>
-        <p className={`text-xs ${active ? "text-white/80" : "text-gray-500"}`}>{subtitle}</p>
+        <p className={`text-sm font-bold ${active ? "text-white" : "text-[var(--theme-heading)]"}`}>{title}</p>
+        <p className={`text-xs ${active ? "text-white/80" : "text-[var(--theme-muted)]"}`}>{subtitle}</p>
       </div>
     </button>
   );
@@ -577,27 +595,27 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
   onRemoveQuestion: (qk: string) => void; onMove: (qk: string, d: -1 | 1) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white" id={`module-${module.key}`}>
-      <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
+    <div className="overflow-hidden rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)]" id={`module-${module.key}`}>
+      <div className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-6 py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Module {index + 1}</span>
-              <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">{module.type.replaceAll("_", " ")}</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--theme-faint)]">Module {index + 1}</span>
+              <span className="rounded-full bg-[var(--theme-panel)] px-2 py-0.5 text-xs font-medium text-[var(--theme-muted)] ring-1 ring-gray-200">{module.type.replaceAll("_", " ")}</span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-xs font-semibold text-gray-600">
+              <label className="block text-xs font-semibold text-[var(--theme-muted)]">
                 Module title
                 <input className="input-field mt-1 font-semibold" onChange={(e) => onUpdate({ title: e.target.value })} placeholder="e.g. Coding challenge" value={module.title} />
               </label>
-              <label className="block text-xs font-semibold text-gray-600">
-                Category <span className="font-normal text-gray-400">— sets how this module is scored</span>
-                <select className="input-field mt-1 bg-white" onChange={(e) => onUpdate({ type: e.target.value as ModuleType })} value={module.type}>
+              <label className="block text-xs font-semibold text-[var(--theme-muted)]">
+                Category <span className="font-normal text-[var(--theme-faint)]">— sets how this module is scored</span>
+                <select className="input-field mt-1 bg-[var(--theme-panel)]" onChange={(e) => onUpdate({ type: e.target.value as ModuleType })} value={module.type}>
                   {MODULE_TYPES.map((t) => <option key={t} value={t}>{t.replaceAll("_", " ")}</option>)}
                 </select>
               </label>
               <input className="input-field sm:col-span-2" onChange={(e) => onUpdate({ description: e.target.value })} placeholder="Module description (optional)" value={module.description} />
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-[var(--theme-muted)] sm:col-span-2">
                 Weight
                 <input className="input-field w-24" min={0} onChange={(e) => onUpdate({ weight: e.target.value })} step="0.05" type="number" value={module.weight} />
               </label>
@@ -605,23 +623,23 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
           </div>
           <div className="flex shrink-0 gap-2">
             <button className="button-secondary h-9" onClick={() => onUpdate({ collapsed: !module.collapsed })} type="button">{module.collapsed ? "Expand" : "Collapse"}</button>
-            <button className="inline-flex h-9 items-center rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50" onClick={onRemove} type="button">Remove</button>
+            <button className="inline-flex h-9 items-center rounded-lg border border-[var(--color-status-critical)]/40 bg-[var(--theme-panel)] px-3 text-xs font-semibold text-[var(--color-status-critical)] hover:bg-[var(--color-status-critical)]/10" onClick={onRemove} type="button">Remove</button>
           </div>
         </div>
       </div>
       {!module.collapsed && (
         <div className="space-y-4 p-6">
           {module.questions.map((question, qIndex) => (
-            <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4" key={question.key}>
+            <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] p-4" key={question.key}>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="flex size-6 items-center justify-center rounded bg-gray-900 text-xs font-bold text-white">{qIndex + 1}</span>
-                  <p className="text-sm font-semibold text-gray-700">Question</p>
+                  <span className="flex size-6 items-center justify-center rounded bg-[var(--color-primary-600)] text-xs font-bold text-white">{qIndex + 1}</span>
+                  <p className="text-sm font-semibold text-[var(--theme-text)]">Question</p>
                 </div>
-                <div className="flex gap-1.5">
-                  <button className="inline-flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50" disabled={qIndex === 0} onClick={() => onMove(question.key, -1)} type="button">↑</button>
-                  <button className="inline-flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50" disabled={qIndex === module.questions.length - 1} onClick={() => onMove(question.key, 1)} type="button">↓</button>
-                  <button className="inline-flex h-8 items-center rounded-lg border border-rose-200 bg-white px-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50" disabled={module.questions.length <= 1} onClick={() => onRemoveQuestion(question.key)} type="button">Delete</button>
+                <div className="flex items-center gap-1">
+                  <IconButton disabled={qIndex === 0} label="Move question up" onClick={() => onMove(question.key, -1)}>↑</IconButton>
+                  <IconButton disabled={qIndex === module.questions.length - 1} label="Move question down" onClick={() => onMove(question.key, 1)}>↓</IconButton>
+                  <button aria-label={`Delete question ${qIndex + 1}`} className="ml-1 rounded-lg px-2 py-1 text-xs font-bold text-[var(--theme-muted)] transition-colors hover:bg-[var(--color-status-critical)]/12 hover:text-[var(--color-status-critical)] disabled:pointer-events-none disabled:opacity-40" disabled={module.questions.length <= 1} onClick={() => onRemoveQuestion(question.key)} title={module.questions.length <= 1 ? "A module needs at least one question" : "Delete this question"} type="button">Delete</button>
                 </div>
               </div>
               <div className="space-y-4">
@@ -630,11 +648,11 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Question type">
-                    <select className="input-field bg-white" onChange={(e) => onUpdateQuestion(question.key, { questionType: e.target.value as QuestionType })} value={question.questionType}>
+                    <select className="input-field bg-[var(--theme-panel)]" onChange={(e) => onUpdateQuestion(question.key, { questionType: e.target.value as QuestionType })} value={question.questionType}>
                       {QUESTION_TYPES.map((t) => <option key={t} value={t}>{t.replaceAll("_", " ")}</option>)}
                     </select>
                   </Field>
-                  <Field label="Rubric cues (comma-separated)">
+                  <Field hint="separate with commas" label="What to look for">
                     <input className="input-field" onChange={(e) => onUpdateQuestion(question.key, { rubricText: e.target.value })} placeholder="clarity, ownership, impact" value={question.rubricText} />
                   </Field>
                 </div>
@@ -649,19 +667,19 @@ function ModuleCard({ module, index, onUpdate, onRemove, onAdd, onUpdateQuestion
           <button className="button-secondary w-full" onClick={onAdd} type="button"><Icon name="plus" size={14} /> Add question</button>
         </div>
       )}
-      {module.collapsed && <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-3 text-sm text-gray-500">{module.questions.length} question{module.questions.length !== 1 ? "s" : ""} collapsed</div>}
+      {module.collapsed && <div className="border-t border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-6 py-3 text-sm text-[var(--theme-muted)]">{module.questions.length} question{module.questions.length !== 1 ? "s" : ""} collapsed</div>}
     </div>
   );
 }
 
 function EmptyState({ onClick }: { onClick: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-white p-12 text-center">
+    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--theme-border)] bg-[var(--theme-panel)] p-12 text-center">
       <div className="flex size-14 items-center justify-center rounded-full bg-sky-50 text-sky-600">
         <Icon name="plus" size={24} />
       </div>
-      <p className="mt-4 text-lg font-bold text-gray-900">Build your first module</p>
-      <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">Add modules from the quick-start cards above, then write the questions candidates will answer.</p>
+      <p className="mt-4 text-lg font-bold text-[var(--theme-heading)]">Build your first module</p>
+      <p className="mx-auto mt-1 max-w-sm text-sm text-[var(--theme-muted)]">Add modules from the quick-start cards above, then write the questions candidates will answer.</p>
       <button className="button-primary mt-6" onClick={onClick} type="button">Add blank module</button>
     </div>
   );
@@ -669,9 +687,9 @@ function EmptyState({ onClick }: { onClick: () => void }) {
 
 function ReviewItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-gray-50 px-4 py-3">
-      <dt className="text-xs font-semibold uppercase tracking-wider text-gray-400">{label}</dt>
-      <dd className="mt-1 whitespace-pre-wrap text-sm font-semibold text-gray-900">{value}</dd>
+    <div className="rounded-lg bg-[var(--theme-panel-soft)] px-4 py-3">
+      <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--theme-faint)]">{label}</dt>
+      <dd className="mt-1 whitespace-pre-wrap text-sm font-semibold text-[var(--theme-heading)]">{value}</dd>
     </div>
   );
 }
@@ -679,8 +697,8 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <dt className="text-gray-500">{label}</dt>
-      <dd className="font-semibold text-gray-900">{value}</dd>
+      <dt className="text-[var(--theme-muted)]">{label}</dt>
+      <dd className="font-semibold text-[var(--theme-heading)]">{value}</dd>
     </div>
   );
 }
@@ -689,10 +707,10 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 function getModuleColor(type: ModuleType): string {
   const colors: Record<ModuleType, string> = {
     behavioral: "bg-orange-100 text-orange-600", coding: "bg-indigo-100 text-indigo-600", communication: "bg-sky-100 text-sky-600",
-    leadership: "bg-blue-100 text-blue-600", problem_solving: "bg-purple-100 text-purple-600", ai_interview: "bg-emerald-100 text-emerald-600",
-    work_style: "bg-gray-100 text-gray-600", debugging: "bg-teal-100 text-teal-600",
+    leadership: "bg-blue-100 text-blue-600", problem_solving: "bg-purple-100 text-purple-600", ai_interview: "bg-[var(--color-status-good)]/15 text-[var(--color-status-good)]",
+    work_style: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]", debugging: "bg-teal-100 text-teal-600",
   };
-  return colors[type] || "bg-gray-100 text-gray-600";
+  return colors[type] || "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]";
 }
 
 function emptyQuestion(type: QuestionType = "short_answer"): EditorQuestion {

@@ -109,7 +109,7 @@ export function AppShell({
   }, [accountOpen]);
 
   if (status !== "authenticated" || !user) {
-    return <main className="min-h-screen bg-[#f7f8fa]"><PageLoader label="Opening your workspace" /></main>;
+    return <main className="min-h-screen bg-[var(--theme-bg)]"><PageLoader label="Opening your workspace" /></main>;
   }
 
   async function handleLogout() {
@@ -123,16 +123,16 @@ export function AppShell({
   const avatarLabel = orgInitials(displayOrgName);
 
   return (
-    <main className={`min-h-screen bg-[#f7f8fa] text-[#171b24] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_1fr]"}`}>
+    <main className={`min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_1fr]"}`}>
       {!hideSidebar ? (
         <>
-          <aside className="sticky top-0 hidden h-screen border-r border-[#e5e7eb] bg-white lg:flex lg:flex-col">
+          <aside className="sticky top-0 hidden h-screen border-r border-[var(--theme-border)] bg-[var(--theme-panel)] lg:flex lg:flex-col">
             <Sidebar active={active} />
           </aside>
           {mobileOpen ? (
             <div className="fixed inset-0 z-50 lg:hidden">
-              <button aria-label="Close navigation" className="absolute inset-0 bg-neutral-950/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} type="button" />
-              <aside className="relative h-full w-[284px] border-r border-neutral-200 bg-white shadow-2xl">
+              <button aria-label="Close navigation" className="absolute inset-0 bg-[var(--theme-heading)]/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} type="button" />
+              <aside className="relative h-full w-[284px] border-r border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-2xl">
                 <Sidebar active={active} onNavigate={() => setMobileOpen(false)} />
               </aside>
             </div>
@@ -141,10 +141,10 @@ export function AppShell({
       ) : null}
 
       <section className="min-w-0">
-        <header className="sticky top-0 z-30 border-b border-[#e5e7eb] bg-white/95 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-[var(--theme-border)] bg-[var(--theme-panel)] backdrop-blur-xl">
           <div className="flex h-[68px] items-center gap-3 px-4 sm:px-6 xl:px-8">
             {!hideSidebar ? (
-              <button aria-label="Open navigation" className="flex size-9 items-center justify-center rounded-[6px] border border-neutral-200 text-neutral-700 lg:hidden" onClick={() => setMobileOpen(true)} type="button">
+              <button aria-label="Open navigation" className="flex size-9 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-text)] lg:hidden" onClick={() => setMobileOpen(true)} type="button">
                 <Icon name="menu" size={19} />
               </button>
             ) : null}
@@ -161,14 +161,14 @@ export function AppShell({
                   aria-expanded={accountOpen}
                   aria-haspopup="menu"
                   aria-label="Organization account menu"
-                  className="flex size-10 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white shadow-sm transition hover:ring-2 hover:ring-primary-200"
+                  className="flex size-10 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-sm transition hover:ring-2 hover:ring-primary-200"
                   onClick={() => setAccountOpen((open) => !open)}
                   type="button"
                 >
                   {orgLogo ? (
                     <img alt="" className="size-full object-cover" src={orgLogo} />
                   ) : (
-                    <span className="flex size-full items-center justify-center bg-neutral-950 text-xs font-black text-white">
+                    <span className="flex size-full items-center justify-center bg-[var(--theme-heading)] text-xs font-black text-white">
                       {avatarLabel}
                     </span>
                   )}
@@ -176,31 +176,31 @@ export function AppShell({
 
                 {accountOpen ? (
                   <div
-                    className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-[12px] border border-neutral-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+                    className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-[12px] border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
                     role="menu"
                   >
-                    <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-4">
+                    <div className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-4 py-4">
                       <div className="flex items-center gap-3">
-                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white">
+                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)]">
                           {orgLogo ? (
                             <img alt="" className="size-full object-cover" src={orgLogo} />
                           ) : (
-                            <span className="flex size-full items-center justify-center bg-neutral-950 text-sm font-black text-white">
+                            <span className="flex size-full items-center justify-center bg-[var(--theme-heading)] text-sm font-black text-white">
                               {avatarLabel}
                             </span>
                           )}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-neutral-900">{displayOrgName}</p>
-                          <p className="mt-0.5 truncate text-xs text-neutral-500">{user.email}</p>
-                          <p className="mt-0.5 text-xs font-semibold capitalize text-neutral-400">{user.role === "organization" ? "Workspace owner" : user.role}</p>
+                          <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{displayOrgName}</p>
+                          <p className="mt-0.5 truncate text-xs text-[var(--theme-muted)]">{user.email}</p>
+                          <p className="mt-0.5 text-xs font-semibold capitalize text-[var(--theme-faint)]">{user.role === "organization" ? "Workspace owner" : user.role}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="p-1.5">
                       <button
-                        className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                        className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
                         onClick={() => void handleLogout()}
                         role="menuitem"
                         type="button"
@@ -221,17 +221,17 @@ export function AppShell({
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
               <div>
                 {breadcrumbs?.length ? (
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-500">
+                  <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--theme-muted)]">
                     {breadcrumbs.map((crumb, index) => (
                       <span className="flex items-center gap-2" key={`${crumb.label}-${index}`}>
-                        {crumb.href ? <Link className="hover:text-neutral-900" href={crumb.href}>{crumb.label}</Link> : <span className="text-neutral-800">{crumb.label}</span>}
-                        {index < breadcrumbs.length - 1 ? <Icon className="-rotate-90 text-neutral-300" name="chevron" size={12} /> : null}
+                        {crumb.href ? <Link className="hover:text-[var(--theme-heading)]" href={crumb.href}>{crumb.label}</Link> : <span className="text-[var(--theme-text)]">{crumb.label}</span>}
+                        {index < breadcrumbs.length - 1 ? <Icon className="-rotate-90 text-[var(--theme-faint)]" name="chevron" size={12} /> : null}
                       </span>
                     ))}
                   </div>
                 ) : null}
-                <h1 className="text-2xl font-extrabold leading-tight text-[#151922] sm:text-3xl">{title}</h1>
-                {description ? <p className="mt-2 max-w-3xl text-sm text-neutral-600">{description}</p> : null}
+                <h1 className="text-2xl font-extrabold leading-tight text-[var(--theme-heading)] sm:text-3xl">{title}</h1>
+                {description ? <p className="mt-2 max-w-3xl text-sm leading-5 text-[var(--theme-muted)] sm:text-sm">{description}</p> : null}
               </div>
             </div>
           ) : null}
@@ -252,11 +252,11 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
         <div className="space-y-2">
           {navigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
-        <p className="mt-7 px-4 text-xs font-bold uppercase text-neutral-500">Workspace</p>
+        <p className="mt-7 px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">Workspace</p>
         <div className="mt-3 space-y-2">
           {workspaceNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
-        <p className="mt-7 px-4 text-xs font-bold uppercase text-neutral-500">Account</p>
+        <p className="mt-7 px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">Account</p>
         <div className="mt-3 space-y-2">
           {sharedSecondaryNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
@@ -267,8 +267,8 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
 
 function SidebarLink({ active, item, onNavigate }: { active: boolean; item: { label: string; href: string; icon: IconName }; onNavigate?: () => void }) {
   return (
-    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-sm font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"}`} href={item.href} onClick={onNavigate} onFocus={() => prefetchWorkspacePage(item.href)} onMouseEnter={() => prefetchWorkspacePage(item.href)}>
-      <Icon className={active ? "text-[var(--theme-active-text)]" : "text-neutral-950"} name={item.icon} size={21} />
+    <Link className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-sm font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-[var(--theme-muted)] hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"}`} href={item.href} onClick={onNavigate} onFocus={() => prefetchWorkspacePage(item.href)} onMouseEnter={() => prefetchWorkspacePage(item.href)}>
+      <Icon className={active ? "text-[var(--theme-active-text)]" : "text-[var(--theme-heading)]"} name={item.icon} size={21} />
       <span>{item.label}</span>
     </Link>
   );
