@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, InlineAlert } from "@/components/ui-states";
+import { useInterviewSocket } from "@/components/use-interview-socket";
 import { apiGet, getErrorMessage } from "@/lib/api";
 import type {
   JsonValue,
@@ -14,6 +15,8 @@ import type {
   TranscriptSourceCounts,
   TranscriptTruncation,
 } from "@/lib/types";
+
+const REFRESH_DEBOUNCE_MS = 600;
 
 type Props = {
   sessionId: string;
@@ -69,6 +72,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
   const [error, setError] = useState("");
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  const refreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -78,7 +82,9 @@ export function SessionTranscriptView({ sessionId }: Props) {
     };
   }, []);
 
-  const load = useCallback(async () => {
+  /** `background` marks a live-channel refresh: the reviewer keeps reading what is
+   *  already on screen instead of the page collapsing back to a loading line. */
+  const load = useCallback(async (background = false) => {
     // Only the newest request may write state: a reviewer who switches session
     // fast would otherwise see the previous candidate's transcript land here.
     controller.current?.abort();
@@ -86,7 +92,7 @@ export function SessionTranscriptView({ sessionId }: Props) {
     controller.current = abort;
     const current = () => mounted.current && !abort.signal.aborted && controller.current === abort;
 
-    setLoading(true);
+    if (!background) setLoading(true);
     try {
       const loaded = await apiGet<SessionTranscript>(`/sessions/${encodeURIComponent(sessionId)}/transcript`, {
         signal: abort.signal,
@@ -96,7 +102,9 @@ export function SessionTranscriptView({ sessionId }: Props) {
       setError("");
     } catch (requestError) {
       if (!current()) return;
-      setError(getErrorMessage(requestError, "Unable to load the transcript for this session."));
+      // A failed background refresh must never replace a transcript the reviewer is
+      // reading with an error screen — the next event, or a reconnect, retries it.
+      if (!background) setError(getErrorMessage(requestError, "Unable to load the transcript for this session."));
     } finally {
       if (current()) setLoading(false);
       if (controller.current === abort) controller.current = null;
@@ -104,6 +112,37 @@ export function SessionTranscriptView({ sessionId }: Props) {
   }, [sessionId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  /**
+   * Bursts are normal — sending a question, the candidate answering it, and the
+   * session status changing all land within a second of each other. The first
+   * event books one refetch and the rest of the burst rides on it, so the channel
+   * can never turn into a request storm.
+   */
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimer.current !== null) return;
+    refreshTimer.current = window.setTimeout(() => {
+      refreshTimer.current = null;
+      void load(true);
+    }, REFRESH_DEBOUNCE_MS);
+  }, [load]);
+
+  // A booked refresh belongs to the session that booked it: switching session (or
+  // unmounting) must drop it rather than let it fetch under the new transcript.
+  useEffect(() => () => {
+    if (refreshTimer.current === null) return;
+    window.clearTimeout(refreshTimer.current);
+    refreshTimer.current = null;
+  }, [scheduleRefresh]);
+
+  // REST stays authoritative; the channel only says when the record has moved on.
+  // Every event the hook forwards — question sent, answered or cancelled, session
+  // updated, and the snapshot replayed after a reconnect — can change a line here.
+  useInterviewSocket({
+    sessionId,
+    enabled: transcript?.status === "in_progress",
+    onEvent: scheduleRefresh,
+  });
 
   const groups = useMemo(() => groupByModule(transcript?.entries ?? []), [transcript]);
   const truncation = useMemo(() => readTruncation(transcript), [transcript]);

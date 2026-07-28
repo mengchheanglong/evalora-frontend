@@ -16,6 +16,7 @@ type View = "loading" | "welcome" | "assessment" | "review" | "interviewer" | "c
 type SaveState = "saved" | "saving" | "error";
 type Answer = { text: string; json?: JsonValue };
 type FollowUp = { question: string; answer: string };
+type AiConversationMessage = { id: string; role: string; content: string; createdAt: string; basedOnQuestion?: string };
 type AiStream = ReturnType<typeof useAiStream>;
 
 export default function CandidateAssessmentPage() {
@@ -71,6 +72,10 @@ export default function CandidateAssessmentPage() {
       const nextAnswers: Record<string, Answer> = {};
       const nextFollowUps: Record<string, FollowUp> = {};
       const nextAdaptiveAnswers = new Map<string, Answer>();
+      // Follow-up answers held beside the answer rather than inside it. The question
+      // they answer is not stored on the response at all, so it is read back below
+      // from the AI conversation that asked it.
+      const savedFollowUpAnswers = new Map<string, string>();
       for (const response of savedResponses) {
         if (!response.questionId) {
           const adaptive = parseAdaptiveSavedResponse(response);
@@ -79,7 +84,17 @@ export default function CandidateAssessmentPage() {
         }
         const parsed = parseSavedResponse(response.responseText);
         nextAnswers[response.questionId] = { text: parsed.answer, json: response.responseJson };
+        const followUpAnswer = followUpAnswerFromJson(response.responseJson);
+        // Responses saved before the split still carry the whole exchange as text.
         if (parsed.followUp) nextFollowUps[response.questionId] = parsed.followUp;
+        else if (followUpAnswer) savedFollowUpAnswers.set(response.questionId, followUpAnswer);
+      }
+      if (savedFollowUpAnswers.size) {
+        const probeByQuestion = await aiFollowUpQuestions(accessCode);
+        for (const [questionId, answer] of savedFollowUpAnswers) {
+          const question = probeByQuestion.get(questionTextById(nextSession.template.modules, questionId) ?? "");
+          if (question) nextFollowUps[questionId] = { question, answer };
+        }
       }
       savedAdaptiveAnswers.current = nextAdaptiveAnswers;
       let restoredAdaptiveQuestions: Question[] | null = null;
@@ -267,8 +282,10 @@ export default function CandidateAssessmentPage() {
           const followUp = followUps[questionId];
           await apiPost<CandidateResponse>(`/responses/access/${encodeURIComponent(accessCode)}`, {
             questionId,
-            responseText: formatResponseForSave(answer.text, followUp),
-            responseJson: answer.json,
+            // Only what the candidate typed for this question. The AI's wording never
+            // joins it: a reader of the column cannot tell the two apart afterwards.
+            responseText: answer.text,
+            responseJson: withFollowUpAnswer(answer.json, followUp),
           });
         }
         if ((answerRevisions.current.get(questionId) ?? 0) === revision) dirtyQuestions.current.delete(questionId);
@@ -835,7 +852,30 @@ function questionOptions(value: JsonValue | undefined): string[] { if (Array.isA
 function ChoiceInput({ options, value, onChange, disabled }: { options: string[]; value: string; onChange: (value: string) => void; disabled?: boolean }) { return <div className="grid gap-2">{options.map((option) => <label className={`flex items-center gap-3 rounded-[7px] border px-4 py-3 text-[12px] font-semibold transition ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${value === option ? "border-sky-300 bg-sky-50 text-sky-950" : "border-neutral-200 hover:bg-neutral-50"}`} key={option}><input checked={value === option} className="size-4 accent-[#159ac8]" disabled={disabled} name="choice" onChange={() => onChange(option)} type="radio" />{option}</label>)}</div>; }
 function ScaleInput({ value, onChange, disabled }: { value?: number; onChange: (value: number) => void; disabled?: boolean }) { return <div><div className="grid grid-cols-5 gap-2">{[1, 2, 3, 4, 5].map((item) => <button className={`h-12 rounded-[6px] border text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${value === item ? "border-sky-400 bg-sky-500 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`} disabled={disabled} key={item} onClick={() => onChange(item)} type="button">{item}</button>)}</div><div className="mt-2 flex justify-between text-[10px] text-neutral-400"><span>Strongly disagree</span><span>Strongly agree</span></div></div>; }
 function numericAnswer(answer?: Answer) { const value = Number(answer?.json && typeof answer.json === "object" && !Array.isArray(answer.json) ? (answer.json as Record<string, JsonValue>).value : answer?.text); return Number.isFinite(value) ? value : undefined; }
-function formatResponseForSave(answer: string, followUp?: FollowUp) { return followUp ? `${answer.trim()}\n\nAI follow-up: ${followUp.question.trim()}\nFollow-up response: ${followUp.answer.trim()}` : answer; }
+/** Carries the candidate's follow-up answer beside their answer instead of inside it.
+ *  The AI's question is deliberately not copied here either: it is already stored as
+ *  the message that asked it, and a copy in a candidate's row reads as their words. */
+function withFollowUpAnswer(json: JsonValue | undefined, followUp?: FollowUp): JsonValue | undefined { const answer = followUp?.answer.trim(); if (!answer) return json; const existing = json && typeof json === "object" && !Array.isArray(json) ? json : undefined; return { ...existing, aiFollowUp: { answer } }; }
+function followUpAnswerFromJson(json: JsonValue | undefined): string | undefined { if (!json || typeof json !== "object" || Array.isArray(json)) return undefined; const followUp = (json as Record<string, JsonValue>).aiFollowUp; if (!followUp || typeof followUp !== "object" || Array.isArray(followUp)) return undefined; const answer = (followUp as Record<string, JsonValue>).answer; return typeof answer === "string" && answer.trim() ? answer : undefined; }
+function questionTextById(modules: AssessmentModule[], questionId: string): string | undefined { return modules.flatMap((module) => module.questions ?? []).find((question) => question.id === questionId)?.questionText; }
+/** The AI probe generated from each answered question, keyed by that question. */
+async function aiFollowUpQuestions(accessCode: string): Promise<Map<string, string>> {
+  const probes = new Map<string, string>();
+  try {
+    const messages = await apiGet<AiConversationMessage[]>(`/ai/access/${encodeURIComponent(accessCode)}/conversation`);
+    // Oldest first, so a question asked twice keeps the probe the candidate last saw.
+    for (const message of messages) {
+      if (message.role !== "assistant" || !message.basedOnQuestion || !message.content.trim()) continue;
+      probes.set(message.basedOnQuestion, message.content.trim());
+    }
+  } catch {
+    // A follow-up is a bonus, never a gate: without the question the candidate is
+    // simply asked a new one, and nothing they already answered is lost.
+  }
+  return probes;
+}
+/** Responses saved before the split glued the whole exchange into one column; they
+ *  are still read back so a candidate mid-session keeps the follow-up they answered. */
 function parseSavedResponse(value: string): { answer: string; followUp?: FollowUp } { const marker = "\n\nAI follow-up: "; const index = value.indexOf(marker); if (index < 0) return { answer: value }; const answer = value.slice(0, index); const remaining = value.slice(index + marker.length); const responseMarker = "\nFollow-up response: "; const responseIndex = remaining.indexOf(responseMarker); return responseIndex < 0 ? { answer } : { answer, followUp: { question: remaining.slice(0, responseIndex), answer: remaining.slice(responseIndex + responseMarker.length) } }; }
 function parseAdaptiveSavedResponse(response: CandidateResponse): { question: string; answer: string } | undefined { const json = response.responseJson; if (!json || typeof json !== "object" || Array.isArray(json)) return undefined; const record = json as Record<string, JsonValue>; if (record.adaptive !== true || typeof record.question !== "string") return undefined; const marker = "\n\nResponse: "; const markerIndex = response.responseText.indexOf(marker); const answer = markerIndex >= 0 ? response.responseText.slice(markerIndex + marker.length).trim() : response.responseText.trim(); return answer ? { question: record.question, answer } : undefined; }
 function firstName(name: string) { return name.trim().split(/\s+/)[0] || "Candidate"; }
