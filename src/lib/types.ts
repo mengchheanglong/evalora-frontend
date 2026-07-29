@@ -19,6 +19,7 @@ export interface AuthUser {
   emailVerified: boolean;
   role: UserRole;
   organizationId?: string;
+  profilePhoto?: string;
 }
 
 /** Workspace organization profile from GET/PUT /organization. */
@@ -124,6 +125,7 @@ export interface WorkspaceMember {
   organizationId?: string;
   createdAt?: string;
   isCurrentUser?: boolean;
+  profilePhoto?: string;
 }
 
 export type InviteStatus = "pending" | "accepted" | "cancelled" | "expired";
@@ -467,7 +469,7 @@ export interface TranscriptEntry {
   liveQuestionText?: string;
   answerText?: string;
   /** Interviewer follow-ups only: the human who asked. */
-  askedBy?: { name: string };
+  askedBy?: { id?: string; name: string };
   askedAt?: string;
   answeredAt?: string;
   /** Interviewer follow-ups only. */

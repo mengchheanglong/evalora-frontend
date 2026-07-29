@@ -12,6 +12,7 @@ import { apiGet } from "@/lib/api";
 import { ORG_LOGO_CHANGED_EVENT, orgInitials, readOrgLogo } from "@/lib/org-logo";
 import {
   readUserProfilePhoto,
+  prepareStoredUserProfilePhoto,
   USER_PROFILE_PHOTO_CHANGED_EVENT,
   userInitials,
 } from "@/lib/user-profile-photo";
@@ -56,7 +57,7 @@ export function AppShell({
   breadcrumbs,
   hideSidebar = false,
 }: AppShellProps) {
-  const { status, user, logout } = useAuth();
+  const { status, user, logout, updateProfile } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -90,8 +91,20 @@ export function AppShell({
 
   useEffect(() => {
     if (!user?.id) return;
-    setProfilePhoto(readUserProfilePhoto(user.id));
-  }, [user?.id]);
+    setProfilePhoto(user.profilePhoto || readUserProfilePhoto(user.id));
+  }, [user?.id, user?.profilePhoto]);
+
+  // Profile photos used to exist only on the uploader's device. When that
+  // interviewer next opens the workspace, migrate the old local copy once so
+  // their teammates can see it too.
+  useEffect(() => {
+    if (!user?.id || user.role !== "interviewer" || user.profilePhoto) return;
+    const legacyPhoto = readUserProfilePhoto(user.id);
+    if (!legacyPhoto) return;
+    void prepareStoredUserProfilePhoto(legacyPhoto)
+      .then((profilePhoto) => updateProfile({ profilePhoto }))
+      .catch(() => undefined);
+  }, [updateProfile, user?.id, user?.profilePhoto, user?.role]);
 
   useEffect(() => {
     function onLogoChange(event: Event) {

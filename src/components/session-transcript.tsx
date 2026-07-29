@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/icons";
+import { useAuth } from "@/components/auth-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ConnectionPill, PresenceChips } from "@/components/realtime-indicators";
 import { EmptyState, ErrorState, InlineAlert } from "@/components/ui-states";
@@ -20,6 +21,10 @@ import type {
 } from "@/lib/types";
 
 const REFRESH_DEBOUNCE_MS = 600;
+// WebSocket events refresh immediately. This modest reconciliation interval is
+// the recovery path for a missed event, a gateway restart, or a browser that
+// briefly suspends its connection while the interviewer keeps the page open.
+const LIVE_RECONCILE_MS = 3_000;
 const QUESTION_MAX = 2_000;
 
 type Props = {
@@ -71,6 +76,7 @@ type Truncation = {
  * the backend confirms nothing was dropped.
  */
 export function SessionTranscriptView({ onStatusChange, sessionId }: Props) {
+  const { user } = useAuth();
   const [transcript, setTranscript] = useState<SessionTranscript | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -149,6 +155,24 @@ export function SessionTranscriptView({ onStatusChange, sessionId }: Props) {
     enabled: transcript?.status === "in_progress",
     onEvent: scheduleRefresh,
   });
+
+  // The socket is the fast path. Keep REST authoritative and reconcile a live
+  // session in the background so the interviewer never has to manually refresh
+  // after an event is missed in transit.
+  useEffect(() => {
+    if (transcript?.status !== "in_progress") return;
+    const reconcile = () => {
+      if (document.visibilityState !== "visible") return;
+      // Do not cancel a socket-triggered refresh that is still in flight.
+      if (!controller.current) void load(true);
+    };
+    const timer = window.setInterval(reconcile, LIVE_RECONCILE_MS);
+    document.addEventListener("visibilitychange", reconcile);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", reconcile);
+    };
+  }, [load, transcript?.status]);
 
   const groups = useMemo(() => groupByModule(transcript?.entries ?? []), [transcript]);
   const truncation = useMemo(() => readTruncation(transcript), [transcript]);
@@ -264,6 +288,7 @@ export function SessionTranscriptView({ onStatusChange, sessionId }: Props) {
                   <TranscriptEntryCard
                     composing={composerFor === entry.id}
                     canManageFollowUps={canManageFollowUps}
+                    currentUserId={user?.id}
                     entry={entry}
                     followUps={followUps}
                     isLive={isLive}
@@ -296,6 +321,7 @@ function TranscriptEntryCard({
   sessionId,
   isLive,
   canManageFollowUps,
+  currentUserId,
   composing,
   onComposerChange,
   onChanged,
@@ -305,6 +331,7 @@ function TranscriptEntryCard({
   sessionId: string;
   isLive: boolean;
   canManageFollowUps: boolean;
+  currentUserId?: string;
   composing: boolean;
   onComposerChange: (open: boolean) => void;
   onChanged: () => Promise<void>;
@@ -320,6 +347,7 @@ function TranscriptEntryCard({
     && Boolean(answer || entry.code)
     && Boolean(entry.questionId)
     && Boolean(entry.moduleId);
+  const canWithdraw = canManageFollowUps && isLive && entry.status === "sent" && entry.askedBy?.id === currentUserId;
 
   async function cancelFollowUp() {
     if (cancelling) return;
@@ -392,6 +420,7 @@ function TranscriptEntryCard({
                 <TranscriptFollowUp
                   entry={followUp}
                   canManageFollowUps={canManageFollowUps}
+                  currentUserId={currentUserId}
                   isLive={isLive}
                   onChanged={onChanged}
                   sessionId={sessionId}
@@ -408,7 +437,7 @@ function TranscriptEntryCard({
         </p>
       )}
       {actionError ? <p className="mt-2 text-xs text-rose-600">{actionError}</p> : null}
-      {canManageFollowUps && isLive && entry.origin === "interviewer_follow_up" && entry.status === "sent" ? (
+      {canWithdraw && entry.origin === "interviewer_follow_up" ? (
         <button
           className="mt-2 text-xs font-semibold text-rose-600 transition hover:underline disabled:opacity-50"
           disabled={cancelling}
@@ -446,18 +475,21 @@ function TranscriptFollowUp({
   sessionId,
   isLive,
   canManageFollowUps,
+  currentUserId,
   onChanged,
 }: {
   entry: TranscriptEntry;
   sessionId: string;
   isLive: boolean;
   canManageFollowUps: boolean;
+  currentUserId?: string;
   onChanged: () => Promise<void>;
 }) {
   const [cancelling, setCancelling] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [error, setError] = useState("");
   const answer = entry.answerText?.trim();
+  const canWithdraw = canManageFollowUps && isLive && entry.status === "sent" && entry.askedBy?.id === currentUserId;
 
   async function cancel() {
     if (cancelling) return;
@@ -497,14 +529,14 @@ function TranscriptFollowUp({
           {answer || "Waiting for the candidate to answer."}
         </p>
       </div>
-      {!entry.isEvidence || (canManageFollowUps && isLive && entry.status === "sent") ? (
+      {!entry.isEvidence || canWithdraw ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           {!entry.isEvidence ? (
             <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--theme-muted)]">
               <Icon name="shield" size={11} /> Not scored as evidence
             </p>
           ) : null}
-          {canManageFollowUps && isLive && entry.status === "sent" ? (
+          {canWithdraw ? (
             <button
               className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-[var(--theme-panel)] px-2.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
               disabled={cancelling}

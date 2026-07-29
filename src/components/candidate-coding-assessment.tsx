@@ -31,6 +31,9 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
   // Each challenge retains an independent draft for every language. Switching
   // runtimes must never reinterpret JavaScript source as Python or overwrite it.
   const [draftsByQuestion, setDraftsByQuestion] = useState<QuestionDrafts>({});
+  // Stdin is part of the candidate's local run workspace, not a hidden test.
+  // Start with the public example but let them try their own values freely.
+  const [runInputByQuestion, setRunInputByQuestion] = useState<Record<string, string>>({});
   // Language is tracked per question so switching challenges keeps each choice.
   const [languageByQuestion, setLanguageByQuestion] = useState<Record<string, CodeLanguage>>({});
   const [results, setResults] = useState<Record<string, CandidateCodeSubmitResult>>({});
@@ -52,6 +55,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
       for (const submission of previous) if (!latestByQuestion.has(submission.questionId)) latestByQuestion.set(submission.questionId, submission);
       const restoredLanguages: Record<string, CodeLanguage> = {};
       const restoredDrafts: QuestionDrafts = {};
+      const restoredRunInputs: Record<string, string> = {};
       for (const question of assigned) {
         const submission = latestByQuestion.get(question.id);
         const language = isCodeLanguage(submission?.language)
@@ -63,10 +67,12 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
         restoredDrafts[question.id] = {
           [language]: submission?.sourceCode ?? starterForQuestion(question, language),
         };
+        restoredRunInputs[question.id] = question.sampleInput;
       }
       setQuestions(assigned);
       setLanguageByQuestion(restoredLanguages);
       setDraftsByQuestion(restoredDrafts);
+      setRunInputByQuestion(restoredRunInputs);
       setResults(Object.fromEntries(Array.from(latestByQuestion.values()).map((submission) => [submission.questionId, {
         submissionId: submission.id,
         sessionId: submission.sessionId,
@@ -95,6 +101,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
   const activeCode = activeQuestion
     ? draftsByQuestion[activeQuestion.id]?.[activeLanguage] ?? starterForQuestion(activeQuestion, activeLanguage)
     : "";
+  const activeRunInput = activeQuestion ? runInputByQuestion[activeQuestion.id] ?? activeQuestion.sampleInput : "";
 
   // Initialize only the newly selected language. Existing drafts in every other
   // runtime remain untouched and are restored when the candidate switches back.
@@ -115,10 +122,10 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
   const allSubmitted = questions.length > 0 && questions.every((question) => results[question.id]);
 
   const output = useMemo(() => {
-    if (!terminal) return { title: "Ready", body: "Run the sample input to inspect output, then submit against hidden test cases.", tone: "text-neutral-400" };
+    if (!terminal) return { title: "Output", body: "Run your code to inspect its output before you submit it.", tone: "text-slate-400" };
     const diagnostics = terminal.compileOutput || terminal.stderr;
     return {
-      title: terminal.status,
+      title: terminal.status === "Accepted" ? "Output" : terminal.status,
       body: diagnostics || terminal.stdout || "Execution finished without console output.",
       tone: terminal.status === "Accepted" ? "text-emerald-400" : "text-amber-300",
     };
@@ -129,7 +136,7 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
     setRunning(true);
     setError("");
     try {
-      setTerminal(await apiPost<CodeRunResult>(`/code/access/${encodeURIComponent(accessCode)}/run`, { language: activeLanguage, sourceCode: activeCode, stdin: activeQuestion.sampleInput }));
+      setTerminal(await apiPost<CodeRunResult>(`/code/access/${encodeURIComponent(accessCode)}/run`, { language: activeLanguage, sourceCode: activeCode, stdin: activeRunInput }));
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Code execution failed. Your source is still in the editor."));
     } finally {
@@ -221,9 +228,17 @@ export function CandidateCodingAssessment({ accessCode, onBack, onContinue, lock
               />
             </div>
             <div className="border-t border-white/10 bg-[#090c11]">
-              <div className="flex items-center justify-between border-b border-white/10 px-4 py-2"><span className={`text-xs font-bold ${output.tone}`}>{output.title}</span>{terminal ? <span className="text-xs text-slate-500">{Math.round(terminal.executionTime * 1000)} ms</span> : null}</div>
-              <pre className="min-h-[96px] max-h-[150px] overflow-auto whitespace-pre-wrap p-4 text-xs text-slate-300">{output.body}</pre>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-4 py-3"><button className="rounded-[5px] px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5" onClick={onBack} type="button">Back</button><div className="flex gap-2"><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] border border-white/15 px-3 text-xs font-bold text-white hover:bg-white/5 disabled:opacity-50" disabled={running || submitting || locked || !activeCode.trim()} onClick={() => void runCode()} type="button"><Icon name="paperPlane" size={12} />{running ? "Running" : "Run sample"}</button><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] bg-[#29b7e5] px-3 text-xs font-black text-[#07111f] hover:bg-[#53c7eb] disabled:opacity-50" disabled={running || submitting || locked || !activeCode.trim()} onClick={() => void submitCode()} type="button"><Icon name="check" size={12} />{submitting ? "Submitting" : results[activeQuestion.id] ? "Resubmit" : "Submit"}</button></div></div>
+              <div className="grid border-b border-white/10 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                <div className="border-b border-white/10 p-3 sm:border-b-0 sm:border-r sm:border-white/10">
+                  <span className="mb-1.5 flex items-center justify-between text-xs font-bold text-slate-300">Input <button className="font-semibold text-sky-300 hover:text-sky-200 disabled:opacity-50" disabled={locked} onClick={() => setRunInputByQuestion((current) => ({ ...current, [activeQuestion.id]: activeQuestion.sampleInput }))} type="button">Reset sample</button></span>
+                  <textarea aria-label="Program input" className="h-20 w-full resize-y rounded-[4px] border border-white/10 bg-[#0e1117] p-2 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-sky-400 disabled:opacity-60" disabled={locked} onChange={(event) => setRunInputByQuestion((current) => ({ ...current, [activeQuestion.id]: event.target.value }))} placeholder="Type input for your program" spellCheck={false} value={activeRunInput} />
+                </div>
+                <div className="min-w-0 p-3">
+                  <div className="flex items-center justify-between gap-3"><span className={`text-xs font-bold ${output.tone}`}>{output.title}</span>{terminal ? <span className="shrink-0 text-xs text-slate-500">{Math.round(terminal.executionTime * 1000)} ms</span> : null}</div>
+                  <pre className="mt-1.5 min-h-20 max-h-28 overflow-auto whitespace-pre-wrap font-mono text-xs text-slate-300">{output.body}</pre>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"><button className="rounded-[5px] px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5" onClick={onBack} type="button">Back</button><div className="flex gap-2"><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] border border-white/15 px-3 text-xs font-bold text-white hover:bg-white/5 disabled:opacity-50" disabled={running || submitting || locked || !activeCode.trim()} onClick={() => void runCode()} type="button"><Icon name="code" size={12} />{running ? "Running code" : "Run code"}</button><button className="inline-flex min-h-9 items-center gap-2 rounded-[5px] bg-[#29b7e5] px-3 text-xs font-black text-[#07111f] hover:bg-[#53c7eb] disabled:opacity-50" disabled={running || submitting || locked || !activeCode.trim()} onClick={() => void submitCode()} type="button"><Icon name="check" size={12} />{submitting ? "Submitting" : results[activeQuestion.id] ? "Resubmit" : "Submit"}</button></div></div>
             </div>
           </div>
         </div>

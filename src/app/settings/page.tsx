@@ -10,6 +10,7 @@ import { apiDelete, apiGet, apiPut, getErrorMessage } from "@/lib/api";
 import { clearOrgLogo, orgInitials, readOrgLogo, writeOrgLogo } from "@/lib/org-logo";
 import {
   clearUserProfilePhoto,
+  prepareUserProfilePhoto,
   readUserProfilePhoto,
   userInitials,
   writeUserProfilePhoto,
@@ -182,7 +183,7 @@ export default function SettingsPage() {
       setProfileName(user.name);
       setPrivacy(nextPrivacy);
       setOrgLogo(readOrgLogo(nextWorkspace.id));
-      setProfilePhoto(readUserProfilePhoto(user.id));
+      setProfilePhoto(user.profilePhoto || readUserProfilePhoto(user.id));
       setPreferences(readPreferences(user.id));
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to load workspace settings."));
@@ -272,7 +273,7 @@ export default function SettingsPage() {
     setNotice("Organization logo removed.");
   }
 
-  function handleProfilePhotoUpload(file?: File) {
+  async function handleProfilePhotoUpload(file?: File) {
     if (!file || !user) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setError("Please choose a JPG, PNG, or WebP image.");
@@ -282,23 +283,38 @@ export default function SettingsPage() {
       setError("Profile photo must be 2MB or smaller.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === "string" ? reader.result : "";
-      if (!dataUrl) return;
-      writeUserProfilePhoto(user.id, dataUrl);
-      setProfilePhoto(dataUrl);
+    setSavingProfile(true);
+    setError("");
+    setNotice("");
+    try {
+      const dataUrl = await prepareUserProfilePhoto(file);
+      const updated = await updateProfile({ profilePhoto: dataUrl });
+      writeUserProfilePhoto(user.id, updated.profilePhoto || dataUrl);
+      setProfilePhoto(updated.profilePhoto || dataUrl);
       setError("");
-      setNotice("Profile photo updated.");
-    };
-    reader.readAsDataURL(file);
+      setNotice("Profile photo updated for your workspace.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to update profile photo."));
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
-  function handleProfilePhotoRemove() {
+  async function handleProfilePhotoRemove() {
     if (!user) return;
-    clearUserProfilePhoto(user.id);
-    setProfilePhoto("");
-    setNotice("Profile photo removed.");
+    setSavingProfile(true);
+    setError("");
+    setNotice("");
+    try {
+      await updateProfile({ profilePhoto: null });
+      clearUserProfilePhoto(user.id);
+      setProfilePhoto("");
+      setNotice("Profile photo removed from your workspace.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to remove profile photo."));
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   function savePreferences() {
@@ -430,7 +446,7 @@ export default function SettingsPage() {
                             accept="image/png,image/jpeg,image/webp"
                             className="sr-only"
                             onChange={(event) => {
-                              handleProfilePhotoUpload(event.target.files?.[0]);
+                              void handleProfilePhotoUpload(event.target.files?.[0]);
                               event.currentTarget.value = "";
                             }}
                             type="file"
@@ -439,7 +455,8 @@ export default function SettingsPage() {
                         {profilePhoto ? (
                           <button
                             className="h-8 rounded-[6px] border border-red-200 px-3 text-xs font-bold text-red-600 hover:bg-red-50"
-                            onClick={handleProfilePhotoRemove}
+                            disabled={savingProfile}
+                            onClick={() => void handleProfilePhotoRemove()}
                             type="button"
                           >
                             Remove
@@ -447,7 +464,7 @@ export default function SettingsPage() {
                         ) : null}
                       </div>
                       <p className="mt-1.5 text-xs leading-4 text-neutral-500">
-                        JPG, PNG, or WebP · max 2MB · shown in your account menu on this device.
+                        JPG, PNG, or WebP · max 2MB · shown to your workspace team.
                       </p>
                     </div>
                   </div>

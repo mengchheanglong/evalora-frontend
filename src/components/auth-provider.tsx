@@ -17,7 +17,7 @@ interface AuthContextValue {
   verifyEmail(token: string): Promise<AuthUser>;
   resendEmailVerification(email: string): Promise<EmailVerificationRequestResponse>;
   loginWithGoogle(credential: string, organizationName?: string, remember?: boolean): Promise<AuthUser>;
-  updateProfile(input: { name: string }): Promise<AuthUser>;
+  updateProfile(input: { name?: string; profilePhoto?: string | null }): Promise<AuthUser>;
   logout(): Promise<void>;
   refresh(): Promise<void>;
 }
@@ -139,14 +139,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.user;
   }, []);
 
-  const updateProfile = useCallback(async (input: { name: string }) => {
+  const updateProfile = useCallback(async (input: { name?: string; profilePhoto?: string | null }) => {
     if (!user) throw new Error("You must be signed in to update your profile.");
     const remembered = readCachedUser()?.remembered ?? false;
     const updatedProfile = await apiPut<AuthUser>("/auth/me", input);
-    // The profile endpoint is intentionally limited to a display-name change.
     // Preserve role and workspace identity from the established session so a
     // stale/mock response cannot change the visible access level.
-    const updatedUser = { ...user, name: updatedProfile.name };
+    const updatedUser = {
+      ...user,
+      name: updatedProfile.name,
+      ...(Object.prototype.hasOwnProperty.call(input, "profilePhoto")
+        ? { profilePhoto: updatedProfile.profilePhoto }
+        : {}),
+    };
     setUser(updatedUser);
     setStatus("authenticated");
     writeCachedUser(updatedUser, remembered);

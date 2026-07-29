@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CandidateInterviewerInbox, CandidateInterviewerQuestions, useInterviewerFollowUps } from "@/components/candidate-interviewer-questions";
 import { ConnectionPill } from "@/components/realtime-indicators";
+import type { ConnectionState } from "@/lib/realtime";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { Icon, type IconName } from "@/components/icons";
 import { useAiStream } from "@/components/use-ai-stream";
@@ -24,6 +25,29 @@ type Answer = { text: string; json?: JsonValue };
 type FollowUp = { question: string; answer: string };
 type AiConversationMessage = { id: string; role: string; content: string; createdAt: string; basedOnQuestion?: string };
 type AiStream = ReturnType<typeof useAiStream>;
+
+function FloatingConnectionStatus({
+  latencyMs,
+  state,
+  visible,
+}: {
+  latencyMs?: number | null;
+  state: ConnectionState;
+  visible: boolean;
+}) {
+  return (
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      className={`pointer-events-none fixed right-4 top-20 z-30 transition-all duration-200 sm:right-6 ${visible ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"}`}
+      role="status"
+    >
+      <span className="inline-flex rounded-full border border-neutral-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+        <ConnectionPill latencyMs={latencyMs} showLatency={false} state={state} />
+      </span>
+    </div>
+  );
+}
 
 export default function CandidateAssessmentPage() {
   const { sessionId: rawAccessCode } = useParams<{ sessionId: string }>();
@@ -59,6 +83,7 @@ export default function CandidateAssessmentPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [reportStatus, setReportStatus] = useState<"generated" | "pending">("pending");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [showFloatingConnection, setShowFloatingConnection] = useState(false);
   // Question to ring and scroll to once the interviewer view opens.
   const [highlightFollowUpId, setHighlightFollowUpId] = useState("");
   const [focusedFollowUpId, setFocusedFollowUpId] = useState("");
@@ -168,6 +193,15 @@ export default function CandidateAssessmentPage() {
   }, [accessCode]);
 
   useEffect(() => { void loadAssessment(); }, [loadAssessment]);
+
+  // Keep the live connection state available once the header is no longer in the
+  // candidate's reading area. The dock mirrors the same state as the header.
+  useEffect(() => {
+    const updateFloatingConnection = () => setShowFloatingConnection(window.scrollY > 96);
+    updateFloatingConnection();
+    window.addEventListener("scroll", updateFloatingConnection, { passive: true });
+    return () => window.removeEventListener("scroll", updateFloatingConnection);
+  }, []);
 
   useEffect(() => {
     const startedAtMs = session?.startedAt ? new Date(session.startedAt).getTime() : Number.NaN;
@@ -612,6 +646,12 @@ export default function CandidateAssessmentPage() {
           ? `New ${interviewer.arrival.required ? "required " : ""}question from ${interviewer.arrival.askedBy.name}: ${interviewer.arrival.questionText}`
           : ""}
       </div>
+
+      <FloatingConnectionStatus
+        latencyMs={interviewer.latencyMs}
+        state={interviewer.connection}
+        visible={showFloatingConnection}
+      />
 
       <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1480px] items-center gap-4 px-4 sm:px-6">

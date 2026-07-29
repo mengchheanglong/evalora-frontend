@@ -18,7 +18,7 @@ const fieldHintClass = "mt-1.5 text-xs text-slate-500";
 
 export default function CreateSessionPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { status, user } = useAuth();
   const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -49,7 +49,10 @@ export default function CreateSessionPage() {
   const [timeZone, setTimeZone] = useState("GMT+07:00 Phnom Penh");
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     let cancelled = false;
+    setLoading(true);
+    setError("");
     Promise.all([
       apiGet<AssessmentTemplate[]>("/templates"),
       apiGet<WorkspaceMember[]>("/organization/members"),
@@ -64,7 +67,7 @@ export default function CreateSessionPage() {
       .catch((requestError) => { if (!cancelled) setError(getErrorMessage(requestError)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [status, user?.id]);
 
   const selectedTemplate = useMemo(() => templates.find((template) => template.id === selectedTemplateId), [selectedTemplateId, templates]);
   const selectedInterviewers = useMemo(

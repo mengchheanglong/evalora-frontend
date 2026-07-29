@@ -7,7 +7,6 @@ import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, apiPost, getErrorMessage } from "@/lib/api";
-import { readOrgLogo } from "@/lib/org-logo";
 import type { WorkspaceInvite, WorkspaceMember } from "@/lib/types";
 import { readUserProfilePhoto, userInitials } from "@/lib/user-profile-photo";
 
@@ -52,12 +51,8 @@ export default function UsersAndRolesPage() {
 
   useEffect(() => {
     if (!user?.id) return;
-    setCurrentUserPhoto(
-      isOwner
-        ? readOrgLogo(user.organizationId)
-        : readUserProfilePhoto(user.id),
-    );
-  }, [isOwner, user?.id, user?.organizationId]);
+    setCurrentUserPhoto(user.profilePhoto || readUserProfilePhoto(user.id));
+  }, [user?.id, user?.profilePhoto]);
 
   const pendingInvites = useMemo(() => invites.filter((invite) => invite.status === "pending"), [invites]);
   const ownerCount = members.filter((member) => member.role === "organization").length;
@@ -77,17 +72,18 @@ export default function UsersAndRolesPage() {
     try {
       const invite = await apiPost<WorkspaceInvite>("/organization/invites", { email: inviteEmail.trim() });
       const link = invite.inviteUrl || `${window.location.origin}${invite.inviteUrlPath}`;
-      setLastInviteLink(link);
       const delivery = invite.emailDelivery;
       if (delivery?.status === "sent") {
-        setActionMessage(`Invitation emailed to ${invite.email}. You can still copy the link below — it expires in 7 days.`);
+        setActionMessage(`Invitation emailed to ${invite.email}.`);
       } else if (delivery?.status === "queued") {
-        setActionMessage(`Invitation created for ${invite.email}. Email is sending in the background — copy the link below as backup.`);
+        setActionMessage(`Invitation created for ${invite.email}. Email is being sent in the background.`);
       } else if (delivery?.status === "failed") {
-        setActionMessage(`Invite created for ${invite.email}, but email failed (${delivery.reason ?? "unknown"}). Share the link below.`);
+        setLastInviteLink(link);
+        setActionMessage(`Invitation created for ${invite.email}, but the email could not be sent.`);
       } else {
+        setLastInviteLink(link);
         setActionMessage(
-          `Invitation created for ${invite.email}. ${delivery?.reason ?? "Email is not configured — share the link below."} Expires in 7 days.`,
+          `Invitation created for ${invite.email}. Email delivery is unavailable.`,
         );
       }
       setInviteEmail("");
@@ -133,7 +129,7 @@ export default function UsersAndRolesPage() {
       await navigator.clipboard.writeText(link);
       setActionMessage("Invite link copied to clipboard.");
     } catch {
-      setActionError("Could not copy the link. Select and copy it manually.");
+      setActionError("Could not copy the invitation link. Try again.");
     }
   }
 
@@ -179,7 +175,7 @@ export default function UsersAndRolesPage() {
           <section className="card rounded-[10px] p-5">
             <h2 className="text-lg font-black text-neutral-900">Invite interviewer</h2>
             <p className="mt-1 text-sm text-neutral-600">
-              We email a private invite when Resend is configured. They set their own password and join this organization — not a new company workspace. You can always copy the link if email is skipped.
+              We email a private invite. They set their own password and join this organization — not a new company workspace.
             </p>
             <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={handleInvite}>
               <input
@@ -195,14 +191,11 @@ export default function UsersAndRolesPage() {
               </button>
             </form>
             {lastInviteLink ? (
-              <div className="mt-4 rounded-[8px] border border-primary-100 bg-primary-50/50 p-3">
-                <p className="text-sm font-bold text-primary-800">Invite link (share securely)</p>
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <code className="block flex-1 break-all text-sm text-neutral-800">{lastInviteLink}</code>
-                  <button className="button-secondary h-9 shrink-0 rounded-[7px] px-3 text-sm" onClick={() => void copyLink(lastInviteLink)} type="button">
-                    Copy link
-                  </button>
-                </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-4">
+                <p className="text-xs text-neutral-500">Email delivery was unavailable.</p>
+                <button className="button-secondary h-9 shrink-0 rounded-[7px] px-3 text-xs" onClick={() => void copyLink(lastInviteLink)} type="button">
+                  Copy invitation link
+                </button>
               </div>
             ) : null}
           </section>
@@ -240,8 +233,8 @@ export default function UsersAndRolesPage() {
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
                             <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-primary-50 text-xs font-black text-primary-700">
-                              {isCurrentUser && currentUserPhoto ? (
-                                <img alt="" className="size-full object-cover" src={currentUserPhoto} />
+                              {member.profilePhoto || (isCurrentUser && currentUserPhoto) ? (
+                                <img alt="" className="size-full object-cover" src={member.profilePhoto || currentUserPhoto} />
                               ) : (
                                 userInitials(member.name)
                               )}

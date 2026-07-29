@@ -11,7 +11,7 @@ const CONNECTION_STYLE: Record<ConnectionState, { label: string; dot: string; te
 };
 
 /** Connection state + measured round-trip latency for the live channel. */
-export function ConnectionPill({ state, latencyMs }: { state: ConnectionState; latencyMs?: number | null }) {
+export function ConnectionPill({ state, latencyMs, showLatency = true }: { state: ConnectionState; latencyMs?: number | null; showLatency?: boolean }) {
   const style = CONNECTION_STYLE[state];
   return (
     <span
@@ -20,7 +20,7 @@ export function ConnectionPill({ state, latencyMs }: { state: ConnectionState; l
     >
       <span className={`size-1.5 rounded-full ${style.dot}`} />
       {style.label}
-      {state === "live" && typeof latencyMs === "number" ? (
+      {showLatency && state === "live" && typeof latencyMs === "number" ? (
         <span className="font-semibold text-[var(--theme-faint)]">· {latencyMs} ms</span>
       ) : null}
     </span>
