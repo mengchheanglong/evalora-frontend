@@ -155,6 +155,20 @@ export function SessionTranscriptView({ onStatusChange, sessionId }: Props) {
     enabled: transcript?.status === "in_progress",
     onEvent: scheduleRefresh,
   });
+  const [showFloatingLive, setShowFloatingLive] = useState(false);
+
+  // The live badge in the summary is useful at the top of the page. Preserve the
+  // same signal once the interviewer starts reading further down the transcript.
+  useEffect(() => {
+    if (transcript?.status !== "in_progress") {
+      setShowFloatingLive(false);
+      return;
+    }
+    const update = () => setShowFloatingLive(window.scrollY > 96);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, [transcript?.status]);
 
   // The socket is the fast path. Keep REST authoritative and reconcile a live
   // session in the background so the interviewer never has to manually refresh
@@ -197,6 +211,18 @@ export function SessionTranscriptView({ onStatusChange, sessionId }: Props) {
 
   return (
     <div className="space-y-4">
+      {isLive ? (
+        <div
+          aria-atomic="true"
+          aria-live="polite"
+          className={`pointer-events-none fixed bottom-5 right-5 z-40 transition-all duration-200 ${showFloatingLive ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
+          role="status"
+        >
+          <span className="inline-flex rounded-full border border-emerald-200 bg-white/95 p-1 shadow-lg backdrop-blur">
+            <ConnectionPill latencyMs={latencyMs} showLatency={false} state={connection} />
+          </span>
+        </div>
+      ) : null}
       <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">

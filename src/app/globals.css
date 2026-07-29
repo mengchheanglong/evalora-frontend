@@ -253,9 +253,39 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 18%, transparent);
 }
 
+/* Connection dots use their own semantic class so the ocean palette cannot
+   reinterpret the live state as blue. It must stay recognizably active in all
+   product themes. */
+.live-connection-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
+}
+
+.live-connection-text {
+  color: #047857;
+}
+
 [data-theme="dark"] .live-status-dot {
   background-color: #fb7185 !important;
   box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.2), 0 0 8px rgba(251, 113, 133, 0.42);
+}
+
+[data-theme="dark"] .live-connection-dot {
+  background-color: #34d399 !important;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.22), 0 0 7px rgba(52, 211, 153, 0.34);
+}
+
+[data-theme="dark"] .live-connection-text {
+  color: #6ee7b7 !important;
+}
+
+[data-theme="ocean"] .live-connection-dot {
+  background-color: #059669 !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.18);
+}
+
+[data-theme="ocean"] .live-connection-text {
+  color: #047857 !important;
 }
 
 ::selection {

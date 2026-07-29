@@ -5,7 +5,7 @@ import type { ConnectionState, InterviewParticipant } from "@/lib/realtime";
 
 const CONNECTION_STYLE: Record<ConnectionState, { label: string; dot: string; text: string }> = {
   connecting: { label: "Connecting", dot: "bg-amber-500 animate-pulse", text: "text-amber-700" },
-  live: { label: "Live", dot: "bg-emerald-500", text: "text-emerald-700" },
+  live: { label: "Live", dot: "live-connection-dot", text: "live-connection-text" },
   reconnecting: { label: "Reconnecting", dot: "bg-amber-500 animate-pulse", text: "text-amber-700" },
   offline: { label: "Offline", dot: "bg-rose-500", text: "text-rose-700" },
 };
@@ -18,7 +18,7 @@ export function ConnectionPill({ state, latencyMs, showLatency = true }: { state
       className={`inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-bold ${style.text}`}
       title={state === "live" ? "Updates arrive instantly over the live connection" : "Your work is saved either way"}
     >
-      <span className={`size-1.5 rounded-full ${style.dot}`} />
+      <span className={`size-1.5 shrink-0 rounded-full ${style.dot}`} />
       {style.label}
       {showLatency && state === "live" && typeof latencyMs === "number" ? (
         <span className="font-semibold text-[var(--theme-faint)]">· {latencyMs} ms</span>
@@ -39,7 +39,7 @@ export function PresenceChips({ participants }: { participants: InterviewPartici
         >
           <Icon name={participant.role === "candidate" ? "user" : "users"} size={12} />
           {participant.name.split(" ")[0]}
-          <span className="size-1.5 rounded-full bg-emerald-500" />
+          <span className="live-connection-dot size-1.5 shrink-0 rounded-full" />
         </span>
       ))}
     </span>
