@@ -35,6 +35,26 @@ const PUBLIC_API_MESSAGES = new Set([
   "Session not found.",
   "Question not found.",
   "Report not ready.",
+  // AI-assisted template drafts — curated guidance written for end users.
+  "Upload a job description or describe the role you are hiring for.",
+  "Upload a document, or describe the role as text.",
+  "A draft needs at least one module. Add a module, or generate the draft again.",
+  "This draft was already published. Duplicate the template instead of publishing again.",
+  "This draft was already published and cannot be discarded.",
+  "This draft was discarded and can no longer be edited.",
+  "You have generated a lot of drafts recently. Please wait a few minutes and try again.",
+  "Template draft not found or access denied.",
+  "That file is larger than 5 MB.",
+  "That file type isn't supported. Upload a PDF, a Word document, or a plain text file.",
+  "We couldn't read any text from that file. If it is a scanned document or an image, paste the job description as text instead.",
+  "We couldn't read that Word document. Re-save it as .docx or PDF and try again.",
+  "That PDF is password protected. Remove the password and upload it again.",
+  "We couldn't read that PDF. Try re-exporting it, or paste the job description as text.",
+  // Client-side upload guidance from template-drafts.ts; pages route every
+  // error through getErrorMessage, so these must pass the same filter.
+  "That file is larger than 5 MB. Export a smaller version or paste the text instead.",
+  "Draft generation returned an unexpected response. Please try again.",
+  "Draft generation failed. Please try again.",
 ]);
 
 type CachedResponse = {
@@ -74,9 +94,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     const pending = pendingGets.get(cacheKey);
     if (pending) return pending as Promise<T>;
   } else if (method !== "GET" && method !== "HEAD") {
-    cacheGeneration += 1;
-    responseCache.clear();
-    pendingGets.clear();
+    invalidateGetCache();
   }
 
   const headers = new Headers(options.headers);
@@ -140,6 +158,18 @@ export function apiDelete<T>(path: string, body?: unknown, options: Omit<ApiRequ
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
   if (!(error instanceof ApiError)) return fallback;
   return safeUserMessage(error.message) ?? fallback;
+}
+
+/**
+ * Drops every cached GET. Mutations through apiRequest do this automatically;
+ * callers that must bypass the wrapper (e.g. a multipart upload, which the
+ * JSON-only wrapper cannot send) call it themselves so list pages do not serve
+ * a pre-mutation snapshot for up to GET_CACHE_TTL_MS.
+ */
+export function invalidateGetCache(): void {
+  cacheGeneration += 1;
+  responseCache.clear();
+  pendingGets.clear();
 }
 
 export function serviceUnavailableResponse(status = 502, dataSource = "live"): Response {
