@@ -4,13 +4,6 @@ import Link from "next/link";
 import { Icon } from "@/components/icons";
 import type { AssessmentIntegrity } from "./use-assessment-integrity";
 
-function formatTime(value?: string): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en", { timeStyle: "short" }).format(date);
-}
-
 /**
  * Candidate-facing integrity dialog.
  *
@@ -20,11 +13,10 @@ function formatTime(value?: string): string {
  * and the wording never claims cheating was proven.
  */
 export function IntegrityWarningDialog({ integrity }: { integrity: AssessmentIntegrity }) {
-  if (!integrity.showDialog) return null;
+  if (!integrity.showWarning && !integrity.terminated) return null;
 
   const terminated = integrity.terminated;
   const reason = integrity.reason || "Possible tab switching detected.";
-  const detectedAt = formatTime(integrity.latestEvent?.detectedAt);
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-5 backdrop-blur-sm">
@@ -49,32 +41,33 @@ export function IntegrityWarningDialog({ integrity }: { integrity: AssessmentInt
           id="integrity-dialog-title"
           className="mt-5 text-xl font-black leading-7 text-neutral-950"
         >
-          {terminated ? "Assessment ended" : "Integrity warning"}
+          {terminated ? "Interview ended" : `Warning ${integrity.warningCount} of ${integrity.warningLimit}`}
         </h2>
 
-        <p className="mt-4 text-sm font-bold leading-6 text-neutral-800">
-          {reason}
-          {detectedAt ? (
-            <span className="ml-1.5 font-semibold text-neutral-400">({detectedAt})</span>
-          ) : null}
-        </p>
+        <p className="mt-4 text-sm font-bold leading-6 text-neutral-800">{reason}</p>
+
+        {terminated ? (
+          <p className="mt-4 text-sm leading-6 text-neutral-600">
+            The integrity violation limit has been reached. Please contact the
+            recruiter if you believe this is a mistake.
+          </p>
+        ) : (
+          <p className="mt-4 text-sm leading-6 text-neutral-600">
+            You can continue the interview, but if this happens again, the
+            interview will end.
+          </p>
+        )}
 
         <div className="mt-5 rounded-lg bg-neutral-50 px-4 py-3 text-xs leading-5 text-neutral-600">
           <p className="font-bold text-neutral-700">
             Official warning {integrity.warningCount} of {integrity.warningLimit}
           </p>
-
-          <p className="mt-1.5">
-            {terminated
-              ? "Your assessment was ended and your saved responses have been preserved for the review team."
-              : "Your saved responses remain available. Continue when you are ready."}
-          </p>
         </div>
 
         <p className="mt-5 text-xs leading-5 text-neutral-500">
-          A possible tab switch was detected on this device. The review team can
-          see this event in the session record. If you believe this was a
-          mistake, let your interviewer know.
+          Possible tab switching or leaving the assessment screen was detected.
+          The review team can see this event in the session record. If you
+          believe this was a mistake, let your interviewer know.
         </p>
 
         {terminated ? (

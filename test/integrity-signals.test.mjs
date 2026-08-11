@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeSignal, INTEGRITY_DEBOUNCE_MS } from "../src/features/integrity/integrity-signals.ts";
+import { mergeSignal, interpretIntegrityResult, INTEGRITY_DEBOUNCE_MS } from "../src/features/integrity/integrity-signals.ts";
 
 test("a single blur signal opens a supporting-only detection", () => {
   const merged = mergeSignal(null, "blur", 1_000);
@@ -42,4 +42,117 @@ test("an isolated visible event is not a violation", () => {
 test("debounce window is sane for human interaction", () => {
   // Fires fast enough to catch a tab switch, long enough to merge the burst.
   assert.ok(INTEGRITY_DEBOUNCE_MS >= 300 && INTEGRITY_DEBOUNCE_MS <= 2_000);
+});
+
+test("first counted event (1 of 2, session active) maps to a dismissable warning", () => {
+  const outcome = interpretIntegrityResult({
+    sessionId: "s1",
+    clientEventId: "evt-1",
+    counted: true,
+    warningCount: 1,
+    warningLimit: 2,
+    sessionStatus: "in_progress",
+    action: "warned",
+    reason: "Possible tab switching detected.",
+    event: {
+      id: "e1",
+      sessionId: "s1",
+      clientEventId: "evt-1",
+      type: "visibilitychange",
+      detectedAt: "2026-07-06T13:05:00.000Z",
+      counted: true,
+      reason: "Possible tab switching detected.",
+    },
+  });
+  assert.equal(outcome, "warning");
+});
+
+test("second counted event (2 of 2) maps to the forced-exit state", () => {
+  const outcome = interpretIntegrityResult({
+    sessionId: "s1",
+    clientEventId: "evt-2",
+    counted: true,
+    warningCount: 2,
+    warningLimit: 2,
+    sessionStatus: "expired",
+    action: "terminated",
+    reason: "Possible tab switching detected.",
+    event: {
+      id: "e2",
+      sessionId: "s1",
+      clientEventId: "evt-2",
+      type: "visibilitychange",
+      detectedAt: "2026-07-06T13:10:00.000Z",
+      counted: true,
+      reason: "Possible tab switching detected.",
+    },
+  });
+  assert.equal(outcome, "terminated");
+});
+
+test("a duplicate or supporting event never triggers a warning", () => {
+  const duplicate = interpretIntegrityResult({
+    sessionId: "s1",
+    clientEventId: "evt-1",
+    counted: false,
+    warningCount: 1,
+    warningLimit: 2,
+    sessionStatus: "in_progress",
+    action: "duplicate",
+    reason: "Duplicate integrity event.",
+    event: {
+      id: "e1",
+      sessionId: "s1",
+      clientEventId: "evt-1",
+      type: "visibilitychange",
+      detectedAt: "2026-07-06T13:05:00.000Z",
+      counted: true,
+      reason: "Possible tab switching detected.",
+    },
+  });
+  assert.equal(duplicate, "none");
+
+  const supporting = interpretIntegrityResult({
+    sessionId: "s1",
+    clientEventId: "evt-3",
+    counted: false,
+    warningCount: 0,
+    warningLimit: 2,
+    sessionStatus: "in_progress",
+    action: "recorded",
+    reason: "Supporting signal: the browser window lost focus.",
+    event: {
+      id: "e3",
+      sessionId: "s1",
+      clientEventId: "evt-3",
+      type: "blur",
+      detectedAt: "2026-07-06T13:06:00.000Z",
+      counted: false,
+      reason: "Supporting signal: the browser window lost focus.",
+    },
+  });
+  assert.equal(supporting, "none");
+});
+
+test("a counted event on an ended session still maps to the forced-exit state", () => {
+  const outcome = interpretIntegrityResult({
+    sessionId: "s1",
+    clientEventId: "evt-4",
+    counted: true,
+    warningCount: 2,
+    warningLimit: 2,
+    sessionStatus: "expired",
+    action: "warned",
+    reason: "Possible tab switching detected.",
+    event: {
+      id: "e4",
+      sessionId: "s1",
+      clientEventId: "evt-4",
+      type: "visibilitychange",
+      detectedAt: "2026-07-06T13:15:00.000Z",
+      counted: true,
+      reason: "Possible tab switching detected.",
+    },
+  });
+  assert.equal(outcome, "terminated");
 });

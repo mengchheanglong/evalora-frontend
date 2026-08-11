@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import type { IntegrityEvent, InterviewerFollowUp, SessionStatus } from "@/lib/types";
+import type { IntegrityAction, IntegrityEvent, InterviewerFollowUp, SessionStatus } from "@/lib/types";
 
 /** Must match the backend contract in modules/realtime/realtime.types.ts. */
 export const INTERVIEW_EVENTS = {
@@ -32,6 +32,8 @@ export interface IntegrityUpdatedEvent {
   warningCount: number;
   warningLimit: number;
   status: SessionStatus;
+  /** "warned" | "terminated" | "duplicate" | "recorded" — never client-supplied. */
+  action?: IntegrityAction;
   reason: string;
   event?: IntegrityEvent;
 }

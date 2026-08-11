@@ -269,6 +269,12 @@ export interface IntegrityEventRequest {
   durationMs?: number;
 }
 
+/**
+ * What the backend decided for a reported event. Never client-supplied — the
+ * browser sends a signal and receives the decision back.
+ */
+export type IntegrityAction = "warned" | "terminated" | "duplicate" | "recorded";
+
 /** Official response of the candidate integrity endpoint. */
 export interface IntegrityEventResult {
   sessionId: string;
@@ -276,7 +282,9 @@ export interface IntegrityEventResult {
   counted: boolean;
   warningCount: number;
   warningLimit: number;
-  status: SessionStatus;
+  /** Official session status after the decision (REST field name). */
+  sessionStatus: SessionStatus;
+  action: IntegrityAction;
   reason: string;
   event: IntegrityEvent;
 }

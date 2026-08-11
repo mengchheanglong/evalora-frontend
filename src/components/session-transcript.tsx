@@ -530,7 +530,7 @@ return (
             transcript.warningCount ?? 0
           }
           warningLimit={
-            transcript.warningLimit ?? 1
+            transcript.warningLimit ?? 2
           }
         />
       ) : null}
@@ -1414,7 +1414,6 @@ function IntegrityTimeline({
   warningCount: number;
   warningLimit: number;
 }) {
-  const counted = events.filter((event) => event.counted).length;
   const ended = warningCount >= warningLimit;
 
   return (
@@ -1427,12 +1426,12 @@ function IntegrityTimeline({
 
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
-            counted > 0
+            warningCount > 0
               ? "bg-amber-100 text-amber-800"
               : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]"
           }`}
         >
-          {counted} counted warning{counted === 1 ? "" : "s"} · limit {warningLimit}
+          Official warnings {warningCount} / {warningLimit}
         </span>
       </div>
 

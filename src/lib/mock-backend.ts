@@ -932,7 +932,7 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     return json({
       sessionId: session.id,
       warningCount: warned,
-      warningLimit: 1,
+      warningLimit: 2,
       status: session.status,
       events,
     });
@@ -1070,8 +1070,7 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
     session.updatedAt = new Date().toISOString();
     if (!reports.some((report) => report.sessionId === session.id)) reports.push(generateReportFor(session));
     return json(withTemplate(session));
-  }
-  if (method === "POST" && action === "integrity-events") {
+  }    if (method === "POST" && action === "integrity-events") {
     const input = asRecord(body);
     const clientEventId = String(input.clientEventId ?? "").trim();
     const type = String(input.type ?? "").trim();
@@ -1091,8 +1090,9 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
         clientEventId,
         counted: false,
         warningCount: warned,
-        warningLimit: 1,
-        status: session.status,
+        warningLimit: 2,
+        sessionStatus: session.status,
+        action: "duplicate",
         reason: "Duplicate integrity event. No additional warning was counted.",
         event: existing,
       });
@@ -1113,14 +1113,18 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
     integrityEventsBySession.set(session.id, events);
     const nextCount = warned + (counted ? 1 : 0);
     (session as InterviewSession & { warningCount?: number }).warningCount = nextCount;
-    if (counted && nextCount >= 1) session.status = "expired";
+    // Two-strike policy: the first counted event warns and keeps the session
+    // active; the second counted event ends it. Mirrors the real backend.
+    const terminated = counted && nextCount >= 2;
+    if (terminated) session.status = "expired";
     return json({
       sessionId: session.id,
       clientEventId,
       counted,
       warningCount: nextCount,
-      warningLimit: 1,
-      status: session.status,
+      warningLimit: 2,
+      sessionStatus: session.status,
+      action: counted ? (terminated ? "terminated" : "warned") : "recorded",
       reason: event.reason,
       event,
     });
@@ -1698,7 +1702,7 @@ function buildTranscript(session: InterviewSession): SessionTranscript {
       omitted: { responses: 0, aiMessages: 0, codeSubmissions: 0, interviewerFollowUps: 0 },
     },
     warningCount: (session as InterviewSession & { warningCount?: number }).warningCount ?? 0,
-    warningLimit: 1,
+    warningLimit: 2,
     integrityEvents: integrityEventsBySession.get(session.id) ?? [],
   };
 }

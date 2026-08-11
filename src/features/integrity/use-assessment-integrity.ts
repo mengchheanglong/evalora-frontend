@@ -5,6 +5,7 @@ import { reportIntegrityEvent } from "@/lib/api";
 import type { IntegrityEvent, IntegrityEventResult, SessionStatus } from "@/lib/types";
 import {
   INTEGRITY_DEBOUNCE_MS,
+  interpretIntegrityResult,
   mergeSignal,
   type IntegritySignal,
   type PendingDetection,
@@ -16,13 +17,19 @@ export interface IntegrityState {
   warningCount: number;
   warningLimit: number;
   /** Last status the backend reported. */
-  status: SessionStatus | "unknown";
+  sessionStatus: SessionStatus | "unknown";
   /** Server-authored copy of what was detected. */
   reason: string;
-  /** True once the backend counted an event (assessment ended at limit 1). */
+  /**
+   * First-strike warning (warningCount = 1, session still active): the dialog
+   * is dismissable and the candidate may continue.
+   */
+  showWarning: boolean;
+  /**
+   * Second-strike forced exit (warningCount = 2 or session ended): the dialog
+   * blocks the assessment and cannot be dismissed.
+   */
   terminated: boolean;
-  /** True while the warning/forced-exit dialog should be visible. */
-  showDialog: boolean;
   /** The counted event that triggered the dialog. */
   latestEvent?: IntegrityEvent;
 }
@@ -45,11 +52,11 @@ type Options = {
 export function useAssessmentIntegrity({ accessCode, active }: Options) {
   const [state, setState] = useState<IntegrityState>({
     warningCount: 0,
-    warningLimit: 1,
-    status: "unknown",
+    warningLimit: 2,
+    sessionStatus: "unknown",
     reason: "",
+    showWarning: false,
     terminated: false,
-    showDialog: false,
   });
 
   const pendingRef = useRef<PendingDetection | null>(null);
@@ -59,25 +66,37 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
   accessCodeRef.current = accessCode;
   const activeRef = useRef(active);
   activeRef.current = active;
-  // Once the backend counts an event the dialog must stay up, even if a later
-  // duplicate response (counted: false) arrives.
-  const countedRef = useRef(false);
+  // Once the backend terminates the session the forced-exit dialog must stay
+  // up, even if a later duplicate response (counted: false) arrives.
+  const terminatedRef = useRef(false);
 
   const applyResult = useCallback((result: IntegrityEventResult) => {
+    const outcome = interpretIntegrityResult(result);
+
     setState((current) => ({
       ...current,
       warningCount: result.warningCount,
       warningLimit: result.warningLimit,
-      status: result.status,
+      sessionStatus: result.sessionStatus,
       reason: result.reason,
     }));
 
-    if (result.counted && !countedRef.current) {
-      countedRef.current = true;
+    // First strike: warn, keep the session active, let the candidate continue.
+    if (outcome === "warning" && !terminatedRef.current) {
       setState((current) => ({
         ...current,
-        terminated: result.status !== "in_progress" || result.warningCount >= result.warningLimit,
-        showDialog: true,
+        showWarning: true,
+        latestEvent: result.event,
+      }));
+    }
+
+    // Second strike: the backend ended the session — block the assessment.
+    if (outcome === "terminated" && !terminatedRef.current) {
+      terminatedRef.current = true;
+      setState((current) => ({
+        ...current,
+        showWarning: false,
+        terminated: true,
         latestEvent: result.event,
       }));
     }
@@ -196,8 +215,8 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
   }, [active, beaconDetection, queueSignal]);
 
   const dismiss = useCallback(() => {
-    // A forced-exit (terminated) dialog is intentionally not dismissable.
-    setState((current) => (current.terminated ? current : { ...current, showDialog: false }));
+    // Only the first-strike warning is dismissable; the forced exit is not.
+    setState((current) => (current.terminated ? current : { ...current, showWarning: false }));
   }, []);
 
   return { ...state, dismiss };

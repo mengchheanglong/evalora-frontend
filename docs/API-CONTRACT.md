@@ -181,7 +181,7 @@ The backend derives `createdById` and organization ownership from the JWT. A tem
 | GET | `/sessions/access/:accessCode` | Candidate link | Read the sanitized assigned assessment while access is open. |
 | PUT | `/sessions/access/:accessCode/start` | Candidate link | Start the assigned assessment. |
 | PUT | `/sessions/access/:accessCode/complete` | Candidate link | Complete the assessment and immediately return `reportStatus: "pending"`. |
-| POST | `/sessions/access/:accessCode/integrity-events` | Candidate link | Report a browser-detected integrity signal. The backend deduplicates by `sessionId + clientEventId`, decides `counted` from the event type (`visibilitychange` counts; `blur`/`pagehide`/`beforeunload` are supporting only), and expires the session once `warningCount >= warningLimit` (default 1). The body only accepts `clientEventId`, `type`, `detectedAt`, `returnedAt`, `durationMs`. |
+| POST | `/sessions/access/:accessCode/integrity-events` | Candidate link | Report a browser-detected integrity signal. The backend deduplicates by `sessionId + clientEventId`, decides `counted` from the event type (`visibilitychange` counts; `blur`/`pagehide`/`beforeunload` are supporting only), and enforces the two-strike policy: the first counted event warns and keeps the session active; the second counted event reaches `warningLimit` (default 2) and expires the session. The body only accepts `clientEventId`, `type`, `detectedAt`, `returnedAt`, `durationMs`. |
 
 Session creation request:
 

@@ -1,4 +1,4 @@
-import type { IntegrityEventType } from "@/lib/types";
+import type { IntegrityEventResult, IntegrityEventType } from "@/lib/types";
 
 /**
  * How long nearby browser signals stay merged into ONE reported violation.
@@ -75,4 +75,24 @@ export function mergeSignal(
       : pending.durationMs;
 
   return { ...pending, type, returnedAt, durationMs };
+}
+
+/** How the candidate UI must react to an official backend decision. */
+export type IntegrityOutcome = "warning" | "terminated" | "none";
+
+/**
+ * Maps the backend's official response to the UI stage.
+ *
+ * The backend decides enforcement; this only translates it:
+ * - a counted event with the session still active is the FIRST warning;
+ * - a counted event that reached the limit (or ended the session) is the
+ *   forced-exit state;
+ * - anything else (supporting signal, duplicate) changes nothing.
+ */
+export function interpretIntegrityResult(result: IntegrityEventResult): IntegrityOutcome {
+  if (!result.counted) return "none";
+  if (result.action === "terminated") return "terminated";
+  if (result.sessionStatus !== "in_progress") return "terminated";
+  if (result.warningCount >= result.warningLimit) return "terminated";
+  return "warning";
 }
