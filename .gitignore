@@ -2,6 +2,12 @@
 node_modules/
 .pnpm-store/
 
+# This is a pnpm project (see pnpm-lock.yaml); an npm lockfile must never be
+# committed or used, because npm install rewrites node_modules in a layout that
+# breaks `next build --webpack` with a mini-css-extract-plugin loader error.
+package-lock.json
+npm-shrinkwrap.json
+
 # build output
 .next/
 dist/

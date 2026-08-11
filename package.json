@@ -2,6 +2,7 @@
   "name": "evalora-frontend",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
     "dev": "next dev --webpack --hostname 0.0.0.0 --port 3010",
     "build": "next build --webpack",
@@ -9,6 +10,7 @@
     "test:errors": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/api-errors.test.mjs",
     "test:navigation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/candidate-interview-navigation.test.mjs",
     "test:responses": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/candidate-response-storage.test.mjs",
+    "test:integrity": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/integrity-signals.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
