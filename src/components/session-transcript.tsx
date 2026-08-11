@@ -12,6 +12,7 @@ import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 
 
 import type {
+  IntegrityEvent,
   JsonValue,
   SessionTranscript,
   TranscriptCodeArtifact,
@@ -429,6 +430,13 @@ return (
               )}
             />
           ) : null}
+
+          {transcript.warningCount != null ? (
+            <TranscriptMeta
+              label="Integrity warnings"
+              value={`${transcript.warningCount} of ${transcript.warningLimit ?? 1}`}
+            />
+          ) : null}
         </dl>
 
         <ul className="mt-3 flex flex-wrap items-center gap-2">
@@ -507,6 +515,25 @@ return (
           </p>
         ) : null}
       </section>
+
+      {/* =====================================================
+          INTEGRITY TIMELINE
+          ===================================================== */}
+
+      {transcript.integrityEvents?.length ||
+      (transcript.warningCount ?? 0) > 0 ? (
+        <IntegrityTimeline
+          events={
+            transcript.integrityEvents ?? []
+          }
+          warningCount={
+            transcript.warningCount ?? 0
+          }
+          warningLimit={
+            transcript.warningLimit ?? 1
+          }
+        />
+      ) : null}
 
       {/* =====================================================
           TRANSCRIPT GROUPS
@@ -1351,6 +1378,123 @@ function CodeBlock({
         </pre>
       </div>
     </div>
+  );
+}
+
+/* ============================================================
+   INTEGRITY TIMELINE (REVIEWER)
+   ============================================================ */
+
+const INTEGRITY_TYPE_LABELS: Record<string, string> = {
+  visibilitychange: "Tab switch (visibility change)",
+  blur: "Window lost focus",
+  pagehide: "Page left",
+  beforeunload: "Exit attempted",
+};
+
+function integrityTypeLabel(type: string): string {
+  return INTEGRITY_TYPE_LABELS[type] ?? type;
+}
+
+function formatDuration(ms?: number): string | null {
+  if (ms == null || !Number.isFinite(ms)) return null;
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s away`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}m ${rest}s away`;
+}
+
+function IntegrityTimeline({
+  events,
+  warningCount,
+  warningLimit,
+}: {
+  events: IntegrityEvent[];
+  warningCount: number;
+  warningLimit: number;
+}) {
+  const counted = events.filter((event) => event.counted).length;
+  const ended = warningCount >= warningLimit;
+
+  return (
+    <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h3 className="flex items-center gap-1.5 text-sm font-bold text-[var(--theme-heading)]">
+          <Icon className="text-[var(--theme-faint)]" name="shield" size={14} />
+          Integrity monitoring
+        </h3>
+
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+            counted > 0
+              ? "bg-amber-100 text-amber-800"
+              : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]"
+          }`}
+        >
+          {counted} counted warning{counted === 1 ? "" : "s"} · limit {warningLimit}
+        </span>
+      </div>
+
+      {ended ? (
+        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          This session was ended after the official warning limit was reached.
+          Review the events below; none of them are proof of cheating on their own.
+        </p>
+      ) : null}
+
+      {events.length ? (
+        <ol className="space-y-2">
+          {events.map((event) => {
+            const returnedAt = formatDateTime(event.returnedAt);
+            const duration = formatDuration(event.durationMs);
+
+            return (
+              <li
+                className="rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 py-2.5"
+                key={event.id}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                      event.counted
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]"
+                    }`}
+                  >
+                    {event.counted ? "Counted" : "Supporting"}
+                  </span>
+
+                  <span className="text-xs font-bold text-[var(--theme-heading)]">
+                    {integrityTypeLabel(event.type)}
+                  </span>
+
+                  <span className="ml-auto text-xs tabular-nums text-[var(--theme-faint)]">
+                    Detected {formatDateTime(event.detectedAt)}
+                  </span>
+                </div>
+
+                <p className="mt-1 text-xs leading-5 text-[var(--theme-muted)]">
+                  {event.reason}
+                </p>
+
+                {event.returnedAt || duration ? (
+                  <p className="mt-1 text-xs tabular-nums text-[var(--theme-faint)]">
+                    {event.returnedAt ? `Returned ${returnedAt}` : ""}
+                    {event.returnedAt && duration ? " · " : ""}
+                    {duration ?? ""}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="text-xs leading-5 text-[var(--theme-muted)]">
+          No integrity events were recorded for this session.
+        </p>
+      )}
+    </section>
   );
 }
 

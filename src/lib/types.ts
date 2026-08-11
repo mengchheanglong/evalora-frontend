@@ -233,11 +233,61 @@ export interface InterviewSession {
   overallScore?: number;
   reportReady?: boolean;
   reportStatus?: "generated" | "pending";
+  /** Official integrity warning counters, always server-authored. */
+  warningCount?: number;
+  warningLimit?: number;
   startedAt?: string;
   completedAt?: string;
   expiresAt?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** Browser signals the candidate can report. The backend decides what counts. */
+export type IntegrityEventType = "visibilitychange" | "blur" | "pagehide" | "beforeunload";
+
+/** One stored integrity signal, as returned by the backend. */
+export interface IntegrityEvent {
+  id: string;
+  sessionId: string;
+  clientEventId: string;
+  type: IntegrityEventType | string;
+  detectedAt: string;
+  returnedAt?: string;
+  durationMs?: number;
+  /** True only when the backend counted this event toward the official warning. */
+  counted: boolean;
+  reason: string;
+}
+
+/** Body of POST /sessions/access/:accessCode/integrity-events. */
+export interface IntegrityEventRequest {
+  clientEventId: string;
+  type: IntegrityEventType;
+  detectedAt: string;
+  returnedAt?: string;
+  durationMs?: number;
+}
+
+/** Official response of the candidate integrity endpoint. */
+export interface IntegrityEventResult {
+  sessionId: string;
+  clientEventId: string;
+  counted: boolean;
+  warningCount: number;
+  warningLimit: number;
+  status: SessionStatus;
+  reason: string;
+  event: IntegrityEvent;
+}
+
+/** Reviewer-facing integrity summary from GET /sessions/:id/integrity-events. */
+export interface IntegritySummary {
+  sessionId: string;
+  warningCount: number;
+  warningLimit: number;
+  status: SessionStatus;
+  events: IntegrityEvent[];
 }
 
 export interface CandidateAccessSession extends InterviewSession {
@@ -516,4 +566,8 @@ export interface SessionTranscript {
   entries: TranscriptEntry[];
   counts: TranscriptCounts;
   truncation: TranscriptTruncation;
+  /** Official integrity warning summary + timeline for the reviewer UI. */
+  warningCount?: number;
+  warningLimit?: number;
+  integrityEvents?: IntegrityEvent[];
 }

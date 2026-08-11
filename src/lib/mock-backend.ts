@@ -23,6 +23,7 @@ import type {
   QuestionType,
   ReviewerNote,
   ScoreDistributionBucket,
+  IntegrityEvent,
   SessionStatus,
   SessionTranscript,
   TemplateUsageItem,
@@ -465,6 +466,9 @@ const codeQuestions: CodeQuestion[] = [
 ];
 
 const codeSubmissions: CandidateCodeSubmission[] = [];
+
+/** Demo integrity timeline keyed by session id (in-memory, like the rest of the mock). */
+const integrityEventsBySession = new Map<string, IntegrityEvent[]>();
 
 export async function handleMockBackendRequest(request: NextRequest, relativePath: string): Promise<NextResponse> {
   const method = request.method;
@@ -918,8 +922,21 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
       201,
     );
   }
-  if (segments[0] === "sessions" && segments[1] === "access" && segments[2]) return handleCandidateSession(method, decodeURIComponent(segments[2]), segments[3]);
+  if (segments[0] === "sessions" && segments[1] === "access" && segments[2]) return handleCandidateSession(method, decodeURIComponent(segments[2]), segments[3], body);
   // Must be registered before /sessions/:id
+  if (segments[0] === "sessions" && segments[1] && segments[2] === "integrity-events" && method === "GET") {
+    const session = sessions.find((item) => item.id === decodeURIComponent(segments[1]));
+    if (!session) return json({ message: "Session not found." }, 404);
+    const events = integrityEventsBySession.get(session.id) ?? [];
+    const warned = (session as InterviewSession & { warningCount?: number }).warningCount ?? 0;
+    return json({
+      sessionId: session.id,
+      warningCount: warned,
+      warningLimit: 1,
+      status: session.status,
+      events,
+    });
+  }
   if (segments[0] === "sessions" && segments[1] && segments[2] === "transcript" && method === "GET") {
     const session = sessions.find((item) => item.id === decodeURIComponent(segments[1]));
     if (!session) return json({ message: "Session not found." }, 404);
@@ -1027,10 +1044,17 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   return json({ message: `Mock endpoint not implemented: ${method} /${relativePath}` }, 404);
 }
 
-function handleCandidateSession(method: string, accessCode: string, action?: string) {
+function handleCandidateSession(method: string, accessCode: string, action?: string, body?: unknown) {
   const session = findSessionByAccessCode(accessCode);
   if (!session) return json({ message: "Invitation not found." }, 404);
-  if (method === "GET" && !action) return json(withTemplate(session));
+  // Mirrors the real backend's GoneException: completed/expired assessments
+  // (including integrity-driven expiry) are no longer readable by the candidate.
+  if (method === "GET" && !action) {
+    if (session.status === "completed" || session.status === "expired") {
+      return json({ message: "This assessment is no longer available." }, 410);
+    }
+    return json(withTemplate(session));
+  }
   if (method === "PUT" && action === "start") {
     session.status = "in_progress";
     session.startedAt ??= new Date().toISOString();
@@ -1046,6 +1070,60 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
     session.updatedAt = new Date().toISOString();
     if (!reports.some((report) => report.sessionId === session.id)) reports.push(generateReportFor(session));
     return json(withTemplate(session));
+  }
+  if (method === "POST" && action === "integrity-events") {
+    const input = asRecord(body);
+    const clientEventId = String(input.clientEventId ?? "").trim();
+    const type = String(input.type ?? "").trim();
+    if (!clientEventId || !type) return json({ message: "clientEventId and type are required." }, 400);
+    if (!["visibilitychange", "blur", "pagehide", "beforeunload"].includes(type)) {
+      return json({ message: "Invalid event type." }, 400);
+    }
+    if (session.status !== "in_progress") {
+      return json({ message: "This assessment is no longer available." }, 410);
+    }
+    const events = integrityEventsBySession.get(session.id) ?? [];
+    const warned = (session as InterviewSession & { warningCount?: number }).warningCount ?? 0;
+    const existing = events.find((event) => event.clientEventId === clientEventId);
+    if (existing) {
+      return json({
+        sessionId: session.id,
+        clientEventId,
+        counted: false,
+        warningCount: warned,
+        warningLimit: 1,
+        status: session.status,
+        reason: "Duplicate integrity event. No additional warning was counted.",
+        event: existing,
+      });
+    }
+    const counted = type === "visibilitychange";
+    const event: IntegrityEvent = {
+      id: `iev-${Date.now()}`,
+      sessionId: session.id,
+      clientEventId,
+      type,
+      detectedAt: String(input.detectedAt ?? new Date().toISOString()),
+      returnedAt: input.returnedAt ? String(input.returnedAt) : undefined,
+      durationMs: input.durationMs != null ? Number(input.durationMs) : undefined,
+      counted,
+      reason: counted ? "Possible tab switching detected." : "Supporting signal: the browser window lost focus.",
+    };
+    events.push(event);
+    integrityEventsBySession.set(session.id, events);
+    const nextCount = warned + (counted ? 1 : 0);
+    (session as InterviewSession & { warningCount?: number }).warningCount = nextCount;
+    if (counted && nextCount >= 1) session.status = "expired";
+    return json({
+      sessionId: session.id,
+      clientEventId,
+      counted,
+      warningCount: nextCount,
+      warningLimit: 1,
+      status: session.status,
+      reason: event.reason,
+      event,
+    });
   }
   return json({ message: "Unsupported candidate session action." }, 404);
 }
@@ -1619,6 +1697,9 @@ function buildTranscript(session: InterviewSession): SessionTranscript {
       limit: DEFAULT_TRANSCRIPT_LIMIT,
       omitted: { responses: 0, aiMessages: 0, codeSubmissions: 0, interviewerFollowUps: 0 },
     },
+    warningCount: (session as InterviewSession & { warningCount?: number }).warningCount ?? 0,
+    warningLimit: 1,
+    integrityEvents: integrityEventsBySession.get(session.id) ?? [],
   };
 }
 
