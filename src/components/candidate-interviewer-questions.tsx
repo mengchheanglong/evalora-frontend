@@ -79,7 +79,7 @@ export function useInterviewerFollowUps(accessCode: string, active: boolean) {
   }, [active, load]);
 
   // Live channel: a question pushed by the interviewer appears at once.
-  const { connection, participants, latencyMs } = useInterviewSocket({
+  const { connection, participants, latencyMs, socket } = useInterviewSocket({
     accessCode,
     enabled: active,
     onEvent: () => { void load(); },
@@ -89,7 +89,7 @@ export function useInterviewerFollowUps(accessCode: string, active: boolean) {
 
   const pending = followUps.filter((item) => item.status === "sent");
   const pendingRequired = pending.filter((item) => item.required);
-  return { followUps, pending, pendingRequired, arrival, dismissArrival, reload: load, connection, participants, latencyMs };
+  return { followUps, pending, pendingRequired, arrival, dismissArrival, reload: load, connection, participants, latencyMs, socket };
 }
 
 /**

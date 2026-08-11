@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
-import { SessionTranscriptView } from "@/components/session-transcript";
+import { LiveInterviewRoom } from "@/components/live-interview-room";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
@@ -24,6 +24,7 @@ export default function CandidateDetailPage() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [showInterview, setShowInterview] = useState(false);
 
   const loadCandidate = useCallback(async () => {
     setLoading(true);
@@ -49,10 +50,6 @@ export default function CandidateDetailPage() {
   }, [id]);
 
   useEffect(() => { void loadCandidate(); }, [loadCandidate]);
-
-  const handleSessionStatus = useCallback((status: SessionStatus) => {
-    setSession((current) => current && current.status !== status ? { ...current, status } : current);
-  }, []);
 
   async function generateReport() {
     setGenerating(true);
@@ -101,29 +98,42 @@ export default function CandidateDetailPage() {
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
           {copied ? <InlineAlert tone="success">Private invitation link copied.</InlineAlert> : null}
           <ProfileHero session={session} template={template} />
-          <Tabs active={activeTab} onChange={setActiveTab} reportReady={Boolean(report)} sessionStatus={session.status} />
+          <Tabs active={activeTab} onChange={setActiveTab} reportReady={Boolean(report)} />
 
-          {activeTab === "overview" ? (
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
-              <div className="space-y-4">
-                <section className="grid gap-4 lg:grid-cols-2">
-                  <SessionDetailsCard onMonitor={() => setActiveTab("transcript")} session={session} template={template} />
-                  <SkillsCard report={report} template={template} />
-                </section>
-                <RecentActivityCard notes={notes} responses={responses} session={session} />
+          {showInterview ? (
+            <LiveInterviewRoom onClose={() => setShowInterview(false)} sessionId={session.id} />
+          ) : activeTab === "overview" ? (
+            <>
+              {session.status === "in_progress" ? (
+                <button
+                  className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)] px-4 py-3 text-sm font-bold text-[var(--color-primary-700)] shadow-sm transition-colors hover:bg-[var(--color-primary-100)]"
+                  onClick={() => setShowInterview(true)}
+                  type="button"
+                >
+                  <Icon name="eye" size={16} />
+                  Watch live interview
+                  <span className="live-status-dot size-2 animate-pulse rounded-full" />
+                </button>
+              ) : null}
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
+                <div className="space-y-4">
+                  <section className="grid gap-4 lg:grid-cols-2">
+                    <SessionDetailsCard onMonitor={() => setShowInterview(true)} session={session} template={template} />
+                    <SkillsCard report={report} template={template} />
+                  </section>
+                  <RecentActivityCard notes={notes} responses={responses} session={session} />
+                </div>
+                <aside className="space-y-4">
+                  <OverallSummary report={report} session={session} />
+                  <QuickActions copied={copied} copyInvite={copyInvite} generateReport={generateReport} generating={generating} onMonitor={() => setShowInterview(true)} onOpenReport={() => setActiveTab("report")} report={report} session={session} />
+                </aside>
               </div>
-              <aside className="space-y-4">
-                <OverallSummary report={report} session={session} />
-                <QuickActions copied={copied} copyInvite={copyInvite} generateReport={generateReport} generating={generating} onMonitor={() => setActiveTab("transcript")} onOpenReport={() => setActiveTab("report")} report={report} session={session} />
-              </aside>
-            </div>
-          ) : activeTab === "transcript" ? (
-            <SessionTranscriptView onStatusChange={handleSessionStatus} sessionId={session.id} />
+            </>
           ) : report ? (
             <ReportView
               notes={notes}
               onAddNote={addNote}
-              onViewInterview={() => setActiveTab("transcript")}
+              onViewInterview={() => { setActiveTab("overview"); setShowInterview(true); }}
               report={report}
               role={session.targetRole ?? template.roleType}
               savingNote={savingNote}
@@ -166,12 +176,11 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
   );
 }
 
-type TabId = "overview" | "transcript" | "report";
+type TabId = "overview" | "report";
 
-function Tabs({ active, onChange, reportReady, sessionStatus }: { active: TabId; onChange: (tab: TabId) => void; reportReady: boolean; sessionStatus: SessionStatus }) {
+function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab: TabId) => void; reportReady: boolean }) {
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: "clipboard" as const },
-    { id: "transcript" as const, label: "Interview", icon: "eye" as const },
     { id: "report" as const, label: "Report", icon: "file" as const },
   ];
   return (
@@ -188,9 +197,7 @@ function Tabs({ active, onChange, reportReady, sessionStatus }: { active: TabId;
           >
             <Icon name={tab.icon} size={14} />
             {tab.label}
-            {tab.id === "transcript" && sessionStatus === "in_progress" ? (
-              <span className="live-status-dot size-1.5 animate-pulse rounded-full" title="Candidate is interviewing now" />
-            ) : null}
+
             {tab.id === "report" && reportReady ? <span className="size-1.5 rounded-full bg-[var(--color-primary-500)]" title="Report ready" /> : null}
             {isActive ? <span className="absolute inset-x-0 -bottom-px h-[2.5px] rounded-full bg-[var(--color-primary-600)]" /> : null}
           </button>
