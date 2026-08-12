@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/icons";
-import { CandidateLiveCamera } from "@/components/livekit/candidate-live-camera";
 import { useAuth } from "@/components/auth-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ConnectionPill, PresenceChips } from "@/components/realtime-indicators";
@@ -202,7 +201,6 @@ export function SessionTranscriptView({
     connection,
     participants,
     latencyMs,
-    socket,
   } = useInterviewSocket({
     sessionId,
     enabled: transcript?.status === "in_progress",
@@ -326,15 +324,8 @@ return (
   <div className="space-y-4">
 
     {/* =====================================================
-        LIVEKIT CANDIDATE CAMERA
+        FLOATING LIVE CONNECTION STATUS
         ===================================================== */}
-    {isLive ? (
-      <CandidateLiveCamera sessionId={sessionId} socket={socket} connection={connection} />
-    ) : null}
-
-      {/* =====================================================
-          FLOATING LIVE CONNECTION STATUS
-          ===================================================== */}
       {isLive ? (
         <div
           aria-atomic="true"
