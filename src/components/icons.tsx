@@ -37,6 +37,7 @@ export type IconName =
   | "trash"
   | "trend"
   | "user"
+  | "video"
   | "waves"
   | "users"
   | "x";
@@ -326,6 +327,12 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M4 21a8 8 0 0 1 16 0" />
     </>
   ),
+  video: (
+    <>
+      <rect height="12" rx="2" width="13" x="3" y="6" />
+      <path d="m16 10 5-3v10l-5-3" />
+    </>
+  ),
   users: (
     <>
       <circle cx="12" cy="8" r="4" />
@@ -351,4 +358,3 @@ export function GoogleIcon() {
     </svg>
   );
 }
-

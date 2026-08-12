@@ -74,6 +74,15 @@ export function CandidateLiveCamera({
 
       console.log("[CandidateLiveCamera] Received offer from", payload.fromUserId);
 
+      // A working connection must not be torn down by a stale or duplicate
+      // offer — that is what makes the video flip back to "Connecting…".
+      if (pcRef.current) {
+        const existingState = pcRef.current.connectionState;
+        if (existingState === "connected") {
+          return;
+        }
+      }
+
       // Close any existing connection
       cleanup();
 
@@ -101,6 +110,9 @@ export function CandidateLiveCamera({
 
         if (targetVideoRef.current && event.streams?.[0]) {
           targetVideoRef.current.srcObject = event.streams[0];
+          // autoplay attribute covers most cases; play() explicitly so the
+          // widget never sits on "Connecting…" waiting for the event loop.
+          void targetVideoRef.current.play().catch(() => undefined);
         }
 
         setStatus("connected");

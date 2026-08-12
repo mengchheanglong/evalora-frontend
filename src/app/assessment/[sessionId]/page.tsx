@@ -338,6 +338,8 @@ export default function CandidateAssessmentPage() {
       return interviewerParticipant?.userId;
     }
 
+    let answered = false;
+
     function handleAnswer(payload: {
       sessionId?: string;
       fromUserId?: string;
@@ -346,6 +348,7 @@ export default function CandidateAssessmentPage() {
       if (cancelled || !pc) return;
       if (!payload.answer) return;
 
+      answered = true;
       pc.setRemoteDescription(new RTCSessionDescription(payload.answer)).catch((err) => {
         console.warn("[CandidateWebRTC] Error setting remote description:", err);
       });
@@ -365,14 +368,22 @@ export default function CandidateAssessmentPage() {
     }
 
     /**
-     * Try to send an offer. If no interviewer is in the room yet,
-     * retry periodically until one appears.
+     * Try to send an offer. If no interviewer is in the room yet, retry
+     * periodically until one appears. Once the interviewer has answered and
+     * the connection is established, stop — re-offering after a stable
+     * connection tears the video down on the interviewer side ("Connecting…"
+     * flicker) for no benefit.
      */
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let offerSent = false;
 
     function trySendOffer() {
       if (cancelled || !pc) return;
+
+      // Connection already negotiated — never re-offer from here on.
+      if (answered || pc.connectionState === "connected") {
+        return;
+      }
 
       const targetUserId = findInterviewerId();
       if (!targetUserId) {
@@ -383,7 +394,7 @@ export default function CandidateAssessmentPage() {
         return;
       }
 
-      // If we already sent an offer but got no answer, retry after a delay.
+      // Offer already sent and no answer yet — retry after a delay.
       if (offerSent && pc.signalingState !== "stable") {
         if (!cancelled) {
           retryTimer = setTimeout(trySendOffer, 3000);
@@ -438,6 +449,8 @@ export default function CandidateAssessmentPage() {
     pc.onconnectionstatechange = () => {
       if (cancelled) return;
       console.log("[CandidateWebRTC] Connection state:", pc?.connectionState);
+      // A failed connection may recover via a fresh offer; a live one must not
+      // be re-negotiated (see trySendOffer).
     };
 
     // Notify interviewer that camera is available
