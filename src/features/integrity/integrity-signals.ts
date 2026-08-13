@@ -8,8 +8,21 @@ import type { IntegrityEventResult, IntegrityEventType } from "@/lib/types";
  */
 export const INTEGRITY_DEBOUNCE_MS = 800;
 
-/** Browser signals the integrity hook listens for. */
-export type IntegritySignal = "hidden" | "visible" | "blur" | "pagehide" | "beforeunload";
+/**
+ * How long the pointer must stay OUTSIDE the assessment window before the exit
+ * is treated as a possible violation. Briefly crossing into the browser
+ * toolbar, devtools, or a second monitor happens all the time and would be a
+ * false positive, so the hook only reports a pointer_exit once this threshold
+ * has elapsed with the pointer still outside.
+ */
+export const POINTER_OUTSIDE_THRESHOLD_MS = 2_000;
+
+/**
+ * Browser signals the integrity hook listens for.
+ * - `pointer`: the pointer left the window and stayed out past the threshold.
+ * - `pointer-return`: the pointer came back — only records timing, never counts.
+ */
+export type IntegritySignal = "hidden" | "visible" | "blur" | "pagehide" | "beforeunload" | "pointer" | "pointer-return";
 
 /** A debounced violation waiting to be reported. */
 export interface PendingDetection {
@@ -31,9 +44,26 @@ export function createClientEventId(): string {
 }
 
 /**
+ * Significance ranking for merging nearby signals into ONE violation.
+ * A hidden transition is the strongest signal, blur the weakest; when signals
+ * collide the window keeps the strongest type so one physical action never
+ * turns into two reported violations.
+ */
+const SIGNAL_RANK: Record<IntegrityEventType, number> = {
+  visibilitychange: 4,
+  pagehide: 3,
+  // beforeunload never persists as a type (it maps to pagehide), but the
+  // union includes it so rank it beside pagehide.
+  beforeunload: 3,
+  pointer_exit: 2,
+  blur: 1,
+};
+
+/**
  * Pure merge used by both the hook and unit tests. Multiple nearby signals
  * collapse into ONE detection with a single clientEventId; a real transition
- * to hidden upgrades the whole window to the counted `visibilitychange` type.
+ * to hidden upgrades the whole window to the counted `visibilitychange` type,
+ * and a sustained pointer exit to the counted `pointer_exit` type.
  */
 export function mergeSignal(
   pending: PendingDetection | null,
@@ -42,18 +72,22 @@ export function mergeSignal(
 ): PendingDetection | null {
   const iso = new Date(atMs).toISOString();
 
-  // A page becoming visible with no prior signal is not a violation.
-  if (!pending && signal === "visible") return null;
+  // A page becoming visible or the pointer returning with nothing pending is
+  // not a violation — there is nothing to attach the timing to.
+  if (!pending && (signal === "visible" || signal === "pointer-return")) return null;
 
   if (!pending) {
     // A hidden transition is a counted event even when it opens the window;
-    // pagehide/beforeunload are supporting evidence, blur is the lowest signal.
+    // a sustained pointer exit is counted; pagehide/beforeunload are
+    // supporting evidence, blur is the lowest signal.
     const type: IntegrityEventType =
       signal === "hidden"
         ? "visibilitychange"
-        : signal === "pagehide" || signal === "beforeunload"
-          ? "pagehide"
-          : "blur";
+        : signal === "pointer"
+          ? "pointer_exit"
+          : signal === "pagehide" || signal === "beforeunload"
+            ? "pagehide"
+            : "blur";
     return {
       clientEventId: createClientEventId(),
       type,
@@ -65,10 +99,16 @@ export function mergeSignal(
 
   let type = pending.type;
   let returnedAt = pending.returnedAt;
-  // A real transition to hidden is the only COUNTED signal; it upgrades the
-  // whole window, so blur-only noise never ends the assessment by itself.
-  if (signal === "hidden") type = "visibilitychange";
+  // Nearby signals keep the STRONGEST type: a tab switch that upgrades the
+  // window to visibilitychange, or a pointer exit that upgrades a blur, still
+  // counts as exactly ONE violation with one clientEventId.
+  if (signal === "hidden") {
+    type = "visibilitychange";
+  } else if (signal === "pointer") {
+    if (SIGNAL_RANK.pointer_exit > SIGNAL_RANK[type]) type = "pointer_exit";
+  }
   if (signal === "visible" && !returnedAt) returnedAt = iso;
+  if (signal === "pointer-return" && type === "pointer_exit" && !returnedAt) returnedAt = iso;
   const durationMs =
     returnedAt !== undefined
       ? Math.max(0, new Date(returnedAt).getTime() - new Date(pending.detectedAt).getTime())

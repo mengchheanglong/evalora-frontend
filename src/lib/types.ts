@@ -244,7 +244,7 @@ export interface InterviewSession {
 }
 
 /** Browser signals the candidate can report. The backend decides what counts. */
-export type IntegrityEventType = "visibilitychange" | "blur" | "pagehide" | "beforeunload";
+export type IntegrityEventType = "visibilitychange" | "pointer_exit" | "blur" | "pagehide" | "beforeunload";
 
 /** One stored integrity signal, as returned by the backend. */
 export interface IntegrityEvent {

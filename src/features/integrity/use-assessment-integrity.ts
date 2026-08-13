@@ -5,6 +5,7 @@ import { reportIntegrityEvent } from "@/lib/api";
 import type { IntegrityEvent, IntegrityEventResult, SessionStatus } from "@/lib/types";
 import {
   INTEGRITY_DEBOUNCE_MS,
+  POINTER_OUTSIDE_THRESHOLD_MS,
   interpretIntegrityResult,
   mergeSignal,
   type IntegritySignal,
@@ -62,6 +63,10 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
   const pendingRef = useRef<PendingDetection | null>(null);
   const timerRef = useRef<number | null>(null);
   const inFlightRef = useRef<Promise<void>>(Promise.resolve());
+  /** When the pointer left the window; null while it is inside. */
+  const pointerOutAtRef = useRef<number | null>(null);
+  /** Timer that turns a sustained pointer exit into a counted signal. */
+  const pointerTimerRef = useRef<number | null>(null);
   const accessCodeRef = useRef(accessCode);
   accessCodeRef.current = accessCode;
   const activeRef = useRef(active);
@@ -194,6 +199,48 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
       if (detection) beaconDetection(detection);
     };
 
+    // ----------------------------------------------------------------
+    // Pointer-exit detection. The pointer must STAY outside the window past
+    // the threshold before it becomes a counted pointer_exit signal, so a
+    // brief trip to the browser toolbar or a second monitor is not a strike.
+    // ----------------------------------------------------------------
+    const onPointerLeave = () => {
+      if (disposed || pointerOutAtRef.current !== null) return;
+      pointerOutAtRef.current = Date.now();
+      pointerTimerRef.current = window.setTimeout(() => {
+        pointerTimerRef.current = null;
+        const outAt = pointerOutAtRef.current;
+        if (disposed || outAt === null) return;
+        // Still outside after the threshold: this is the counted violation.
+        queueSignal("pointer", outAt);
+      }, POINTER_OUTSIDE_THRESHOLD_MS);
+    };
+
+    // mouseout with no relatedTarget means the pointer moved to something
+    // outside the document (browser chrome, devtools, another window).
+    const onPointerOut = (event: MouseEvent) => {
+      if (disposed || event.relatedTarget !== null) return;
+      onPointerLeave();
+    };
+
+    const onPointerReturn = () => {
+      if (pointerTimerRef.current !== null) {
+        window.clearTimeout(pointerTimerRef.current);
+        pointerTimerRef.current = null;
+      }
+      if (pointerOutAtRef.current !== null) {
+        pointerOutAtRef.current = null;
+        // Only records timing if a pointer_exit violation is already pending;
+        // a quick return before the threshold is a no-op.
+        queueSignal("pointer-return", Date.now());
+      }
+    };
+
+    const onPointerOver = (event: MouseEvent) => {
+      if (disposed || event.relatedTarget !== null) return;
+      onPointerReturn();
+    };
+
     const onPagehide = () => onPageExit("pagehide");
     const onBeforeunload = () => onPageExit("beforeunload");
 
@@ -201,16 +248,27 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
     window.addEventListener("blur", onBlur);
     document.addEventListener("pagehide", onPagehide);
     window.addEventListener("beforeunload", onBeforeunload);
+    document.documentElement.addEventListener("mouseleave", onPointerLeave);
+    document.addEventListener("mouseout", onPointerOut);
+    document.documentElement.addEventListener("mouseenter", onPointerReturn);
+    document.addEventListener("mouseover", onPointerOver);
 
     return () => {
       disposed = true;
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       timerRef.current = null;
+      if (pointerTimerRef.current !== null) window.clearTimeout(pointerTimerRef.current);
+      pointerTimerRef.current = null;
+      pointerOutAtRef.current = null;
       pendingRef.current = null;
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("pagehide", onPagehide);
       window.removeEventListener("beforeunload", onBeforeunload);
+      document.documentElement.removeEventListener("mouseleave", onPointerLeave);
+      document.removeEventListener("mouseout", onPointerOut);
+      document.documentElement.removeEventListener("mouseenter", onPointerReturn);
+      document.removeEventListener("mouseover", onPointerOver);
     };
   }, [active, beaconDetection, queueSignal]);
 
