@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CandidateLiveCamera } from "@/components/livekit/candidate-live-camera";
+import {
+  CandidateLiveCamera,
+  type CameraStatus,
+  type MediaConnectionQuality,
+} from "@/components/livekit/candidate-live-camera";
 import { DraggableCamera } from "@/components/draggable-camera";
 import { SessionTranscriptView } from "@/components/session-transcript";
 import { useInterviewSocket } from "@/components/use-interview-socket";
 import { Icon } from "@/components/icons";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
 import type { InterviewerFollowUp } from "@/lib/types";
+import type { LiveCaption } from "@/features/live-video/live-captions";
 
 const POLL_MS = 10_000;
 
@@ -31,8 +36,30 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
   const idempotencyKey = useRef(crypto.randomUUID());
   const mountedRef = useRef(true);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [candidateMicrophoneState, setCandidateMicrophoneState] =
+    useState<"waiting" | "live" | "muted">("waiting");
+  const [candidateConnectionQuality, setCandidateConnectionQuality] =
+    useState<MediaConnectionQuality>("lost");
+  const [candidateCameraStatus, setCandidateCameraStatus] =
+    useState<CameraStatus>("connecting");
+  const [lowBandwidthOverride, setLowBandwidthOverride] =
+    useState<boolean | null>(null);
+  const lowBandwidthMode = lowBandwidthOverride ??
+    (candidateConnectionQuality === "poor" || candidateConnectionQuality === "lost");
+  const [liveCaptions, setLiveCaptions] = useState<LiveCaption[]>([]);
+  const [interviewerMicrophoneMuted, setInterviewerMicrophoneMuted] =
+    useState(true);
+  const [interviewerMicrophoneState, setInterviewerMicrophoneState] =
+    useState<"connecting" | "live" | "muted" | "error">("muted");
 
-  const { connection, participants, socket } = useInterviewSocket({
+  const handleLiveCaption = useCallback((caption: LiveCaption) => {
+    setLiveCaptions((current) => {
+      const next = current.filter((item) => item.id !== caption.id);
+      return [...next, caption].sort((a, b) => a.timestamp - b.timestamp).slice(-20);
+    });
+  }, []);
+
+  const { connection, participants } = useInterviewSocket({
     sessionId,
     enabled: true,
   });
@@ -104,6 +131,33 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         </button>
 
         <div className="flex items-center gap-3">
+          <button
+            className={`inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-bold transition-colors ${
+              interviewerMicrophoneState === "error"
+                ? "bg-rose-100 text-rose-700"
+                : interviewerMicrophoneMuted
+                  ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+            }`}
+            onClick={() => setInterviewerMicrophoneMuted((muted) => !muted)}
+            type="button"
+          >
+            <span className={`size-2 rounded-full ${
+              interviewerMicrophoneState === "error"
+                ? "bg-rose-500"
+                : interviewerMicrophoneMuted
+                  ? "bg-neutral-400"
+                  : "bg-emerald-500"
+            }`} />
+            {interviewerMicrophoneState === "error"
+              ? "Mic unavailable"
+              : interviewerMicrophoneState === "connecting"
+                ? "Starting mic…"
+                : interviewerMicrophoneMuted
+                  ? "Unmute my mic"
+                  : "Mute my mic"}
+          </button>
+
           <span className="text-xs text-[var(--theme-muted)]">
             {participants
               .filter((p) => p.role === "candidate")
@@ -133,6 +187,56 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
             onStatusChange={() => {}}
             sessionId={sessionId}
           />
+
+          <section className="sticky bottom-0 mt-5 overflow-hidden rounded-xl border border-[var(--theme-border)] bg-white/95 shadow-[var(--shadow-card)] backdrop-blur">
+            <div className="flex items-center justify-between border-b border-[var(--theme-border)] px-4 py-2.5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--theme-heading)]">Live captions</p>
+                <p className="mt-0.5 text-[10px] text-[var(--theme-muted)]">Live speech only — not part of the saved evidence transcript.</p>
+              </div>
+              <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                candidateMicrophoneState === "muted" || candidateCameraStatus === "offline"
+                  ? "bg-rose-100 text-rose-700"
+                  : candidateCameraStatus === "reconnecting"
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-emerald-100 text-emerald-700"
+              }`}>
+                {candidateMicrophoneState === "muted"
+                  ? "Microphone muted"
+                  : candidateCameraStatus === "offline"
+                    ? "Disconnected"
+                    : candidateCameraStatus === "reconnecting"
+                      ? "Reconnecting..."
+                      : "Listening"}
+              </span>
+            </div>
+
+            <div className="max-h-40 overflow-y-auto px-4 py-3" aria-live="polite">
+              {liveCaptions.length ? (
+                <div className="space-y-2">
+                  {liveCaptions.map((caption) => (
+                    <div className="flex gap-3 text-sm" key={caption.id}>
+                      <time className="shrink-0 pt-0.5 text-[10px] font-semibold text-[var(--theme-faint)]">
+                        {new Date(caption.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                      </time>
+                      <p className={caption.final ? "text-[var(--theme-text)]" : "italic text-[var(--theme-muted)]"}>
+                        <span className="mr-1.5 font-bold text-[var(--color-primary-700)]">{caption.speaker}:</span>
+                        {caption.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-2 text-center text-xs text-[var(--theme-faint)]">
+                  {candidateMicrophoneState === "muted"
+                    ? "Captions are paused while the candidate microphone is muted."
+                    : candidateCameraStatus === "offline" || candidateCameraStatus === "reconnecting"
+                      ? "Captions will resume when the media connection returns."
+                      : "Waiting for the candidate to speak…"}
+                </p>
+              )}
+            </div>
+          </section>
         </div>
 
         {/* Right: question composer */}
@@ -251,16 +355,26 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
       <div className="sr-only" aria-hidden>
         <CandidateLiveCamera
           compact
-          connection={connection}
           externalVideoRef={cameraVideoRef}
+          lowBandwidthMode={lowBandwidthMode}
+          interviewerMicrophoneMuted={interviewerMicrophoneMuted}
+          onConnectionQualityChange={setCandidateConnectionQuality}
+          onCaption={handleLiveCaption}
+          onInterviewerMicrophoneStateChange={setInterviewerMicrophoneState}
+          onMicrophoneStateChange={setCandidateMicrophoneState}
+          onStatusChange={setCandidateCameraStatus}
           sessionId={sessionId}
-          socket={socket}
         />
       </div>
 
       {/* Draggable floating camera with the shared video ref */}
       <DraggableCamera
+        connectionState={candidateCameraStatus}
+        connectionQuality={candidateConnectionQuality}
         label="Candidate camera"
+        lowBandwidthMode={lowBandwidthMode}
+        microphoneState={candidateMicrophoneState}
+        onToggleLowBandwidth={() => setLowBandwidthOverride(!lowBandwidthMode)}
         videoRef={cameraVideoRef}
       />
     </div>

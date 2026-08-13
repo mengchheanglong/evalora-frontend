@@ -4,10 +4,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type FloatingCandidateCameraProps = {
   stream: MediaStream | null;
+  connectionState: "connecting" | "connected" | "reconnecting" | "offline";
+  connectionQuality: "excellent" | "good" | "poor" | "lost";
+  lowBandwidthMode: boolean;
+  interviewerMicrophoneState: "waiting" | "live" | "muted" | "offline";
+  microphoneMuted: boolean;
+  onToggleLowBandwidth: () => void;
+  onToggleMicrophone: () => void;
 };
 
 export function FloatingCandidateCamera({
   stream,
+  connectionState,
+  connectionQuality,
+  lowBandwidthMode,
+  interviewerMicrophoneState,
+  microphoneMuted,
+  onToggleLowBandwidth,
+  onToggleMicrophone,
 }: FloatingCandidateCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -122,7 +136,14 @@ export function FloatingCandidateCamera({
             className="block h-full w-full object-cover"
           />
 
-          {!playing ? (
+          {connectionState === "reconnecting" ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm">
+              <div className="text-center">
+                <span className="mx-auto block size-4 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                <p className="mt-2 text-[10px] font-semibold text-white">Reconnecting...</p>
+              </div>
+            </div>
+          ) : !playing ? (
             <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
               <p className="text-[10px] font-semibold text-white">
                 Connecting camera...
@@ -140,15 +161,91 @@ export function FloatingCandidateCamera({
               {playing ? "Live" : "Camera"}
             </span>
           </div>
+
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1">
+            <span className={`size-1.5 rounded-full ${
+              connectionQuality === "excellent"
+                ? "bg-emerald-400"
+                : connectionQuality === "good"
+                  ? "bg-sky-400"
+                  : connectionQuality === "poor"
+                    ? "bg-amber-400"
+                    : "bg-rose-400"
+            }`} />
+            <span className="text-[9px] font-bold capitalize text-white">
+              {connectionQuality}
+            </span>
+          </div>
         </div>
 
-        <div className="bg-white px-3 py-2">
-          <p className="text-[11px] font-bold text-neutral-800">
-            Your camera
-          </p>
-          <p className="mt-0.5 text-[10px] text-neutral-400">
-            {playing ? "Camera is active" : "Connecting..."}
-          </p>
+        <div className="flex items-center justify-between gap-2 bg-white px-3 py-2">
+          <div>
+            <p className="text-[11px] font-bold text-neutral-800">
+              Your camera
+            </p>
+            <p className={`mt-0.5 text-[10px] ${microphoneMuted ? "text-rose-500" : "text-neutral-400"}`}>
+              {connectionState === "reconnecting"
+                ? "Reconnecting..."
+                : microphoneMuted
+                  ? "Microphone muted"
+                  : playing
+                    ? "Camera and microphone active"
+                    : "Connecting..."}
+            </p>
+            <p className={`mt-0.5 text-[9px] ${
+              interviewerMicrophoneState === "live"
+                ? "text-emerald-600"
+                : interviewerMicrophoneState === "muted"
+                  ? "text-neutral-400"
+                  : "text-amber-600"
+            }`}>
+              {interviewerMicrophoneState === "live"
+                ? "Interviewer mic live"
+                : interviewerMicrophoneState === "muted"
+                  ? "Interviewer mic muted"
+                  : interviewerMicrophoneState === "offline"
+                    ? "Interviewer audio disconnected"
+                    : "Waiting for interviewer audio"}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              aria-label={lowBandwidthMode ? "Restore normal video quality" : "Enable low bandwidth mode"}
+              className={`h-8 rounded-full px-2 text-[9px] font-bold transition-colors ${
+                lowBandwidthMode
+                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  : "bg-sky-100 text-sky-700 hover:bg-sky-200"
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleLowBandwidth();
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              title={lowBandwidthMode ? "Low quality video" : "Normal quality video"}
+              type="button"
+            >
+              {lowBandwidthMode ? "Low" : "Normal"}
+            </button>
+
+            <button
+            aria-label={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
+            className={`grid size-8 shrink-0 place-items-center rounded-full text-sm transition-colors ${
+              microphoneMuted
+                ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
+                : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+            }`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleMicrophone();
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            title={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
+            type="button"
+          >
+            {microphoneMuted ? "⌁" : "●"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

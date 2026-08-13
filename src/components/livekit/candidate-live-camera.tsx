@@ -1,237 +1,458 @@
 "use client";
 
+import {
+  ConnectionQuality,
+  Room,
+  RoomEvent,
+  Track,
+  VideoQuality,
+  type RemoteTrack,
+  type RemoteTrackPublication,
+  type RemoteParticipant,
+  type RemoteAudioTrack,
+  type RemoteVideoTrack,
+  type TrackPublication,
+  type Participant,
+} from "livekit-client";
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import type { Socket } from "socket.io-client";
-import { INTERVIEW_EVENTS, type ConnectionState } from "@/lib/realtime";
+import { apiPost, getErrorMessage } from "@/lib/api";
+import {
+  LIVE_CAPTION_TOPIC,
+  parseLiveCaption,
+  type LiveCaption,
+} from "@/features/live-video/live-captions";
 
 type CandidateLiveCameraProps = {
   sessionId: string;
-  socket: RefObject<Socket | null>;
-  connection: ConnectionState;
+  onConnectionQualityChange?: (quality: MediaConnectionQuality) => void;
+  onStatusChange?: (status: CameraStatus) => void;
+  lowBandwidthMode?: boolean;
+  onCaption?: (caption: LiveCaption) => void;
+  onMicrophoneStateChange?: (state: "waiting" | "live" | "muted") => void;
+  interviewerMicrophoneMuted?: boolean;
+  onInterviewerMicrophoneStateChange?: (state: "connecting" | "live" | "muted" | "error") => void;
   /** When true, renders just the video (no header/card wrapper). */
   compact?: boolean;
   /** External video ref to attach tracks to instead of the internal one. */
   externalVideoRef?: RefObject<HTMLVideoElement | null>;
 };
 
-type CameraStatus =
+export type CameraStatus =
   | "waiting"
   | "connecting"
+  | "reconnecting"
   | "connected"
   | "error"
   | "offline";
 
-/** ICE servers for WebRTC. Google public STUN works for local / same-network. */
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-];
+export type MediaConnectionQuality = "excellent" | "good" | "poor" | "lost";
+
+function mediaConnectionQuality(quality: ConnectionQuality): MediaConnectionQuality {
+  return quality === ConnectionQuality.Excellent
+    ? "excellent"
+    : quality === ConnectionQuality.Good
+      ? "good"
+      : quality === ConnectionQuality.Poor
+        ? "poor"
+        : "lost";
+}
 
 /**
  * Interviewer-side camera panel.
  *
- * Listens for a WebRTC offer from the candidate through the existing
- * Socket.IO interview gateway, establishes a peer connection, and
- * displays the candidate's live video.
+ * Connects to the interview's LiveKit room, subscribes to the candidate's
+ * camera publication, and displays the remote video.
  */
 export function CandidateLiveCamera({
   sessionId,
-  socket: socketRef,
-  connection,
   compact,
   externalVideoRef,
+  onConnectionQualityChange,
+  onMicrophoneStateChange,
+  onStatusChange,
+  lowBandwidthMode = false,
+  onCaption,
+  interviewerMicrophoneMuted = true,
+  onInterviewerMicrophoneStateChange,
 }: CandidateLiveCameraProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   /** Use external ref if provided, otherwise internal. */
   const targetVideoRef = externalVideoRef ?? videoRef;
-  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const roomRef = useRef<Room | null>(null);
+  const lowBandwidthModeRef = useRef(lowBandwidthMode);
+  lowBandwidthModeRef.current = lowBandwidthMode;
   const [status, setStatus] = useState<CameraStatus>("waiting");
   const [error, setError] = useState("");
+  const [microphoneState, setMicrophoneState] = useState<"waiting" | "live" | "muted">("waiting");
+  const [connectionQuality, setConnectionQuality] =
+    useState<MediaConnectionQuality>("lost");
+  const interviewerMicrophoneMutedRef = useRef(interviewerMicrophoneMuted);
+  interviewerMicrophoneMutedRef.current = interviewerMicrophoneMuted;
+  const reconciliationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    onMicrophoneStateChange?.(microphoneState);
+  }, [microphoneState, onMicrophoneStateChange]);
+
+  useEffect(() => {
+    onConnectionQualityChange?.(connectionQuality);
+  }, [connectionQuality, onConnectionQualityChange]);
+
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [onStatusChange, status]);
+
+  useEffect(() => {
+    for (const participant of roomRef.current?.remoteParticipants.values() ?? []) {
+      participant.getTrackPublication(Track.Source.Camera)?.setVideoQuality(
+        lowBandwidthMode ? VideoQuality.LOW : VideoQuality.HIGH,
+      );
+    }
+  }, [lowBandwidthMode]);
+
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room || room.state !== "connected") return;
+    onInterviewerMicrophoneStateChange?.("connecting");
+    void room.localParticipant
+      .setMicrophoneEnabled(!interviewerMicrophoneMuted)
+      .then(() => {
+        onInterviewerMicrophoneStateChange?.(
+          interviewerMicrophoneMuted ? "muted" : "live",
+        );
+      })
+      .catch((publishError) => {
+        console.error("[CandidateLiveCamera] Interviewer microphone failed:", publishError);
+        onInterviewerMicrophoneStateChange?.("error");
+      });
+  }, [interviewerMicrophoneMuted, onInterviewerMicrophoneStateChange]);
 
   useEffect(() => {
     let cancelled = false;
-    let pc: RTCPeerConnection | null = null;
+    let attachedTrack: RemoteVideoTrack | null = null;
+    let attachedAudioTrack: RemoteAudioTrack | null = null;
+    let audioElement: HTMLAudioElement | null = null;
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+    });
+    roomRef.current = room;
+    room.registerTextStreamHandler(LIVE_CAPTION_TOPIC, (reader) => {
+      void reader.readAll().then((value) => {
+        if (cancelled) return;
+        const caption = parseLiveCaption(value);
+        if (caption) onCaption?.(caption);
+      }).catch(() => undefined);
+    });
 
-    function cleanup() {
-      if (pc) {
-        pc.close();
-        pc = null;
+    function cleanupVideo() {
+      const video = targetVideoRef.current;
+      if (attachedTrack && video) {
+        attachedTrack.detach(video);
       }
-      pcRef.current = null;            if (targetVideoRef.current) {
-              targetVideoRef.current.srcObject = null;
-            }
+      attachedTrack = null;
+      if (video) video.srcObject = null;
     }
 
-    function handleOffer(payload: {
-      sessionId?: string;
-      fromUserId?: string;
-      offer?: RTCSessionDescriptionInit;
-    }) {
-      if (cancelled) return;
-      if (payload.sessionId !== sessionId) return;
-      if (!payload.offer) return;
-
-      console.log("[CandidateLiveCamera] Received offer from", payload.fromUserId);
-
-      // A working connection must not be torn down by a stale or duplicate
-      // offer — that is what makes the video flip back to "Connecting…".
-      if (pcRef.current) {
-        const existingState = pcRef.current.connectionState;
-        if (existingState === "connected") {
-          return;
-        }
+    function cleanupAudio() {
+      if (attachedAudioTrack && audioElement) {
+        attachedAudioTrack.detach(audioElement);
       }
-
-      // Close any existing connection
-      cleanup();
-
-      pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-      pcRef.current = pc;
-
-      setStatus("connecting");
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate && !cancelled) {
-          const socket = socketRef.current;
-          if (socket?.connected) {
-            socket.emit(INTERVIEW_EVENTS.cameraIceCandidate, {
-              sessionId,
-              targetUserId: payload.fromUserId,
-              candidate: event.candidate.toJSON(),
-            });
-          }
-        }
-      };
-
-      pc.ontrack = (event) => {
-        if (cancelled) return;
-        console.log("[CandidateLiveCamera] Got remote track", event.track.kind);
-
-        if (targetVideoRef.current && event.streams?.[0]) {
-          targetVideoRef.current.srcObject = event.streams[0];
-          // autoplay attribute covers most cases; play() explicitly so the
-          // widget never sits on "Connecting…" waiting for the event loop.
-          void targetVideoRef.current.play().catch(() => undefined);
-        }
-
-        setStatus("connected");
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (cancelled) return;
-        const state = pc?.connectionState;
-        console.log("[CandidateLiveCamera] Connection state:", state);
-
-        if (state === "failed" || state === "disconnected") {
-          setStatus("error");
-          setError("Connection lost. The candidate may have disconnected.");
-        } else if (state === "closed") {
-          setStatus("waiting");
-        }
-      };
-
-      // Handle the offer
-      pc.setRemoteDescription(new RTCSessionDescription(payload.offer))
-        .then(() => pc!.createAnswer())
-        .then((answer) => pc!.setLocalDescription(answer))
-        .then(() => {
-          if (cancelled || !pc?.localDescription) return;
-          const socket = socketRef.current;
-          if (socket?.connected) {
-            socket.emit(INTERVIEW_EVENTS.cameraAnswer, {
-              sessionId,
-              targetUserId: payload.fromUserId,
-              answer: pc.localDescription.toJSON(),
-            });
-            console.log("[CandidateLiveCamera] Sent answer to", payload.fromUserId);
-          }
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            console.error("[CandidateLiveCamera] Error handling offer:", err);
-            setStatus("error");
-            setError(err instanceof Error ? err.message : "Failed to establish connection.");
-          }
-        });
+      attachedAudioTrack = null;
+      audioElement = null;
+      setMicrophoneState("waiting");
     }
 
-    function handleIceCandidate(payload: {
-      sessionId?: string;
-      fromUserId?: string;
-      candidate?: RTCIceCandidateInit;
-    }) {
+    function attachCandidateTrack(track: RemoteTrack) {
       if (cancelled) return;
-      if (payload.sessionId !== sessionId) return;
-      if (!payload.candidate || !pc) return;
+      if (track.kind !== Track.Kind.Video) return;
 
-      pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch((err) => {
-        console.warn("[CandidateLiveCamera] ICE candidate error:", err);
+      cleanupVideo();
+      attachedTrack = track as RemoteVideoTrack;
+      const video = targetVideoRef.current;
+      console.log("[LiveKit] attaching candidate video track", {
+        sid: (track as RemoteVideoTrack).sid,
+        hasVideo: Boolean(video),
       });
+      if (video) {
+        attachedTrack.attach(video);
+        void video.play().then(() => {
+          console.log("[LiveKit] video playback started");
+        }).catch((playError) => {
+          console.warn("[LiveKit] video play failed, retrying:", playError);
+          // Retry play after a short delay (handles autoplay policy)
+          setTimeout(() => {
+            if (!cancelled && video.srcObject) {
+              void video.play().catch(() => undefined);
+            }
+          }, 500);
+        });
+      }
+      setError("");
+      setStatus("connected");
     }
 
-    function handleCameraState(payload: {
-      sessionId?: string;
-      userId?: string;
-      state?: "enabled" | "disabled";
-    }) {
-      if (cancelled) return;
-      if (payload.sessionId !== sessionId) return;
+    function attachCandidateAudio(track: RemoteTrack, publication: RemoteTrackPublication) {
+      if (cancelled || track.kind !== Track.Kind.Audio) return;
 
-      if (payload.state === "disabled") {
-        // Candidate turned off camera
-        if (targetVideoRef.current) {
-          targetVideoRef.current.srcObject = null;
+      cleanupAudio();
+      attachedAudioTrack = track as RemoteAudioTrack;
+      audioElement = document.createElement("audio");
+      audioElement.autoplay = true;
+      attachedAudioTrack.attach(audioElement);
+      void audioElement.play().catch(() => undefined);
+      setMicrophoneState(publication.isMuted ? "muted" : "live");
+    }
+
+    function isCandidateMedia(publication: RemoteTrackPublication) {
+      return publication.source === Track.Source.Camera ||
+        publication.source === Track.Source.Microphone;
+    }
+
+    function attachSubscribedPublication(publication: RemoteTrackPublication) {
+      if (!isCandidateMedia(publication) || !publication.isSubscribed || !publication.track) {
+        return;
+      }
+      if (publication.source === Track.Source.Camera) {
+        attachCandidateTrack(publication.track);
+      } else if (publication.source === Track.Source.Microphone) {
+        attachCandidateAudio(publication.track, publication);
+      }
+    }
+
+    function subscribeToParticipant(participant: RemoteParticipant) {
+      console.log("[LiveKit] subscribeToParticipant", participant.identity, {
+        publications: [...participant.trackPublications.values()].map((p) => ({
+          source: p.source,
+          isSubscribed: p.isSubscribed,
+          hasTrack: Boolean(p.track),
+          sid: p.trackSid,
+        })),
+      });
+      for (const publication of participant.trackPublications.values()) {
+        if (!isCandidateMedia(publication)) continue;
+        publication.setSubscribed(true);
+        if (publication.source === Track.Source.Camera) {
+          publication.setVideoQuality(
+            lowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
+          );
         }
+        attachSubscribedPublication(publication);
+      }
+    }
+
+    function handleTrackSubscribed(
+      track: RemoteTrack,
+      publication: RemoteTrackPublication,
+    ) {
+      console.log("[LiveKit] track subscribed", {
+        kind: track.kind,
+        source: publication.source,
+        sid: publication.trackSid,
+      });
+      if (publication.source === Track.Source.Camera) {
+        publication.setVideoQuality(
+          lowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
+        );
+        attachCandidateTrack(track);
+      } else if (publication.source === Track.Source.Microphone) {
+        attachCandidateAudio(track, publication);
+      }
+    }
+
+    function handleTrackPublished(publication: RemoteTrackPublication, participant: RemoteParticipant) {
+      console.log("[LiveKit] track published", publication.source);
+      subscribeToParticipant(participant);
+    }
+
+    function handleTrackUnsubscribed(track: RemoteTrack) {
+      if (track === attachedTrack) {
+        cleanupVideo();
         setStatus("waiting");
         setError("");
-        cleanup();
+      } else if (track === attachedAudioTrack) {
+        cleanupAudio();
       }
     }
 
-    const socket = socketRef.current;
-    if (!socket) {
-      // Socket not created yet — wait for connection state change to re-run.
-      if (connection === "live" || connection === "reconnecting") {
-        // Socket should exist by now but ref may lag a tick — bail and let
-        // the next re-render (triggered by connection change) pick it up.
+    function handleTrackMuted(publication: TrackPublication) {
+      if (publication.source === Track.Source.Microphone) {
+        setMicrophoneState("muted");
       }
-      return;
     }
 
-    // Register listeners
-    socket.on(INTERVIEW_EVENTS.cameraOffer, handleOffer);
-    socket.on(INTERVIEW_EVENTS.cameraIceCandidate, handleIceCandidate);
-    socket.on(INTERVIEW_EVENTS.cameraState, handleCameraState);
-
-    // If the socket is already connected, we're ready to receive offers
-    if (socket.connected) {
-      setStatus("waiting");
-    } else {
-      // Wait for the socket to connect
-      const onConnect = () => { if (!cancelled) setStatus("waiting"); };
-      const onDisconnect = () => { if (!cancelled) setStatus("offline"); };
-      socket.on("connect", onConnect);
-      socket.on("disconnect", onDisconnect);
-      return () => {
-        cancelled = true;
-        socket.off(INTERVIEW_EVENTS.cameraOffer, handleOffer);
-        socket.off(INTERVIEW_EVENTS.cameraIceCandidate, handleIceCandidate);
-        socket.off(INTERVIEW_EVENTS.cameraState, handleCameraState);
-        socket.off("connect", onConnect);
-        socket.off("disconnect", onDisconnect);
-        cleanup();
-      };
+    function handleTrackUnmuted(publication: TrackPublication) {
+      if (publication.source === Track.Source.Microphone) {
+        setMicrophoneState("live");
+      }
     }
+
+    function handleConnectionQualityChanged(
+      quality: ConnectionQuality,
+      participant: Participant,
+    ) {
+      if (participant !== room.localParticipant) {
+        setConnectionQuality(mediaConnectionQuality(quality));
+      }
+    }
+
+    function restoreSubscribedTracks() {
+      for (const participant of room.remoteParticipants.values()) {
+        setConnectionQuality(
+          mediaConnectionQuality(participant.connectionQuality),
+        );
+        subscribeToParticipant(participant);
+      }
+      setStatus(attachedTrack ? "connected" : "waiting");
+    }
+
+    room
+      .on(RoomEvent.ParticipantConnected, (participant) => {
+        console.log("[LiveKit] participant joined", participant.identity);
+        subscribeToParticipant(participant);
+      })
+      .on(RoomEvent.ParticipantDisconnected, (participant) => {
+        console.log("[LiveKit] participant left", participant.identity);
+        cleanupVideo();
+        cleanupAudio();
+        setStatus("waiting");
+        setConnectionQuality("lost");
+      })
+      .on(RoomEvent.TrackPublished, handleTrackPublished)
+      .on(RoomEvent.TrackSubscribed, handleTrackSubscribed)
+      .on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed)
+      .on(RoomEvent.TrackMuted, handleTrackMuted)
+      .on(RoomEvent.TrackUnmuted, handleTrackUnmuted)
+      .on(RoomEvent.ConnectionQualityChanged, handleConnectionQualityChanged)
+      .on(RoomEvent.Reconnecting, () => {
+        if (!cancelled) setStatus("reconnecting");
+      })
+      .on(RoomEvent.Reconnected, () => {
+        if (!cancelled) {
+          restoreSubscribedTracks();
+          void room.localParticipant
+            .setMicrophoneEnabled(!interviewerMicrophoneMutedRef.current)
+            .then(() => {
+              onInterviewerMicrophoneStateChange?.(
+                interviewerMicrophoneMutedRef.current ? "muted" : "live",
+              );
+            })
+            .catch(() => onInterviewerMicrophoneStateChange?.("error"));
+        }
+      })
+      .on(RoomEvent.Disconnected, () => {
+        if (!cancelled) {
+          cleanupVideo();
+          cleanupAudio();
+          setStatus("offline");
+          setConnectionQuality("lost");
+        }
+      });
+
+    void (async () => {
+      setStatus("connecting");
+      setError("");
+      try {
+        const credentials = await apiPost<{ token: string; url: string }>(
+          `/sessions/${encodeURIComponent(sessionId)}/livekit-token`,
+        );
+        if (cancelled) return;
+
+        await room.connect(credentials.url, credentials.token, {
+          autoSubscribe: true,
+        });
+        if (cancelled) {
+          room.disconnect();
+          return;
+        }
+
+        console.log("[LiveKit] interviewer joined room", {
+          requestedSessionId: sessionId,
+          roomName: room.name,
+          remoteParticipants: [...room.remoteParticipants.keys()],
+        });
+
+        // Participants and tracks may already exist before event listeners can
+        // observe their publication. Always reconcile the room after joining.
+        room.remoteParticipants.forEach((participant) => {
+          subscribeToParticipant(participant);
+        });
+
+        await room.localParticipant.setMicrophoneEnabled(
+          !interviewerMicrophoneMutedRef.current,
+        );
+        onInterviewerMicrophoneStateChange?.(
+          interviewerMicrophoneMutedRef.current ? "muted" : "live",
+        );
+
+        // TrackSubscribed normally fires during connection. Reconcile current
+        // publications too so already-published media cannot be missed.
+        restoreSubscribedTracks();
+
+        // A connected interviewer with no remote participant cannot receive a
+        // track. Surface the room mismatch clearly instead of showing an
+        // indefinite transport-level Connecting state.
+        if (room.remoteParticipants.size === 0) {
+          setStatus("waiting");
+          setError("Waiting for the candidate to join this interview session.");
+        }
+
+        // Periodic reconciliation: catch any tracks that were published
+        // after the initial subscription pass or missed by event handlers.
+        const reconciliationInterval = setInterval(() => {
+          if (cancelled || room.state !== "connected") return;
+          for (const participant of room.remoteParticipants.values()) {
+            const cameraPub = participant.getTrackPublication(Track.Source.Camera);
+            if (cameraPub && cameraPub.isSubscribed && cameraPub.track && !attachedTrack) {
+              console.warn("[LiveKit] reconciliation: re-attaching missed camera track");
+              attachCandidateTrack(cameraPub.track);
+            }
+            const micPub = participant.getTrackPublication(Track.Source.Microphone);
+            if (micPub && micPub.isSubscribed && micPub.track && !attachedAudioTrack) {
+              console.warn("[LiveKit] reconciliation: re-attaching missed microphone track");
+              attachCandidateAudio(micPub.track, micPub);
+            }
+          }
+          // If we are still waiting but a participant appeared, try subscribing
+          if (room.remoteParticipants.size > 0 && !attachedTrack) {
+            for (const participant of room.remoteParticipants.values()) {
+              subscribeToParticipant(participant);
+            }
+          }
+        }, 3_000);
+
+        // Store interval for cleanup
+        reconciliationIntervalRef.current = reconciliationInterval;
+      } catch (requestError) {
+        if (!cancelled) {
+          console.error("[CandidateLiveCamera] LiveKit connection failed:", requestError);
+          setStatus("error");
+          setError(
+            getErrorMessage(
+              requestError,
+              "Failed to connect to the candidate camera.",
+            ),
+          );
+        }
+      }
+    })();
 
     return () => {
       cancelled = true;
-      socket.off(INTERVIEW_EVENTS.cameraOffer, handleOffer);
-      socket.off(INTERVIEW_EVENTS.cameraIceCandidate, handleIceCandidate);
-      socket.off(INTERVIEW_EVENTS.cameraState, handleCameraState);
-      cleanup();
+      if (reconciliationIntervalRef.current) {
+        clearInterval(reconciliationIntervalRef.current);
+        reconciliationIntervalRef.current = null;
+      }
+      cleanupVideo();
+      cleanupAudio();
+      setConnectionQuality("lost");
+      room.removeAllListeners();
+      room.unregisterTextStreamHandler(LIVE_CAPTION_TOPIC);
+      if (roomRef.current === room) roomRef.current = null;
+      room.disconnect();
     };
-  }, [sessionId, socketRef, connection]);
+  }, [onCaption, onInterviewerMicrophoneStateChange, sessionId, targetVideoRef]);
 
   if (compact) {
     // The live room renders the visible draggable video element. Keep this
@@ -265,6 +486,8 @@ export function CandidateLiveCamera({
               <p className="text-sm font-semibold text-white">
                 {status === "waiting"
                   ? "Waiting for candidate camera..."
+                  : status === "reconnecting"
+                    ? "Reconnecting..."
                   : status === "connecting"
                     ? "Connecting to candidate..."
                     : status === "offline"
@@ -314,11 +537,39 @@ export function CandidateLiveCamera({
               ? "Live"
               : status === "waiting"
                 ? "Waiting for candidate"
+                : status === "reconnecting"
+                  ? "Reconnecting..."
                 : status === "connecting"
                   ? "Connecting..."
                   : status === "offline"
                     ? "Offline"
                     : "Connection error"}
+          </span>
+
+          <span className={`rounded-full px-2 py-1 capitalize ${
+            connectionQuality === "excellent"
+              ? "bg-emerald-500/15 text-emerald-300"
+              : connectionQuality === "good"
+                ? "bg-sky-500/15 text-sky-300"
+                : connectionQuality === "poor"
+                  ? "bg-amber-500/15 text-amber-300"
+                  : "bg-rose-500/15 text-rose-300"
+          }`}>
+            {connectionQuality}
+          </span>
+
+          <span className={`rounded-full px-2 py-1 ${
+            microphoneState === "muted"
+              ? "bg-rose-500/15 text-rose-300"
+              : microphoneState === "live"
+                ? "bg-emerald-500/15 text-emerald-300"
+                : "bg-white/10 text-white/50"
+          }`}>
+            {microphoneState === "muted"
+              ? "Mic muted"
+              : microphoneState === "live"
+                ? "Mic live"
+                : "No mic"}
           </span>
         </div>
       </div>
@@ -349,6 +600,8 @@ export function CandidateLiveCamera({
               <p className="text-sm font-semibold text-white">
                 {status === "waiting"
                   ? "Waiting for candidate camera..."
+                  : status === "reconnecting"
+                    ? "Reconnecting..."
                   : status === "connecting"
                     ? "Connecting to candidate..."
                     : status === "offline"
