@@ -409,18 +409,46 @@ export function CandidateLiveCamera({
         restoreSubscribedTracks();
 
         // A connected interviewer with no remote participant cannot receive a
-        // track. Surface the room mismatch clearly instead of showing an
-        // indefinite transport-level Connecting state.
+        // track. Force a reconnection to re-sync the cluster participant list.
+        // This handles the case where interviewer and candidate connect to
+        // different cluster nodes and the participant list doesn't sync.
         if (room.remoteParticipants.size === 0) {
-          setStatus("waiting");
-          setError("Waiting for the candidate to join this interview session.");
+          console.warn("[LiveKit] No remote participants found, scheduling re-sync");
+          // Wait 3s for candidate to appear, then force reconnection
+          const resyncTimer = setTimeout(() => {
+            if (cancelled || room.state !== "connected") return;
+            if (room.remoteParticipants.size === 0 && !attachedTrack) {
+              console.warn("[LiveKit] Still no participants, forcing reconnection to resync");
+              void (async () => {
+                try {
+                  room.disconnect();
+                  // Re-fetch credentials and reconnect
+                  const freshCreds = await apiPost<{ token: string; url: string }>(
+                    `/sessions/${encodeURIComponent(sessionId)}/livekit-token`,
+                  );
+                  if (cancelled) return;
+                  await room.connect(freshCreds.url, freshCreds.token, {
+                    autoSubscribe: true,
+                  });
+                  console.log("[LiveKit] Reconnected, remote participants:",
+                    [...room.remoteParticipants.keys()]);
+                  room.remoteParticipants.forEach((p) => subscribeToParticipant(p));
+                  restoreSubscribedTracks();
+                  if (room.remoteParticipants.size === 0) {
+                    setStatus("waiting");
+                    setError("Waiting for the candidate to join this interview session.");
+                  }
+                } catch (e) {
+                  console.error("[LiveKit] Reconnection failed:", e);
+                }
+              })();
+            }
+          }, 3_000);
+          reconciliationIntervalRef.current = resyncTimer as unknown as ReturnType<typeof setInterval>;
         }
 
         // Periodic reconciliation: catch any tracks that were published
         // after the initial subscription pass or missed by event handlers.
-        // This is critical when the interviewer and candidate are on
-        // different LiveKit cluster nodes where ParticipantConnected
-        // events may be delayed or lost.
         const reconciliationInterval = setInterval(() => {
           if (cancelled || room.state !== "connected") return;
           for (const participant of room.remoteParticipants.values()) {
@@ -470,6 +498,7 @@ export function CandidateLiveCamera({
       cancelled = true;
       if (reconciliationIntervalRef.current) {
         clearInterval(reconciliationIntervalRef.current);
+        clearTimeout(reconciliationIntervalRef.current as ReturnType<typeof setTimeout>);
         reconciliationIntervalRef.current = null;
       }
       cleanupVideo();
