@@ -238,7 +238,25 @@ export function CandidateLiveCamera({
             lowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
           );
         }
+        // Try to attach immediately if track is already available
         attachSubscribedPublication(publication);
+
+        // Listen for the track arriving (handles autoSubscribe where
+        // TrackSubscribed may not fire at the room level)
+        if (!publication.listeners("subscribed").length) {
+          publication.on("subscribed", (track: RemoteTrack) => {
+            console.log("[LiveKit] publication subscribed", publication.source, {
+              kind: track.kind,
+              sid: (track as RemoteVideoTrack).sid,
+            });
+            if (publication.source === Track.Source.Camera) {
+              publication.setVideoQuality(
+                lowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
+              );
+            }
+            attachSubscribedPublication(publication);
+          });
+        }
       }
     }
 
@@ -400,27 +418,37 @@ export function CandidateLiveCamera({
 
         // Periodic reconciliation: catch any tracks that were published
         // after the initial subscription pass or missed by event handlers.
+        // This is critical when the interviewer and candidate are on
+        // different LiveKit cluster nodes where ParticipantConnected
+        // events may be delayed or lost.
         const reconciliationInterval = setInterval(() => {
           if (cancelled || room.state !== "connected") return;
           for (const participant of room.remoteParticipants.values()) {
+            // Always ensure subscription is requested
+            subscribeToParticipant(participant);
+
+            // Try to attach any available tracks
             const cameraPub = participant.getTrackPublication(Track.Source.Camera);
             if (cameraPub && cameraPub.isSubscribed && cameraPub.track && !attachedTrack) {
-              console.warn("[LiveKit] reconciliation: re-attaching missed camera track");
+              console.warn("[LiveKit] reconciliation: attaching missed camera track");
               attachCandidateTrack(cameraPub.track);
             }
             const micPub = participant.getTrackPublication(Track.Source.Microphone);
             if (micPub && micPub.isSubscribed && micPub.track && !attachedAudioTrack) {
-              console.warn("[LiveKit] reconciliation: re-attaching missed microphone track");
+              console.warn("[LiveKit] reconciliation: attaching missed microphone track");
               attachCandidateAudio(micPub.track, micPub);
             }
           }
-          // If we are still waiting but a participant appeared, try subscribing
-          if (room.remoteParticipants.size > 0 && !attachedTrack) {
-            for (const participant of room.remoteParticipants.values()) {
-              subscribeToParticipant(participant);
+          // Update connection quality from any remote participant
+          if (room.remoteParticipants.size > 0) {
+            const firstParticipant = room.remoteParticipants.values().next().value;
+            if (firstParticipant) {
+              setConnectionQuality(
+                mediaConnectionQuality(firstParticipant.connectionQuality),
+              );
             }
           }
-        }, 3_000);
+        }, 2_000);
 
         // Store interval for cleanup
         reconciliationIntervalRef.current = reconciliationInterval;
