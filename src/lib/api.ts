@@ -1,3 +1,5 @@
+import type { IntegrityEventRequest, IntegrityEventResult, IntegritySummary } from "@/lib/types";
+
 const API_PROXY_BASE = "/api/backend";
 const GET_CACHE_TTL_MS = 15_000;
 const MAX_CACHED_GETS = 100;
@@ -135,6 +137,19 @@ export function apiPut<T>(path: string, body?: unknown, options: Omit<ApiRequest
 
 export function apiDelete<T>(path: string, body?: unknown, options: Omit<ApiRequestOptions, "body" | "method"> = {}) {
   return apiRequest<T>(path, { ...options, body, method: "DELETE" });
+}
+
+/**
+ * Reports a browser-detected integrity signal. The backend decides whether it
+ * counts, so the returned warning count/status are always authoritative.
+ */
+export function reportIntegrityEvent(accessCode: string, input: IntegrityEventRequest) {
+  return apiPost<IntegrityEventResult>(`/sessions/access/${encodeURIComponent(accessCode)}/integrity-events`, input);
+}
+
+/** Reviewer-facing integrity timeline + official warning summary for a session. */
+export function getIntegritySummary(sessionId: string) {
+  return apiGet<IntegritySummary>(`/sessions/${encodeURIComponent(sessionId)}/integrity-events`);
 }
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {

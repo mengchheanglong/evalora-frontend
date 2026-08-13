@@ -23,6 +23,8 @@ import type { ConnectionState } from "@/lib/realtime";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { CameraPreflight } from "@/features/live-video/camera-preflight";
 import { FloatingCandidateCamera } from "@/features/live-video/candidate-mini-camera";
+import { useAssessmentIntegrity } from "@/features/integrity/use-assessment-integrity";
+import { IntegrityWarningDialog } from "@/features/integrity/integrity-warning-dialog";
 import { Icon, type IconName } from "@/components/icons";
 import { useAiStream } from "@/components/use-ai-stream";
 import { EvaloraLogo } from "@/components/logo";
@@ -290,6 +292,25 @@ export default function CandidateAssessmentPage() {
   const aiStream =
     useAiStream(accessCode);
 
+  /* ----------------------------------------------------------
+     INTEGRITY MONITORING
+
+     Active only while the assessment is running (after start, before
+     completion). The backend is the single source of truth for the warning
+     count and enforcement; this hook only reports signals and follows the
+     official response, so refreshing the page can never reset the count.
+     ---------------------------------------------------------- */
+
+  const integrity =
+    useAssessmentIntegrity({
+      accessCode,
+      active:
+        session?.status === "in_progress" &&
+        (view === "assessment" ||
+          view === "review" ||
+          view === "interviewer"),
+    });
+
   /* ============================================================
      CAMERA CLEANUP
      ============================================================ */
@@ -307,6 +328,26 @@ export default function CandidateAssessmentPage() {
       }
     };
   }, []);
+
+  /* ============================================================
+     INTEGRITY FORCED EXIT
+
+     When the backend counts an event (warningLimit = 1), the session is
+     already EXPIRED server-side. Follow that official state: drop the camera
+     and mirror the status so every control stops accepting input.
+     ============================================================ */
+
+  useEffect(() => {
+    if (!integrity.terminated) return;
+
+    stopCandidateCamera();
+
+    setSession((current) =>
+      current
+        ? { ...current, status: "expired" }
+        : current,
+    );
+  }, [integrity.terminated, stopCandidateCamera]);
 
   /* ============================================================
      CAMERA WEBRTC PUBLISHING
@@ -2656,6 +2697,12 @@ export default function CandidateAssessmentPage() {
       {/* TIME UP */}
 
       {timeUp && <TimeUpModal />}
+
+      {/* INTEGRITY WARNING / FORCED EXIT */}
+
+      <IntegrityWarningDialog
+        integrity={integrity}
+      />
     </main>
   );
 }

@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import type { InterviewerFollowUp } from "@/lib/types";
+import type { IntegrityAction, IntegrityEvent, InterviewerFollowUp, SessionStatus } from "@/lib/types";
 
 /** Must match the backend contract in modules/realtime/realtime.types.ts. */
 export const INTERVIEW_EVENTS = {
@@ -19,8 +19,24 @@ export const INTERVIEW_EVENTS = {
   questionSent: "interviewer-question.sent",
   questionAnswered: "interviewer-question.answered",
   questionCancelled: "interviewer-question.cancelled",
+  integrityUpdated: "integrity.updated",
   error: "session.error",
 } as const;
+
+/**
+ * Server-authored integrity decision broadcast to the authorized session room.
+ * Mirrors the backend contract in modules/realtime/realtime.types.ts.
+ */
+export interface IntegrityUpdatedEvent {
+  sessionId: string;
+  warningCount: number;
+  warningLimit: number;
+  status: SessionStatus;
+  /** "warned" | "terminated" | "duplicate" | "recorded" — never client-supplied. */
+  action?: IntegrityAction;
+  reason: string;
+  event?: IntegrityEvent;
+}
 
 export type ParticipantRole = "candidate" | "interviewer";
 export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";
