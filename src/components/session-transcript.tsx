@@ -425,7 +425,7 @@ return (
           {transcript.warningCount != null ? (
             <TranscriptMeta
               label="Integrity warnings"
-              value={`${transcript.warningCount} of ${transcript.warningLimit ?? 1}`}
+              value={`${transcript.warningCount} of ${transcript.warningLimit ?? 2}`}
             />
           ) : null}
         </dl>
