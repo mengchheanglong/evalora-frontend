@@ -10,7 +10,9 @@ import { EmptyState, InlineAlert } from "@/components/ui-states";
 import { getErrorMessage } from "@/lib/api";
 import {
   DRAFT_UPLOAD_ACCEPT,
+  MAX_DRAFT_CHAT_MESSAGE_LENGTH,
   MAX_DRAFT_UPLOAD_BYTES,
+  chatWithDraft,
   confirmDraft,
   discardDraft,
   generateDraftFromDocument,
@@ -18,6 +20,7 @@ import {
   getDraft,
   listDrafts,
   updateDraft,
+  type DraftChatTurn,
   type DraftWeightSignals,
   type TemplateDraftDto,
   type TemplateDraftSummary,
@@ -37,6 +40,12 @@ import type { ModuleType, QuestionType } from "@/lib/types";
 
 const QUESTION_TYPES: QuestionType[] = ["short_answer", "scenario", "roleplay", "mcq", "scale", "coding"];
 
+const CHAT_SUGGESTIONS = [
+  "Senior backend engineer for our payments platform",
+  "Junior React developer, strong on fundamentals",
+  "QA engineer who designs great test plans",
+];
+
 const MODULE_META: Record<ModuleType, { label: string; icon: IconName; tile: string; bar: string }> = {
   ai_interview: { label: "AI Interview", icon: "message", tile: "bg-[var(--color-status-good)]/15 text-[var(--color-status-good)]", bar: "bg-emerald-500" },
   coding: { label: "Coding", icon: "code", tile: "bg-indigo-100 text-indigo-600", bar: "bg-indigo-500" },
@@ -54,6 +63,14 @@ const INPUT_CLASS =
   "block w-full rounded-lg border border-[var(--theme-border-strong)] bg-sky-50 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500 focus:bg-[var(--theme-panel)]";
 
 type Phase = "source" | "review";
+
+interface ChatMessage {
+  key: string;
+  role: "user" | "assistant";
+  content: string;
+  /** Error bubbles are rendered differently and never replayed as history. */
+  tone: "normal" | "error";
+}
 
 interface EditableQuestion {
   key: string;
@@ -83,10 +100,13 @@ export default function TemplateAiBuilderPage() {
   const [notice, setNotice] = useState("");
 
   // Source phase
-  const [roleTypeInput, setRoleTypeInput] = useState("");
-  const [idea, setIdea] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [generating, setGenerating] = useState(false);
+
+  // Chat with the assistant. The transcript lives only in this component: the
+  // backend stores drafts, not conversations, so a refresh starts a fresh chat
+  // against the same draft.
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatSending, setChatSending] = useState(false);
 
   // Recent drafts
   const [drafts, setDrafts] = useState<TemplateDraftSummary[]>([]);
@@ -109,7 +129,6 @@ export default function TemplateAiBuilderPage() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [removeModuleKey, setRemoveModuleKey] = useState("");
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Bumped on every edit. A save snapshots it before the request and compares
   // after: hydrating the server response over edits typed mid-flight would
   // silently discard them and claim they were saved.
@@ -175,6 +194,8 @@ export default function TemplateAiBuilderPage() {
         const dto = await getDraft(id);
         // A newer open superseded this one while it was loading.
         if (openSeqRef.current !== seq) return;
+        // A conversation belongs to one draft; opening another starts fresh.
+        setChatMessages([]);
         hydrate(dto);
       } catch (err) {
         if (openSeqRef.current !== seq) return;
@@ -209,24 +230,64 @@ export default function TemplateAiBuilderPage() {
     setFile(picked);
   }
 
-  async function handleGenerate() {
-    if (!file && !idea.trim()) {
-      setError("Upload a job description or describe the role you are hiring for.");
-      return;
-    }
-    setError("");
-    setNotice("");
-    setGenerating(true);
+  function appendChat(role: ChatMessage["role"], content: string, tone: ChatMessage["tone"] = "normal") {
+    setChatMessages((current) => [...current, { key: newKey("m"), role, content, tone }]);
+  }
+
+  /**
+   * One chat turn. Before a draft exists the message — and whatever document is
+   * attached — generates one; afterwards it becomes a refinement instruction
+   * against the stored draft. Failures land in the thread as assistant bubbles,
+   * not page errors — the conversation is where the user is looking.
+   */
+  async function handleChatSend(rawMessage: string) {
+    if (chatSending) return;
+    const message = rawMessage.trim().slice(0, MAX_DRAFT_CHAT_MESSAGE_LENGTH);
+    const startingDraft = phase === "source" || !draftId;
+    const attached = startingDraft ? file : null;
+    if (!message && !attached) return;
+    // Snapshot before appending: the history replayed to the model must not
+    // include the message it is being sent alongside.
+    const history: DraftChatTurn[] = chatMessages
+      .filter((entry) => entry.tone === "normal")
+      .map((entry) => ({ role: entry.role, content: entry.content }));
+    appendChat("user", attached ? `${message ? `${message}\n` : ""}📎 ${attached.name}` : message);
+    setChatSending(true);
     try {
-      const dto = file
-        ? await generateDraftFromDocument({ file, idea, roleType: roleTypeInput })
-        : await generateDraftFromIdea({ idea, roleType: roleTypeInput });
-      hydrate(dto);
-      void refreshDrafts();
+      if (startingDraft) {
+        const dto = attached
+          ? await generateDraftFromDocument({ file: attached, idea: message })
+          : await generateDraftFromIdea({ idea: message });
+        // Only clear the attachment once it generated something; a failed send
+        // keeps it in the composer for the retry.
+        setFile(null);
+        hydrate(dto);
+        void refreshDrafts();
+        appendChat("assistant", describeDraft(dto));
+      } else {
+        if (dirty) {
+          const problem = validateDraft();
+          if (problem) {
+            appendChat("assistant", `Save your edits first — ${problem}`, "error");
+            return;
+          }
+          // The assistant revises the draft the server knows about, so unsaved
+          // edits are saved first; otherwise its revision would erase them.
+          hydrate(await updateDraft(draftId, buildPatchBody()), { scroll: false, keepCollapsed: true });
+        }
+        const result = await chatWithDraft(draftId, { message, history });
+        if (result.applied) {
+          hydrate(result.draft, { scroll: false, keepCollapsed: true });
+          void refreshDrafts();
+        }
+        // applied: false is still a conversational answer ("I didn't change
+        // anything because…"), not an error — it stays in the replayed history.
+        appendChat("assistant", result.reply);
+      }
     } catch (err) {
-      setError(getErrorMessage(err, "Draft generation failed. Please try again."));
+      appendChat("assistant", getErrorMessage(err, "Something went wrong. Please try again."), "error");
     } finally {
-      setGenerating(false);
+      setChatSending(false);
     }
   }
 
@@ -438,7 +499,7 @@ export default function TemplateAiBuilderPage() {
               AI Template Builder
             </h1>
             <p className="mt-1 text-[var(--theme-muted)]">
-              Upload a job description or describe the role. Evalora drafts the assessment; you review, edit, and decide what publishes.
+              Chat with the assistant to draft an assessment. You review, edit, and decide what publishes.
             </p>
           </div>
           <Link className="inline-flex h-10 items-center rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-4 text-sm font-medium text-[var(--theme-text)] hover:bg-[var(--theme-panel-soft)]" href="/templates">
@@ -450,90 +511,45 @@ export default function TemplateAiBuilderPage() {
         {notice && <InlineAlert tone="success">{notice}</InlineAlert>}
 
         {phase === "source" && (
-          <div className="space-y-8">
-            {generating ? (
-              <GeneratingPanel hasFile={Boolean(file)} />
-            ) : (
-              <>
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <SectionCard
-                    description="PDF, Word (.docx), or plain text, up to 5 MB. The document is used only to describe the role."
-                    title="Upload a job description"
-                  >
-                    <input
-                      accept={DRAFT_UPLOAD_ACCEPT}
-                      className="sr-only"
-                      onChange={(event) => {
-                        handleFilePick(event.target.files?.[0]);
-                        event.currentTarget.value = "";
-                      }}
-                      ref={fileInputRef}
-                      type="file"
-                    />
-                    {file ? (
-                      <div className="flex items-center justify-between rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-4 py-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600"><Icon name="file" size={16} /></span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[var(--theme-heading)]">{file.name}</p>
-                            <p className="text-xs text-[var(--theme-muted)]">{formatBytes(file.size)}</p>
-                          </div>
-                        </div>
+          <div className="mx-auto w-full max-w-3xl space-y-10">
+            <>
+                <div className="pt-4">
+                  <div className="mb-5 text-center">
+                    <h2 className="text-2xl font-bold text-[var(--theme-heading)]">What are you hiring for?</h2>
+                    <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--theme-muted)]">
+                      Describe the role, or attach a job description or question list with the{" "}
+                      <span className="font-semibold text-[var(--theme-text)]">+</span> button — questions in a document are kept word-for-word.
+                    </p>
+                  </div>
+
+                  <DraftChatPanel
+                    attach={{ file, onPick: handleFilePick, onClear: () => setFile(null) }}
+                    messages={chatMessages}
+                    onSend={(message) => void handleChatSend(message)}
+                    placeholder="Describe the role you're hiring for…"
+                    rows={2}
+                    sending={chatSending}
+                    sendingLabel={draftId ? undefined : "Designing your assessment — modules, questions, rubrics, and weights. This can take a minute or two."}
+                  />
+
+                  {chatMessages.length === 0 && !chatSending && (
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      {CHAT_SUGGESTIONS.map((suggestion) => (
                         <button
-                          aria-label="Remove file"
-                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[var(--theme-muted)] transition hover:bg-[var(--theme-panel)] hover:text-[var(--theme-heading)]"
-                          onClick={() => setFile(null)}
+                          className="rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3.5 py-1.5 text-xs font-medium text-[var(--theme-muted)] transition hover:border-sky-400 hover:text-sky-600"
+                          key={suggestion}
+                          onClick={() => void handleChatSend(suggestion)}
                           type="button"
                         >
-                          <Icon name="x" size={16} />
+                          {suggestion}
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-[var(--theme-border-strong)] px-4 py-8 text-center transition hover:border-sky-400 hover:bg-[var(--theme-panel-soft)]"
-                        onClick={() => fileInputRef.current?.click()}
-                        type="button"
-                      >
-                        <span className="flex size-11 items-center justify-center rounded-full bg-sky-100 text-sky-600"><Icon name="file" size={20} /></span>
-                        <span className="text-sm font-semibold text-[var(--theme-heading)]">Choose a file</span>
-                        <span className="text-xs text-[var(--theme-muted)]">PDF · DOCX · TXT · up to 5 MB</span>
-                      </button>
-                    )}
-                  </SectionCard>
-
-                  <SectionCard description="Use one or both sources — the AI reads whatever you provide." title="Describe the role">
-                    <div className="space-y-4">
-                      <Field hint="optional" label="Role or position">
-                        <input
-                          className={INPUT_CLASS}
-                          onChange={(event) => setRoleTypeInput(event.target.value)}
-                          maxLength={160}
-                          placeholder="e.g. Backend Engineer"
-                          value={roleTypeInput}
-                        />
-                      </Field>
-                      <Field hint="optional when a document is uploaded" label="What are you hiring for?">
-                        <textarea
-                          className={`${INPUT_CLASS} min-h-32 resize-y`}
-                          onChange={(event) => setIdea(event.target.value)}
-                          maxLength={8000}
-                          placeholder="e.g. Senior backend engineer to own our payments platform: Node.js services, PostgreSQL, incident response, and mentoring two juniors."
-                          rows={5}
-                          value={idea}
-                        />
-                      </Field>
+                      ))}
                     </div>
-                  </SectionCard>
-                </div>
+                  )}
 
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-4">
-                  <p className="text-xs leading-5 text-[var(--theme-muted)]">
-                    You review everything before it goes live — the AI suggests modules, questions, rubrics, and weights, and nothing is published without your confirmation.
-                    Suggested weights always re-balance to total exactly 100%.
+                  <p className="mt-4 text-center text-xs leading-5 text-[var(--theme-faint)]">
+                    PDF · Word · text, up to 5 MB · nothing goes live without your confirmation
                   </p>
-                  <button className="session-blue-button h-10 px-5 text-xs" disabled={generating} onClick={() => void handleGenerate()} type="button">
-                    <Icon name="sparkle" size={16} /> Generate draft
-                  </button>
                 </div>
 
                 <SectionCard description="Pick up where you left off, or revisit what a published template started from." title="Recent drafts">
@@ -544,30 +560,30 @@ export default function TemplateAiBuilderPage() {
                   ) : (
                     <ul className="divide-y divide-[var(--theme-border)]">
                       {visibleDrafts.map((draft) => (
-                        <li className="flex flex-wrap items-center justify-between gap-3 py-3" key={draft.id}>
-                          <div className="min-w-0">
+                        <li className="flex items-center justify-between gap-4 py-3" key={draft.id}>
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <p className="truncate text-sm font-semibold text-[var(--theme-heading)]">{draft.title}</p>
-                              <StatusBadge status={draft.status} />
+                              <span className="shrink-0"><StatusBadge status={draft.status} /></span>
                               {draft.provider === "fallback" && (
-                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">Blueprint start</span>
+                                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">Blueprint start</span>
                               )}
                             </div>
-                            <p className="mt-0.5 text-xs text-[var(--theme-muted)]">
+                            <p className="mt-0.5 truncate text-xs text-[var(--theme-muted)]">
                               {draft.roleType} · {draft.moduleCount} modules · {draft.questionCount} questions
-                              {draft.sourceFileName ? ` · from ${draft.sourceFileName}` : ""}
+                              {draft.sourceFileName ? ` · ${draft.sourceFileName}` : ""}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex shrink-0 items-center gap-1.5">
                             {draft.status === "draft" && (
                               <>
                                 <button
-                                  className="button-secondary h-9 px-3 text-xs"
+                                  className="button-secondary h-9 px-3.5 text-xs"
                                   disabled={resumingId === draft.id}
                                   onClick={() => void openDraft(draft.id)}
                                   type="button"
                                 >
-                                  {resumingId === draft.id ? "Opening…" : "Continue editing"}
+                                  {resumingId === draft.id ? "Opening…" : "Open"}
                                 </button>
                                 <button
                                   aria-label="Discard draft"
@@ -580,7 +596,7 @@ export default function TemplateAiBuilderPage() {
                               </>
                             )}
                             {draft.status === "published" && draft.publishedTemplateId && (
-                              <Link className="button-secondary h-9 px-3 text-xs" href={`/templates/${encodeURIComponent(draft.publishedTemplateId)}/edit`}>
+                              <Link className="button-secondary h-9 px-3.5 text-xs" href={`/templates/${encodeURIComponent(draft.publishedTemplateId)}/edit`}>
                                 View template
                               </Link>
                             )}
@@ -590,8 +606,7 @@ export default function TemplateAiBuilderPage() {
                     </ul>
                   )}
                 </SectionCard>
-              </>
-            )}
+            </>
           </div>
         )}
 
@@ -690,6 +705,23 @@ export default function TemplateAiBuilderPage() {
 
               {/* Side column */}
               <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+                <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-6">
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-[var(--theme-heading)]">
+                    <Icon className="text-sky-500" name="message" size={15} /> Ask for changes
+                  </h2>
+                  <p className="mt-1 text-xs leading-5 text-[var(--theme-muted)]">
+                    Tell the assistant what to change — add or drop modules, rewrite questions, or reshape what came from your document. It edits this draft; you still publish.
+                  </p>
+                  <div className="mt-4">
+                    <DraftChatPanel
+                      disabled={publishing}
+                      messages={chatMessages}
+                      onSend={(message) => void handleChatSend(message)}
+                      placeholder={serverDraft.source === "document" ? "e.g. summarize the document…" : "e.g. add a coding module…"}
+                      sending={chatSending}
+                    />
+                  </div>
+                </div>
                 <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-6">
                   <h2 className="text-sm font-bold text-[var(--theme-heading)]">Draft summary</h2>
                   <dl className="mt-4 space-y-3">
@@ -919,11 +951,12 @@ function ModuleEditor({ module, index, onUpdate, onRemove, onAddQuestion, onUpda
                   )}
                   <div className="mt-2">
                     <Field hint="comma-separated, up to 8" label="What to look for">
-                      <input
-                        className={INPUT_CLASS}
+                      <textarea
+                        className={`${INPUT_CLASS} min-h-14 resize-y`}
                         maxLength={1000}
                         onChange={(event) => onUpdateQuestion(question.key, { rubricText: event.target.value })}
                         placeholder="e.g. correctness, edge cases, clarity"
+                        rows={2}
                         value={question.rubricText}
                       />
                     </Field>
@@ -945,20 +978,179 @@ function ModuleEditor({ module, index, onUpdate, onRemove, onAddQuestion, onUpda
   );
 }
 
-function GeneratingPanel({ hasFile }: { hasFile: boolean }) {
+/**
+ * The chat thread and composer, without a card around it — each phase provides
+ * its own framing. One composer covers both inputs: text in the bar, and (when
+ * `attach` is provided) a document via the + button, shown as a chip until it
+ * is sent. Enter sends; Shift+Enter makes a newline.
+ */
+function DraftChatPanel({ messages, sending, sendingLabel, disabled, placeholder, intro, rows = 1, attach, onSend }: {
+  messages: ChatMessage[];
+  sending: boolean;
+  /** Shown in the thread while waiting; defaults to a short working note. */
+  sendingLabel?: string;
+  disabled?: boolean;
+  placeholder: string;
+  /** Assistant-style opener shown while the thread is still empty. */
+  intro?: string;
+  rows?: number;
+  /** When set, the composer offers a + button that attaches one document. */
+  attach?: { file: File | null; onPick: (file?: File) => void; onClear: () => void };
+  onSend: (message: string) => void;
+}) {
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Keep the newest message in view; only the thread scrolls, never the page.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [messages.length, sending]);
+
+  const canSend = !sending && !disabled && (Boolean(input.trim()) || Boolean(attach?.file));
+
+  /** Grow with the text instead of showing a scrollbar, up to a sane ceiling. */
+  function autoGrow() {
+    const field = textareaRef.current;
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${Math.min(field.scrollHeight, 160)}px`;
+  }
+
+  function send() {
+    if (!canSend) return;
+    const message = input.trim();
+    setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    onSend(message);
+  }
+
   return (
-    <div className="flex flex-col items-center gap-4 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-6 py-16 text-center" role="status">
-      <span className="flex size-14 items-center justify-center rounded-full bg-sky-100 text-sky-600">
-        <span className="size-7 animate-spin rounded-full border-2 border-sky-600 border-t-transparent" />
-      </span>
-      <div>
-        <p className="text-base font-bold text-[var(--theme-heading)]">
-          {hasFile ? "Reading your document and designing the assessment…" : "Designing your assessment…"}
-        </p>
-        <p className="mt-1 max-w-md text-sm text-[var(--theme-muted)]">
-          The AI is choosing modules, writing questions and rubrics, and rating how much each module should count. This can take a minute or two.
-        </p>
+    <div>
+      {(messages.length > 0 || sending || intro) && (
+        <div className="mb-3 max-h-96 space-y-2.5 overflow-y-auto pr-1" ref={scrollRef}>
+          {messages.length === 0 && !sending && intro && (
+            <div className="flex justify-start">
+              <span className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-[var(--theme-panel-soft)] px-3.5 py-2.5 text-sm leading-5 text-[var(--theme-text)]">
+                {intro}
+              </span>
+            </div>
+          )}
+          {messages.map((message) => (
+            <ChatBubble key={message.key} message={message} />
+          ))}
+          {sending && (
+            <div className="flex justify-start">
+              <span className="inline-flex max-w-[85%] items-center gap-2 rounded-2xl rounded-bl-sm bg-[var(--theme-panel-soft)] px-3.5 py-2.5 text-sm leading-5 text-[var(--theme-muted)]">
+                <span className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
+                {sendingLabel ?? "Working on it…"}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-[var(--theme-border-strong)] bg-[var(--theme-panel)] shadow-sm transition focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500">
+        {attach?.file && (
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--theme-border)] px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
+                <Icon name="file" size={13} />
+              </span>
+              <p className="truncate text-xs font-semibold text-[var(--theme-heading)]">{attach.file.name}</p>
+              <p className="shrink-0 text-xs text-[var(--theme-muted)]">{formatBytes(attach.file.size)}</p>
+            </div>
+            <button
+              aria-label="Remove file"
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-[var(--theme-muted)] transition hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"
+              onClick={attach.onClear}
+              type="button"
+            >
+              <Icon name="x" size={14} />
+            </button>
+          </div>
+        )}
+        <div className="flex items-end gap-1 p-2">
+          {attach && (
+            <>
+              <input
+                accept={DRAFT_UPLOAD_ACCEPT}
+                className="sr-only"
+                onChange={(event) => {
+                  attach.onPick(event.target.files?.[0]);
+                  event.currentTarget.value = "";
+                }}
+                ref={fileInputRef}
+                type="file"
+              />
+              <button
+                aria-label="Attach a job description"
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl text-[var(--theme-muted)] transition hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"
+                disabled={disabled}
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach a job description (PDF, DOCX, TXT — up to 5 MB)"
+                type="button"
+              >
+                <Icon name="plus" size={17} />
+              </button>
+            </>
+          )}
+          <textarea
+            className="chat-composer-input max-h-40 min-w-0 flex-1 resize-none px-2 py-1.5 text-sm leading-6 placeholder:text-[var(--theme-faint)]"
+            disabled={disabled}
+            maxLength={MAX_DRAFT_CHAT_MESSAGE_LENGTH}
+            onChange={(event) => {
+              setInput(event.target.value);
+              autoGrow();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                send();
+              }
+            }}
+            placeholder={placeholder}
+            ref={textareaRef}
+            rows={rows}
+            value={input}
+          />
+          <button
+            aria-label="Send message"
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canSend}
+            onClick={send}
+            type="button"
+          >
+            <Icon name="paperPlane" size={15} />
+          </button>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function ChatBubble({ message }: { message: ChatMessage }) {
+  if (message.role === "user") {
+    return (
+      <div className="flex justify-end">
+        <span className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-sky-100 px-3.5 py-2.5 text-sm leading-5 text-sky-700">
+          {message.content}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex justify-start">
+      <span
+        className={`max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm leading-5 ${
+          message.tone === "error"
+            ? "bg-[var(--theme-panel-soft)] font-medium text-[var(--color-status-critical)]"
+            : "bg-[var(--theme-panel-soft)] text-[var(--theme-text)]"
+        }`}
+      >
+        {message.content}
+      </span>
     </div>
   );
 }
@@ -1010,13 +1202,21 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
-      <dt className="text-[var(--theme-muted)]">{label}</dt>
-      <dd className="text-right font-semibold text-[var(--theme-heading)]">{value}</dd>
+      <dt className="shrink-0 text-[var(--theme-muted)]">{label}</dt>
+      <dd className="min-w-0 truncate text-right font-semibold text-[var(--theme-heading)]" title={value}>
+        {value}
+      </dd>
     </div>
   );
 }
 
 // Utilities
+
+/** The assistant's first bubble after a draft lands, inviting refinement. */
+function describeDraft(dto: TemplateDraftDto): string {
+  const questions = dto.draft.modules.reduce((sum, module) => sum + module.questions.length, 0);
+  return `Here's a draft of "${dto.draft.title}": ${dto.draft.modules.length} modules and ${questions} questions. Tell me what to change — add or remove modules, rewrite questions, shift the focus — or edit anything directly.`;
+}
 
 function questionTypeLabel(type: QuestionType): string {
   const labels: Record<QuestionType, string> = {

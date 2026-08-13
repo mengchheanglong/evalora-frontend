@@ -668,6 +668,19 @@ textarea.control {
   box-shadow: none !important;
 }
 
+/* Chat composer field: the wrapping box carries the border, background, and
+   focus ring, so the field itself must stay invisible in every theme — the
+   theme rules above repaint bare textareas with !important backgrounds. */
+.chat-composer-input,
+[data-theme="dark"] .chat-composer-input,
+[data-theme="ocean"] .chat-composer-input {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: var(--theme-text) !important;
+}
+
 [data-theme="dark"] aside,
 [data-theme="ocean"] aside,
 [data-theme="dark"] header,

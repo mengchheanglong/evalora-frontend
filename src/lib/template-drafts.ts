@@ -110,6 +110,24 @@ export interface UpdateDraftInput {
   }>;
 }
 
+/** One turn of the refinement conversation. The client owns the transcript and
+ *  replays recent turns with each request; the server stores none of it. */
+export interface DraftChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface DraftChatResult {
+  /** False when the assistant answered without changing the draft. */
+  applied: boolean;
+  reply: string;
+  draft: TemplateDraftDto;
+}
+
+/** Mirrors the backend's chat DTO caps so an oversized turn fails client-side. */
+export const MAX_DRAFT_CHAT_MESSAGE_LENGTH = 2_000;
+export const MAX_DRAFT_CHAT_HISTORY_TURNS = 12;
+
 /** Mirrors the backend's multer limit so an oversized file fails before uploading. */
 export const MAX_DRAFT_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -178,6 +196,18 @@ export function updateDraft(id: string, input: UpdateDraftInput): Promise<Templa
   return apiRequest<TemplateDraftDto>(`/templates/drafts/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: input,
+  });
+}
+
+/**
+ * One chat turn against a stored draft. The backend applies the instruction to
+ * the draft (never to a template), re-normalizes it, and answers conversationally;
+ * `applied: false` means the draft is exactly as it was.
+ */
+export function chatWithDraft(id: string, input: { message: string; history?: DraftChatTurn[] }): Promise<DraftChatResult> {
+  return apiPost<DraftChatResult>(`/templates/drafts/${encodeURIComponent(id)}/chat`, {
+    message: input.message,
+    ...(input.history?.length ? { history: input.history.slice(-MAX_DRAFT_CHAT_HISTORY_TURNS) } : {}),
   });
 }
 
