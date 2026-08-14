@@ -170,11 +170,18 @@ export function CandidateLiveCamera({
       if (cancelled) return;
       if (track.kind !== Track.Kind.Video) return;
 
+      const videoTrack = track as RemoteVideoTrack;
+
+      // Skip if the same track is already attached (avoids brief cuts)
+      if (attachedTrack === videoTrack && targetVideoRef.current?.srcObject) {
+        return;
+      }
+
       cleanupVideo();
-      attachedTrack = track as RemoteVideoTrack;
+      attachedTrack = videoTrack;
       const video = targetVideoRef.current;
       console.log("[LiveKit] attaching candidate video track", {
-        sid: (track as RemoteVideoTrack).sid,
+        sid: videoTrack.sid,
         hasVideo: Boolean(video),
       });
       if (video) {
@@ -224,15 +231,17 @@ export function CandidateLiveCamera({
       }
     }
 
-    function subscribeToParticipant(participant: RemoteParticipant) {
-      console.log("[LiveKit] subscribeToParticipant", participant.identity, {
-        publications: [...participant.trackPublications.values()].map((p) => ({
-          source: p.source,
-          isSubscribed: p.isSubscribed,
-          hasTrack: Boolean(p.track),
-          sid: p.trackSid,
-        })),
-      });
+    function subscribeToParticipant(participant: RemoteParticipant, silent = false) {
+      if (!silent) {
+        console.log("[LiveKit] subscribeToParticipant", participant.identity, {
+          publications: [...participant.trackPublications.values()].map((p) => ({
+            source: p.source,
+            isSubscribed: p.isSubscribed,
+            hasTrack: Boolean(p.track),
+            sid: p.trackSid,
+          })),
+        });
+      }
       for (const publication of participant.trackPublications.values()) {
         if (!isCandidateMedia(publication)) continue;
         publication.setSubscribed(true);
@@ -468,16 +477,14 @@ export function CandidateLiveCamera({
         restoreSubscribedTracks();
 
         // Continuous polling: check for participants and reattach tracks
-        // every 2 seconds. If no participants found, attempt reconnection.
+        // every 3 seconds. If no participants found, attempt reconnection.
         const pollInterval = setInterval(async () => {
           if (cancelled || room.state !== "connected") return;
 
-          // If we already have a video track attached, just do reconciliation
+          // If we already have a video track attached, just update connection quality
           if (attachedTrack) {
-            for (const participant of room.remoteParticipants.values()) {
-              subscribeToParticipant(participant);
-            }
-            // Update connection quality
+            // Only update connection quality, don't call subscribeToParticipant
+            // to avoid interrupting the video stream
             if (room.remoteParticipants.size > 0) {
               const first = room.remoteParticipants.values().next().value;
               if (first) {
@@ -493,7 +500,7 @@ export function CandidateLiveCamera({
           if (room.remoteParticipants.size > 0) {
             // Found participants but no track - subscribe and wait
             console.log("[LiveKit] Found participants, subscribing...");
-            room.remoteParticipants.forEach((p) => subscribeToParticipant(p));
+            room.remoteParticipants.forEach((p) => subscribeToParticipant(p, true));
             restoreSubscribedTracks();
             return;
           }
@@ -509,7 +516,7 @@ export function CandidateLiveCamera({
               setStatus("error");
             }
           }
-        }, 2_000);
+        }, 3_000);
 
         cleanupRef.current = pollInterval;
       } catch (requestError) {
