@@ -188,7 +188,7 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
             sessionId={sessionId}
           />
 
-          <section className="sticky bottom-0 mt-5 overflow-hidden rounded-xl border border-[var(--theme-border)] bg-white/95 shadow-[var(--shadow-card)] backdrop-blur">
+          <section className="mt-5 h-[200px] overflow-hidden rounded-xl border border-[var(--theme-border)] bg-white/95 shadow-[var(--shadow-card)] backdrop-blur">
             <div className="flex items-center justify-between border-b border-[var(--theme-border)] px-4 py-2.5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-[var(--theme-heading)]">Live captions</p>
@@ -211,7 +211,14 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
               </span>
             </div>
 
-            <div className="max-h-40 overflow-y-auto px-4 py-3" aria-live="polite">
+            <div
+              className="h-[152px] overflow-y-auto px-4 py-3 scroll-smooth"
+              ref={(el) => {
+                if (el) {
+                  el.scrollTop = el.scrollHeight;
+                }
+              }}
+            >
               {liveCaptions.length ? (
                 <div className="space-y-2">
                   {liveCaptions.map((caption) => (
