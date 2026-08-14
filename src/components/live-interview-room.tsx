@@ -182,68 +182,11 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
       {/* Main: transcript + question composer */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: transcript */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 pb-[220px]">
           <SessionTranscriptView
             onStatusChange={() => {}}
             sessionId={sessionId}
           />
-
-          <section className="mt-5 h-[200px] overflow-hidden rounded-xl border border-[var(--theme-border)] bg-white/95 shadow-[var(--shadow-card)] backdrop-blur">
-            <div className="flex items-center justify-between border-b border-[var(--theme-border)] px-4 py-2.5">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-[var(--theme-heading)]">Live captions</p>
-                <p className="mt-0.5 text-[10px] text-[var(--theme-muted)]">Live speech only — not part of the saved evidence transcript.</p>
-              </div>
-              <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${
-                candidateMicrophoneState === "muted" || candidateCameraStatus === "offline"
-                  ? "bg-rose-100 text-rose-700"
-                  : candidateCameraStatus === "reconnecting"
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-emerald-100 text-emerald-700"
-              }`}>
-                {candidateMicrophoneState === "muted"
-                  ? "Microphone muted"
-                  : candidateCameraStatus === "offline"
-                    ? "Disconnected"
-                    : candidateCameraStatus === "reconnecting"
-                      ? "Reconnecting..."
-                      : "Listening"}
-              </span>
-            </div>
-
-            <div
-              className="h-[152px] overflow-y-auto px-4 py-3 scroll-smooth"
-              ref={(el) => {
-                if (el) {
-                  el.scrollTop = el.scrollHeight;
-                }
-              }}
-            >
-              {liveCaptions.length ? (
-                <div className="space-y-2">
-                  {liveCaptions.map((caption) => (
-                    <div className="flex gap-3 text-sm" key={caption.id}>
-                      <time className="shrink-0 pt-0.5 text-[10px] font-semibold text-[var(--theme-faint)]">
-                        {new Date(caption.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                      </time>
-                      <p className={caption.final ? "text-[var(--theme-text)]" : "italic text-[var(--theme-muted)]"}>
-                        <span className="mr-1.5 font-bold text-[var(--color-primary-700)]">{caption.speaker}:</span>
-                        {caption.text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="py-2 text-center text-xs text-[var(--theme-faint)]">
-                  {candidateMicrophoneState === "muted"
-                    ? "Captions are paused while the candidate microphone is muted."
-                    : candidateCameraStatus === "offline" || candidateCameraStatus === "reconnecting"
-                      ? "Captions will resume when the media connection returns."
-                      : "Waiting for the candidate to speak…"}
-                </p>
-              )}
-            </div>
-          </section>
         </div>
 
         {/* Right: question composer */}
@@ -356,6 +299,59 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
             )}
           </div>
         </aside>
+      </div>
+
+      {/* Fixed live captions at bottom — never moves */}
+      <div className="pointer-events-none fixed bottom-0 left-0 right-[340px] z-40">
+        <div className="pointer-events-auto mx-6 mb-4 overflow-hidden rounded-xl border border-[var(--theme-border)] bg-white/95 shadow-[var(--shadow-card)] backdrop-blur">
+          <div className="flex items-center justify-between border-b border-[var(--theme-border)] px-4 py-2.5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--theme-heading)]">Live captions</p>
+              <p className="mt-0.5 text-[10px] text-[var(--theme-muted)]">Live speech only — not part of the saved evidence transcript.</p>
+            </div>
+            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+              candidateMicrophoneState === "muted" || candidateCameraStatus === "offline"
+                ? "bg-rose-100 text-rose-700"
+                : candidateCameraStatus === "reconnecting"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-emerald-100 text-emerald-700"
+            }`}>
+              {candidateMicrophoneState === "muted"
+                ? "Microphone muted"
+                : candidateCameraStatus === "offline"
+                  ? "Disconnected"
+                  : candidateCameraStatus === "reconnecting"
+                    ? "Reconnecting..."
+                    : "Listening"}
+            </span>
+          </div>
+
+          <div className="h-[120px] overflow-y-auto px-4 py-3">
+            {liveCaptions.length ? (
+              <div className="space-y-2">
+                {liveCaptions.map((caption) => (
+                  <div className="flex gap-3 text-sm" key={caption.id}>
+                    <time className="shrink-0 pt-0.5 text-[10px] font-semibold text-[var(--theme-faint)]">
+                      {new Date(caption.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </time>
+                    <p className={caption.final ? "text-[var(--theme-text)]" : "italic text-[var(--theme-muted)]"}>
+                      <span className="mr-1.5 font-bold text-[var(--color-primary-700)]">{caption.speaker}:</span>
+                      {caption.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-2 text-center text-xs text-[var(--theme-faint)]">
+                {candidateMicrophoneState === "muted"
+                  ? "Captions are paused while the candidate microphone is muted."
+                  : candidateCameraStatus === "offline" || candidateCameraStatus === "reconnecting"
+                    ? "Captions will resume when the media connection returns."
+                    : "Waiting for the candidate to speak…"}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Visually hidden — runs WebRTC logic but renders nothing */}
