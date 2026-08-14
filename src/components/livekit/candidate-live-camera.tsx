@@ -36,6 +36,9 @@ type CandidateLiveCameraProps = {
   compact?: boolean;
   /** External video ref to attach tracks to instead of the internal one. */
   externalVideoRef?: RefObject<HTMLVideoElement | null>;
+  /** External video ref used for the candidate's screen-share track. */
+  externalScreenShareRef?: RefObject<HTMLVideoElement | null>;
+  onScreenShareChange?: (sharing: boolean) => void;
 };
 
 export type CameraStatus =
@@ -68,6 +71,7 @@ export function CandidateLiveCamera({
   sessionId,
   compact,
   externalVideoRef,
+  externalScreenShareRef,
   onConnectionQualityChange,
   onMicrophoneStateChange,
   onStatusChange,
@@ -75,6 +79,7 @@ export function CandidateLiveCamera({
   onCaption,
   interviewerMicrophoneMuted = true,
   onInterviewerMicrophoneStateChange,
+  onScreenShareChange,
 }: CandidateLiveCameraProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   /** Use external ref if provided, otherwise internal. */
@@ -132,6 +137,7 @@ export function CandidateLiveCamera({
     let cancelled = false;
     let attachedTrack: RemoteVideoTrack | null = null;
     let attachedAudioTrack: RemoteAudioTrack | null = null;
+    let attachedScreenTrack: RemoteVideoTrack | null = null;
     let audioElement: HTMLAudioElement | null = null;
     let reconnectionAttempts = 0;
     const MAX_RECONNECTION_ATTEMPTS = 10;
@@ -164,6 +170,26 @@ export function CandidateLiveCamera({
       attachedAudioTrack = null;
       audioElement = null;
       setMicrophoneState("waiting");
+    }
+
+    function cleanupScreenShare() {
+      const video = externalScreenShareRef?.current;
+      if (attachedScreenTrack && video) attachedScreenTrack.detach(video);
+      attachedScreenTrack = null;
+      if (video) video.srcObject = null;
+      onScreenShareChange?.(false);
+    }
+
+    function attachCandidateScreenShare(track: RemoteTrack) {
+      if (cancelled || track.kind !== Track.Kind.Video) return;
+      cleanupScreenShare();
+      attachedScreenTrack = track as RemoteVideoTrack;
+      const video = externalScreenShareRef?.current;
+      if (video) {
+        attachedScreenTrack.attach(video);
+        void video.play().catch(() => undefined);
+      }
+      onScreenShareChange?.(true);
     }
 
     function attachCandidateTrack(track: RemoteTrack) {
@@ -217,7 +243,8 @@ export function CandidateLiveCamera({
 
     function isCandidateMedia(publication: RemoteTrackPublication) {
       return publication.source === Track.Source.Camera ||
-        publication.source === Track.Source.Microphone;
+        publication.source === Track.Source.Microphone ||
+        publication.source === Track.Source.ScreenShare;
     }
 
     function attachSubscribedPublication(publication: RemoteTrackPublication) {
@@ -226,6 +253,8 @@ export function CandidateLiveCamera({
       }
       if (publication.source === Track.Source.Camera) {
         attachCandidateTrack(publication.track);
+      } else if (publication.source === Track.Source.ScreenShare) {
+        attachCandidateScreenShare(publication.track);
       } else if (publication.source === Track.Source.Microphone) {
         attachCandidateAudio(publication.track, publication);
       }
@@ -286,6 +315,8 @@ export function CandidateLiveCamera({
           lowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
         );
         attachCandidateTrack(track);
+      } else if (publication.source === Track.Source.ScreenShare) {
+        attachCandidateScreenShare(track);
       } else if (publication.source === Track.Source.Microphone) {
         attachCandidateAudio(track, publication);
       }
@@ -303,6 +334,8 @@ export function CandidateLiveCamera({
         setError("");
       } else if (track === attachedAudioTrack) {
         cleanupAudio();
+      } else if (track === attachedScreenTrack) {
+        cleanupScreenShare();
       }
     }
 
@@ -402,6 +435,7 @@ export function CandidateLiveCamera({
         console.log("[LiveKit] participant left", participant.identity);
         cleanupVideo();
         cleanupAudio();
+        cleanupScreenShare();
         setStatus("waiting");
         setConnectionQuality("lost");
       })
@@ -431,6 +465,7 @@ export function CandidateLiveCamera({
         if (!cancelled) {
           cleanupVideo();
           cleanupAudio();
+          cleanupScreenShare();
           setStatus("offline");
           setConnectionQuality("lost");
         }
@@ -541,13 +576,14 @@ export function CandidateLiveCamera({
       }
       cleanupVideo();
       cleanupAudio();
+      cleanupScreenShare();
       setConnectionQuality("lost");
       room.removeAllListeners();
       room.unregisterTextStreamHandler(LIVE_CAPTION_TOPIC);
       if (roomRef.current === room) roomRef.current = null;
       room.disconnect();
     };
-  }, [onCaption, onInterviewerMicrophoneStateChange, sessionId, targetVideoRef]);
+  }, [externalScreenShareRef, onCaption, onInterviewerMicrophoneStateChange, onScreenShareChange, sessionId, targetVideoRef]);
 
   if (compact) {
     // The live room renders the visible draggable video element. Keep this

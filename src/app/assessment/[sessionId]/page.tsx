@@ -216,6 +216,9 @@ export default function CandidateAssessmentPage() {
   const [candidateMicrophoneMuted, setCandidateMicrophoneMuted] =
     useState(false);
 
+  const [candidateScreenShareState, setCandidateScreenShareState] =
+    useState<"idle" | "starting" | "sharing">("idle");
+
   const [candidateConnectionQuality, setCandidateConnectionQuality] =
     useState<MediaConnectionQuality>("lost");
 
@@ -277,6 +280,33 @@ export default function CandidateAssessmentPage() {
     } catch (error) {
       console.error("[CandidateLiveKit] Could not change microphone state:", error);
       setActionError("We could not change your microphone state. Please try again.");
+    }
+  }, []);
+
+  const toggleCandidateScreenShare = useCallback(async () => {
+    const room = candidateLiveKitRoomRef.current;
+    if (!room || room.state !== "connected") {
+      setActionError("Screen sharing is available after the live media connection is ready.");
+      return;
+    }
+
+    const isSharing = Boolean(
+      room.localParticipant.getTrackPublication(Track.Source.ScreenShare),
+    );
+    setCandidateScreenShareState("starting");
+    setActionError("");
+
+    try {
+      await room.localParticipant.setScreenShareEnabled(!isSharing, {
+        audio: false,
+      });
+      setCandidateScreenShareState(isSharing ? "idle" : "sharing");
+    } catch (error) {
+      console.error("[CandidateLiveKit] Could not change screen sharing state:", error);
+      setCandidateScreenShareState(isSharing ? "sharing" : "idle");
+      setActionError(
+        getErrorMessage(error, "We could not start screen sharing. Please try again."),
+      );
     }
   }, []);
 
@@ -476,6 +506,16 @@ export default function CandidateAssessmentPage() {
         setInterviewerMicrophoneState("live");
       }
     });
+    room.on(RoomEvent.LocalTrackPublished, (publication) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        setCandidateScreenShareState("sharing");
+      }
+    });
+    room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        setCandidateScreenShareState("idle");
+      }
+    });
 
     async function restorePublishedTracks() {
       const cameraTrack = stream.getVideoTracks()[0];
@@ -661,6 +701,7 @@ export default function CandidateAssessmentPage() {
       }
       setCandidateConnectionQuality("lost");
       setCandidateMediaConnection("offline");
+      setCandidateScreenShareState("idle");
       candidateCaptionControllerRef.current?.stop();
       candidateCaptionControllerRef.current = null;
       detachInterviewerAudio();
@@ -2246,15 +2287,18 @@ export default function CandidateAssessmentPage() {
       {/* CAMERA */}
 
       <FloatingCandidateCamera
+        candidateName={session?.candidateName || "Candidate"}
         connectionState={candidateMediaConnection}
         connectionQuality={candidateConnectionQuality}
         lowBandwidthMode={candidateLowBandwidthMode}
         interviewerMicrophoneState={interviewerMicrophoneState}
         microphoneMuted={candidateMicrophoneMuted}
+        screenShareState={candidateScreenShareState}
         onToggleLowBandwidth={() => {
           setCandidateLowBandwidthOverride(!candidateLowBandwidthMode);
         }}
         onToggleMicrophone={() => void toggleCandidateMicrophone()}
+        onToggleScreenShare={() => void toggleCandidateScreenShare()}
         stream={
           candidateCameraStream
         }

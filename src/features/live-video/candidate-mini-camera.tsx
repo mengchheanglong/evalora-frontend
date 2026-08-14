@@ -1,33 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Icon } from "@/components/icons";
 
 type FloatingCandidateCameraProps = {
   stream: MediaStream | null;
+  candidateName: string;
   connectionState: "connecting" | "connected" | "reconnecting" | "offline";
   connectionQuality: "excellent" | "good" | "poor" | "lost";
   lowBandwidthMode: boolean;
   interviewerMicrophoneState: "waiting" | "live" | "muted" | "offline";
   microphoneMuted: boolean;
+  screenShareState: "idle" | "starting" | "sharing";
   onToggleLowBandwidth: () => void;
   onToggleMicrophone: () => void;
+  onToggleScreenShare: () => void;
 };
 
 export function FloatingCandidateCamera({
   stream,
-  connectionState,
+  candidateName,
   connectionQuality,
   lowBandwidthMode,
-  interviewerMicrophoneState,
   microphoneMuted,
+  screenShareState,
   onToggleLowBandwidth,
   onToggleMicrophone,
+  onToggleScreenShare,
 }: FloatingCandidateCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState({
-    x: typeof window !== "undefined" ? 20 : 20,
-    y: typeof window !== "undefined" ? window.innerHeight - 200 : 500,
+    x: typeof window !== "undefined" ? Math.max(16, window.innerWidth - 316) : 20,
+    y: typeof window !== "undefined" ? Math.max(16, window.innerHeight - 340) : 500,
   });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posx: 0, posy: 0 });
@@ -98,8 +104,10 @@ export function FloatingCandidateCamera({
       if (!dragging) return;
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
-      const maxX = typeof window !== "undefined" ? window.innerWidth - 210 : 1000;
-      const maxY = typeof window !== "undefined" ? window.innerHeight - 200 : 800;
+      const cardWidth = cardRef.current?.offsetWidth ?? 300;
+      const cardHeight = cardRef.current?.offsetHeight ?? 300;
+      const maxX = typeof window !== "undefined" ? window.innerWidth - cardWidth : 1000;
+      const maxY = typeof window !== "undefined" ? window.innerHeight - cardHeight : 800;
       setPos({
         x: Math.max(0, Math.min(maxX, dragStart.current.posx + dx)),
         y: Math.max(0, Math.min(maxY, dragStart.current.posy + dy)),
@@ -118,51 +126,43 @@ export function FloatingCandidateCamera({
 
   return (
     <div
-      className="fixed z-[99999] w-[min(210px,32vw)] select-none"
+      ref={cardRef}
+      className="fixed z-[99999] w-[170px] select-none sm:w-[190px] lg:w-[220px]"
       style={{ left: pos.x, top: pos.y, touchAction: "none" }}
     >
       <div
-        className={`overflow-hidden rounded-xl border-2 border-white bg-black shadow-[0_12px_40px_rgba(15,23,42,0.28)] ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+        className={`overflow-hidden rounded-[20px] border border-white/15 bg-[#111827] shadow-[0_18px_55px_rgba(15,23,42,0.35)] transition-shadow duration-200 ${dragging ? "cursor-grabbing shadow-[0_24px_70px_rgba(15,23,42,0.48)]" : "cursor-grab"}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <div className="relative aspect-video bg-neutral-900">
+        <div className="relative aspect-[3/2] overflow-hidden bg-neutral-900">
           <video
             ref={videoRef}
             autoPlay
             muted
             playsInline
-            className="block h-full w-full object-cover"
+            className="block size-full object-cover"
           />
 
-          {connectionState === "reconnecting" ? (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm">
-              <div className="text-center">
-                <span className="mx-auto block size-4 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-                <p className="mt-2 text-[10px] font-semibold text-white">Reconnecting...</p>
-              </div>
-            </div>
-          ) : !playing ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-              <p className="text-[10px] font-semibold text-white">
-                Connecting camera...
-              </p>
+          {!playing ? (
+            <div className="absolute inset-0 z-10 grid place-items-center bg-neutral-900/85 backdrop-blur-sm">
+              <span className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
             </div>
           ) : null}
 
-          <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2 py-1">
+          <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 backdrop-blur-md">
             <span
               className={`size-1.5 rounded-full ${
                 playing ? "bg-emerald-400" : "bg-amber-400"
               }`}
             />
-            <span className="text-[10px] font-bold text-white">
-              {playing ? "Live" : "Camera"}
+            <span className="text-[9px] font-semibold text-white/90">
+              Live
             </span>
           </div>
 
-          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1">
+          <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 backdrop-blur-md">
             <span className={`size-1.5 rounded-full ${
               connectionQuality === "excellent"
                 ? "bg-emerald-400"
@@ -172,80 +172,82 @@ export function FloatingCandidateCamera({
                     ? "bg-amber-400"
                     : "bg-rose-400"
             }`} />
-            <span className="text-[9px] font-bold capitalize text-white">
+            <span className="text-[9px] font-semibold capitalize text-white/90">
               {connectionQuality}
             </span>
           </div>
+
         </div>
 
-        <div className="flex items-center justify-between gap-2 bg-white px-3 py-2">
-          <div>
-            <p className="text-[11px] font-bold text-neutral-800">
-              Your camera
-            </p>
-            <p className={`mt-0.5 text-[10px] ${microphoneMuted ? "text-rose-500" : "text-neutral-400"}`}>
-              {connectionState === "reconnecting"
-                ? "Reconnecting..."
-                : microphoneMuted
-                  ? "Microphone muted"
-                  : playing
-                    ? "Camera and microphone active"
-                    : "Connecting..."}
-            </p>
-            <p className={`mt-0.5 text-[9px] ${
-              interviewerMicrophoneState === "live"
-                ? "text-emerald-600"
-                : interviewerMicrophoneState === "muted"
-                  ? "text-neutral-400"
-                  : "text-amber-600"
-            }`}>
-              {interviewerMicrophoneState === "live"
-                ? "Interviewer mic live"
-                : interviewerMicrophoneState === "muted"
-                  ? "Interviewer mic muted"
-                  : interviewerMicrophoneState === "offline"
-                    ? "Interviewer audio disconnected"
-                    : "Waiting for interviewer audio"}
-            </p>
+        <div className="flex h-11 items-center gap-1 bg-white px-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[11px] font-semibold text-neutral-900">{candidateName}</p>
+            <p className="mt-0.5 text-[8px] text-neutral-400">Candidate</p>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center justify-center gap-1 rounded-full border border-neutral-200/80 bg-neutral-50/90 p-1 shadow-sm">
+            <button
+              aria-label={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
+              className={`grid size-[22px] shrink-0 place-items-center rounded-full border transition-all ${
+                microphoneMuted
+                  ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                  : "border-neutral-200 bg-white text-emerald-600 hover:bg-neutral-50"
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleMicrophone();
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              title={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
+              type="button"
+            >
+              <Icon name="waves" size={11} />
+            </button>
+
             <button
               aria-label={lowBandwidthMode ? "Restore normal video quality" : "Enable low bandwidth mode"}
-              className={`h-8 rounded-full px-2 text-[9px] font-bold transition-colors ${
+              className={`relative grid size-[22px] shrink-0 place-items-center rounded-full border transition-all ${
                 lowBandwidthMode
-                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                  : "bg-sky-100 text-sky-700 hover:bg-sky-200"
+                  ? "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                  : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
               }`}
               onClick={(event) => {
                 event.stopPropagation();
                 onToggleLowBandwidth();
               }}
               onPointerDown={(event) => event.stopPropagation()}
-              title={lowBandwidthMode ? "Low quality video" : "Normal quality video"}
+              title={lowBandwidthMode ? "Low bandwidth mode enabled" : "Use low bandwidth mode"}
               type="button"
             >
-              {lowBandwidthMode ? "Low" : "Normal"}
+              <Icon name="video" size={11} />
+              {lowBandwidthMode ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-amber-500" /> : null}
             </button>
 
             <button
-            aria-label={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
-            className={`grid size-8 shrink-0 place-items-center rounded-full text-sm transition-colors ${
-              microphoneMuted
-                ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
-                : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-            }`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleMicrophone();
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-            title={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
-            type="button"
-          >
-            {microphoneMuted ? "⌁" : "●"}
+              aria-label={screenShareState === "sharing" ? "Stop sharing screen" : "Share screen"}
+              className={`relative grid size-[22px] shrink-0 place-items-center rounded-full border transition-all ${
+                screenShareState === "sharing"
+                  ? "border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100"
+                  : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+              } disabled:cursor-wait disabled:opacity-50`}
+              disabled={screenShareState === "starting"}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleScreenShare();
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              title={screenShareState === "sharing" ? "Stop sharing screen" : "Share your screen"}
+              type="button"
+            >
+              {screenShareState === "starting" ? (
+                <span className="size-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
+              ) : (
+                <Icon name="eye" size={11} />
+              )}
+              {screenShareState === "sharing" ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-violet-500" /> : null}
             </button>
           </div>
+
         </div>
       </div>
     </div>
