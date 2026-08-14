@@ -89,7 +89,7 @@ export function CandidateLiveCamera({
     useState<MediaConnectionQuality>("lost");
   const interviewerMicrophoneMutedRef = useRef(interviewerMicrophoneMuted);
   interviewerMicrophoneMutedRef.current = interviewerMicrophoneMuted;
-  const reconciliationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cleanupRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     onMicrophoneStateChange?.(microphoneState);
@@ -133,6 +133,8 @@ export function CandidateLiveCamera({
     let attachedTrack: RemoteVideoTrack | null = null;
     let attachedAudioTrack: RemoteAudioTrack | null = null;
     let audioElement: HTMLAudioElement | null = null;
+    let reconnectionAttempts = 0;
+    const MAX_RECONNECTION_ATTEMPTS = 10;
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
@@ -191,6 +193,7 @@ export function CandidateLiveCamera({
       }
       setError("");
       setStatus("connected");
+      reconnectionAttempts = 0; // Reset on success
     }
 
     function attachCandidateAudio(track: RemoteTrack, publication: RemoteTrackPublication) {
@@ -325,10 +328,66 @@ export function CandidateLiveCamera({
       setStatus(attachedTrack ? "connected" : "waiting");
     }
 
+    /**
+     * Attempt to reconnect to the LiveKit room with fresh credentials.
+     * This forces a re-sync of the cluster participant list.
+     */
+    async function forceReconnect(): Promise<boolean> {
+      if (cancelled || room.state === "disconnected") return false;
+      try {
+        console.warn("[LiveKit] Force reconnecting to resync participants");
+        setStatus("reconnecting");
+        room.disconnect();
+
+        // Exponential backoff: 1s, 2s, 4s, 8s...
+        const delay = Math.min(1000 * Math.pow(2, reconnectionAttempts), 8000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        if (cancelled) return false;
+
+        const freshCreds = await apiPost<{ token: string; url: string }>(
+          `/sessions/${encodeURIComponent(sessionId)}/livekit-token`,
+        );
+        if (cancelled) return false;
+
+        await room.connect(freshCreds.url, freshCreds.token, {
+          autoSubscribe: true,
+        });
+        if (cancelled) {
+          room.disconnect();
+          return false;
+        }
+
+        reconnectionAttempts++;
+        console.log("[LiveKit] Reconnected, remote participants:",
+          [...room.remoteParticipants.keys()]);
+
+        // Subscribe to all existing participants
+        room.remoteParticipants.forEach((p) => subscribeToParticipant(p));
+        restoreSubscribedTracks();
+
+        // Re-enable microphone
+        void room.localParticipant
+          .setMicrophoneEnabled(!interviewerMicrophoneMutedRef.current)
+          .then(() => {
+            onInterviewerMicrophoneStateChange?.(
+              interviewerMicrophoneMutedRef.current ? "muted" : "live",
+            );
+          })
+          .catch(() => onInterviewerMicrophoneStateChange?.("error"));
+
+        return room.remoteParticipants.size > 0;
+      } catch (e) {
+        console.error("[LiveKit] Reconnection failed:", e);
+        reconnectionAttempts++;
+        return false;
+      }
+    }
+
     room
       .on(RoomEvent.ParticipantConnected, (participant) => {
         console.log("[LiveKit] participant joined", participant.identity);
         subscribeToParticipant(participant);
+        reconnectionAttempts = 0; // Reset on success
       })
       .on(RoomEvent.ParticipantDisconnected, (participant) => {
         console.log("[LiveKit] participant left", participant.identity);
@@ -408,78 +467,51 @@ export function CandidateLiveCamera({
         // publications too so already-published media cannot be missed.
         restoreSubscribedTracks();
 
-        // A connected interviewer with no remote participant cannot receive a
-        // track. Force a reconnection to re-sync the cluster participant list.
-        // This handles the case where interviewer and candidate connect to
-        // different cluster nodes and the participant list doesn't sync.
-        if (room.remoteParticipants.size === 0) {
-          console.warn("[LiveKit] No remote participants found, scheduling re-sync");
-          // Wait 3s for candidate to appear, then force reconnection
-          const resyncTimer = setTimeout(() => {
-            if (cancelled || room.state !== "connected") return;
-            if (room.remoteParticipants.size === 0 && !attachedTrack) {
-              console.warn("[LiveKit] Still no participants, forcing reconnection to resync");
-              void (async () => {
-                try {
-                  room.disconnect();
-                  // Re-fetch credentials and reconnect
-                  const freshCreds = await apiPost<{ token: string; url: string }>(
-                    `/sessions/${encodeURIComponent(sessionId)}/livekit-token`,
-                  );
-                  if (cancelled) return;
-                  await room.connect(freshCreds.url, freshCreds.token, {
-                    autoSubscribe: true,
-                  });
-                  console.log("[LiveKit] Reconnected, remote participants:",
-                    [...room.remoteParticipants.keys()]);
-                  room.remoteParticipants.forEach((p) => subscribeToParticipant(p));
-                  restoreSubscribedTracks();
-                  if (room.remoteParticipants.size === 0) {
-                    setStatus("waiting");
-                    setError("Waiting for the candidate to join this interview session.");
-                  }
-                } catch (e) {
-                  console.error("[LiveKit] Reconnection failed:", e);
-                }
-              })();
-            }
-          }, 3_000);
-          reconciliationIntervalRef.current = resyncTimer as unknown as ReturnType<typeof setInterval>;
-        }
-
-        // Periodic reconciliation: catch any tracks that were published
-        // after the initial subscription pass or missed by event handlers.
-        const reconciliationInterval = setInterval(() => {
+        // Continuous polling: check for participants and reattach tracks
+        // every 2 seconds. If no participants found, attempt reconnection.
+        const pollInterval = setInterval(async () => {
           if (cancelled || room.state !== "connected") return;
-          for (const participant of room.remoteParticipants.values()) {
-            // Always ensure subscription is requested
-            subscribeToParticipant(participant);
 
-            // Try to attach any available tracks
-            const cameraPub = participant.getTrackPublication(Track.Source.Camera);
-            if (cameraPub && cameraPub.isSubscribed && cameraPub.track && !attachedTrack) {
-              console.warn("[LiveKit] reconciliation: attaching missed camera track");
-              attachCandidateTrack(cameraPub.track);
+          // If we already have a video track attached, just do reconciliation
+          if (attachedTrack) {
+            for (const participant of room.remoteParticipants.values()) {
+              subscribeToParticipant(participant);
             }
-            const micPub = participant.getTrackPublication(Track.Source.Microphone);
-            if (micPub && micPub.isSubscribed && micPub.track && !attachedAudioTrack) {
-              console.warn("[LiveKit] reconciliation: attaching missed microphone track");
-              attachCandidateAudio(micPub.track, micPub);
+            // Update connection quality
+            if (room.remoteParticipants.size > 0) {
+              const first = room.remoteParticipants.values().next().value;
+              if (first) {
+                setConnectionQuality(
+                  mediaConnectionQuality(first.connectionQuality),
+                );
+              }
             }
+            return;
           }
-          // Update connection quality from any remote participant
+
+          // No video track attached yet - check for participants
           if (room.remoteParticipants.size > 0) {
-            const firstParticipant = room.remoteParticipants.values().next().value;
-            if (firstParticipant) {
-              setConnectionQuality(
-                mediaConnectionQuality(firstParticipant.connectionQuality),
-              );
+            // Found participants but no track - subscribe and wait
+            console.log("[LiveKit] Found participants, subscribing...");
+            room.remoteParticipants.forEach((p) => subscribeToParticipant(p));
+            restoreSubscribedTracks();
+            return;
+          }
+
+          // No participants at all - try to reconnect
+          if (reconnectionAttempts < MAX_RECONNECTION_ATTEMPTS) {
+            console.warn("[LiveKit] No participants found, attempt", reconnectionAttempts + 1);
+            const success = await forceReconnect();
+            if (success) {
+              console.log("[LiveKit] Found participants after reconnection");
+            } else if (reconnectionAttempts >= MAX_RECONNECTION_ATTEMPTS) {
+              setError("Unable to connect to the candidate. They may need to refresh their page.");
+              setStatus("error");
             }
           }
         }, 2_000);
 
-        // Store interval for cleanup
-        reconciliationIntervalRef.current = reconciliationInterval;
+        cleanupRef.current = pollInterval;
       } catch (requestError) {
         if (!cancelled) {
           console.error("[CandidateLiveCamera] LiveKit connection failed:", requestError);
@@ -496,10 +528,9 @@ export function CandidateLiveCamera({
 
     return () => {
       cancelled = true;
-      if (reconciliationIntervalRef.current) {
-        clearInterval(reconciliationIntervalRef.current);
-        clearTimeout(reconciliationIntervalRef.current as ReturnType<typeof setTimeout>);
-        reconciliationIntervalRef.current = null;
+      if (cleanupRef.current) {
+        clearInterval(cleanupRef.current);
+        cleanupRef.current = null;
       }
       cleanupVideo();
       cleanupAudio();
