@@ -1,6 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import {
+  ConnectionQuality,
+  Room,
+  RoomEvent,
+  Track,
+  VideoQuality,
+  type LocalTrackPublication,
+  type LocalVideoTrack,
+  type Participant,
+  type RemoteAudioTrack,
+  type RemoteTrack,
+  type TrackPublication,
+} from "livekit-client";
 import { useParams } from "next/navigation";
 import {
   useCallback,
@@ -17,12 +30,15 @@ import {
 } from "@/components/candidate-interviewer-questions";
 
 import { ConnectionPill } from "@/components/realtime-indicators";
-import { INTERVIEW_EVENTS } from "@/lib/realtime";
 import type { ConnectionState } from "@/lib/realtime";
 
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { CameraPreflight } from "@/features/live-video/camera-preflight";
 import { FloatingCandidateCamera } from "@/features/live-video/candidate-mini-camera";
+import {
+  createCandidateCaptionController,
+  type CaptionController,
+} from "@/features/live-video/live-captions";
 import { Icon, type IconName } from "@/components/icons";
 import { useAiStream } from "@/components/use-ai-stream";
 import { EvaloraLogo } from "@/components/logo";
@@ -68,6 +84,18 @@ type View =
   | "error";
 
 type SaveState = "saved" | "saving" | "error";
+
+type MediaConnectionQuality = "excellent" | "good" | "poor" | "lost";
+
+function mediaConnectionQuality(quality: ConnectionQuality): MediaConnectionQuality {
+  return quality === ConnectionQuality.Excellent
+    ? "excellent"
+    : quality === ConnectionQuality.Good
+      ? "good"
+      : quality === ConnectionQuality.Poor
+        ? "poor"
+        : "lost";
+}
 
 type Answer = {
   text: string;
@@ -182,6 +210,42 @@ export default function CandidateAssessmentPage() {
   const candidateCameraStreamRef =
     useRef<MediaStream | null>(null);
 
+  const candidateMicrophonePublicationRef =
+    useRef<LocalTrackPublication | null>(null);
+
+  const [candidateMicrophoneMuted, setCandidateMicrophoneMuted] =
+    useState(false);
+
+  const [candidateScreenShareState, setCandidateScreenShareState] =
+    useState<"idle" | "starting" | "sharing">("idle");
+
+  const [candidateConnectionQuality, setCandidateConnectionQuality] =
+    useState<MediaConnectionQuality>("lost");
+
+  const [candidateMediaConnection, setCandidateMediaConnection] =
+    useState<"connecting" | "connected" | "reconnecting" | "offline">("connecting");
+  const [interviewerMicrophoneState, setInterviewerMicrophoneState] =
+    useState<"waiting" | "live" | "muted" | "offline">("waiting");
+
+  const candidateLiveKitRoomRef = useRef<Room | null>(null);
+  const candidateCaptionControllerRef = useRef<CaptionController | null>(null);
+  const [candidateLowBandwidthOverride, setCandidateLowBandwidthOverride] =
+    useState<boolean | null>(null);
+  const candidateLowBandwidthMode = candidateLowBandwidthOverride ??
+    (candidateConnectionQuality === "poor" || candidateConnectionQuality === "lost");
+  const candidateLowBandwidthModeRef = useRef(candidateLowBandwidthMode);
+  candidateLowBandwidthModeRef.current = candidateLowBandwidthMode;
+
+  useEffect(() => {
+    const publication = candidateLiveKitRoomRef.current?.localParticipant.getTrackPublication(
+      Track.Source.Camera,
+    );
+    const videoTrack = publication?.track as LocalVideoTrack | undefined;
+    videoTrack?.setPublishingQuality(
+      candidateLowBandwidthMode ? VideoQuality.LOW : VideoQuality.HIGH,
+    );
+  }, [candidateLowBandwidthMode]);
+
   const stopCandidateCamera = useCallback(() => {
     const stream = candidateCameraStreamRef.current;
 
@@ -194,7 +258,56 @@ export default function CandidateAssessmentPage() {
     });
 
     candidateCameraStreamRef.current = null;
+    candidateMicrophonePublicationRef.current = null;
+    setCandidateMicrophoneMuted(false);
     setCandidateCameraStream(null);
+  }, []);
+
+  const toggleCandidateMicrophone = useCallback(async () => {
+    const publication = candidateMicrophonePublicationRef.current;
+    if (!publication) return;
+
+    try {
+      if (publication.isMuted) {
+        await publication.unmute();
+        setCandidateMicrophoneMuted(false);
+        candidateCaptionControllerRef.current?.start();
+      } else {
+        await publication.mute();
+        setCandidateMicrophoneMuted(true);
+        candidateCaptionControllerRef.current?.stop();
+      }
+    } catch (error) {
+      console.error("[CandidateLiveKit] Could not change microphone state:", error);
+      setActionError("We could not change your microphone state. Please try again.");
+    }
+  }, []);
+
+  const toggleCandidateScreenShare = useCallback(async () => {
+    const room = candidateLiveKitRoomRef.current;
+    if (!room || room.state !== "connected") {
+      setActionError("Screen sharing is available after the live media connection is ready.");
+      return;
+    }
+
+    const isSharing = Boolean(
+      room.localParticipant.getTrackPublication(Track.Source.ScreenShare),
+    );
+    setCandidateScreenShareState("starting");
+    setActionError("");
+
+    try {
+      await room.localParticipant.setScreenShareEnabled(!isSharing, {
+        audio: false,
+      });
+      setCandidateScreenShareState(isSharing ? "idle" : "sharing");
+    } catch (error) {
+      console.error("[CandidateLiveKit] Could not change screen sharing state:", error);
+      setCandidateScreenShareState(isSharing ? "sharing" : "idle");
+      setActionError(
+        getErrorMessage(error, "We could not start screen sharing. Please try again."),
+      );
+    }
   }, []);
 
   /* ----------------------------------------------------------
@@ -309,175 +422,296 @@ export default function CandidateAssessmentPage() {
   }, []);
 
   /* ============================================================
-     CAMERA WEBRTC PUBLISHING
+     CAMERA LIVEKIT PUBLISHING
      ============================================================
 
-     When the candidate's camera is active, publish the stream to
-     the interviewer via WebRTC over the existing Socket.IO channel.
+     CameraPreflight owns consent and capture. Once its MediaStream is
+     accepted, connect the candidate to the session's LiveKit room and
+     publish that existing camera track. Socket.IO continues to carry the
+     interview's application events, but no longer publishes candidate media.
      ============================================================ */
 
   useEffect(() => {
-    const stream = candidateCameraStream;
-    const socket = interviewer.socket?.current;
     const actualSessionId = session?.id;
-    if (!stream || !socket || !actualSessionId) return;
+    if (!candidateCameraStream || !actualSessionId) return;
+    const stream: MediaStream = candidateCameraStream;
 
     let cancelled = false;
-    let pc: RTCPeerConnection | null = null;
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+    });
+    candidateLiveKitRoomRef.current = room;
+    let interviewerAudioTrack: RemoteAudioTrack | null = null;
+    let interviewerAudioElement: HTMLAudioElement | null = null;
 
-    const ICE_SERVERS: RTCIceServer[] = [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-    ];
-
-    /** Find the interviewer participant to target. */
-    function findInterviewerId(): string | undefined {
-      const interviewerParticipant = interviewer.participants.find(
-        (p) => p.role === "interviewer",
-      );
-      return interviewerParticipant?.userId;
+    function detachInterviewerAudio() {
+      if (interviewerAudioTrack && interviewerAudioElement) {
+        interviewerAudioTrack.detach(interviewerAudioElement);
+      }
+      interviewerAudioTrack = null;
+      interviewerAudioElement = null;
     }
 
-    let answered = false;
+    function attachInterviewerAudio(track: RemoteTrack, publication: TrackPublication) {
+      if (track.kind !== Track.Kind.Audio) return;
+      detachInterviewerAudio();
+      interviewerAudioTrack = track as RemoteAudioTrack;
+      interviewerAudioElement = document.createElement("audio");
+      interviewerAudioElement.autoplay = true;
+      interviewerAudioTrack.attach(interviewerAudioElement);
+      void interviewerAudioElement.play().catch(() => undefined);
+      setInterviewerMicrophoneState(publication.isMuted ? "muted" : "live");
+    }
 
-    function handleAnswer(payload: {
-      sessionId?: string;
-      fromUserId?: string;
-      answer?: RTCSessionDescriptionInit;
-    }) {
-      if (cancelled || !pc) return;
-      if (!payload.answer) return;
+    function restoreInterviewerAudio() {
+      for (const participant of room.remoteParticipants.values()) {
+        const publication = participant.getTrackPublication(Track.Source.Microphone);
+        if (publication?.track) {
+          attachInterviewerAudio(publication.track, publication);
+          return;
+        }
+        if (publication) setInterviewerMicrophoneState(publication.isMuted ? "muted" : "waiting");
+      }
+    }
 
-      answered = true;
-      pc.setRemoteDescription(new RTCSessionDescription(payload.answer)).catch((err) => {
-        console.warn("[CandidateWebRTC] Error setting remote description:", err);
+    room.on(RoomEvent.ParticipantConnected, (participant) => {
+      console.info("[CandidateLiveKit] Participant joined", participant.identity);
+    });
+    room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+      console.info("[CandidateLiveKit] Participant left", participant.identity);
+    });
+    room.on(RoomEvent.TrackSubscribed, (track, publication) => {
+      console.info("[CandidateLiveKit] Track subscribed from remote", {
+        kind: track.kind,
+        source: publication.source,
       });
-    }
-
-    function handleIceCandidate(payload: {
-      sessionId?: string;
-      fromUserId?: string;
-      candidate?: RTCIceCandidateInit;
-    }) {
-      if (cancelled || !pc) return;
-      if (!payload.candidate) return;
-
-      pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch((err) => {
-        console.warn("[CandidateWebRTC] ICE candidate error:", err);
-      });
-    }
-
-    /**
-     * Try to send an offer. If no interviewer is in the room yet, retry
-     * periodically until one appears. Once the interviewer has answered and
-     * the connection is established, stop — re-offering after a stable
-     * connection tears the video down on the interviewer side ("Connecting…"
-     * flicker) for no benefit.
-     */
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    let offerSent = false;
-
-    function trySendOffer() {
-      if (cancelled || !pc) return;
-
-      // Connection already negotiated — never re-offer from here on.
-      if (answered || pc.connectionState === "connected") {
-        return;
+      if (publication.source === Track.Source.Microphone) {
+        attachInterviewerAudio(track, publication);
       }
-
-      const targetUserId = findInterviewerId();
-      if (!targetUserId) {
-        // No interviewer connected yet — retry later.
-        if (!cancelled) {
-          retryTimer = setTimeout(trySendOffer, 2000);
-        }
-        return;
+    });
+    room.on(RoomEvent.TrackUnsubscribed, (track) => {
+      if (track === interviewerAudioTrack) {
+        detachInterviewerAudio();
+        setInterviewerMicrophoneState("waiting");
       }
-
-      // Offer already sent and no answer yet — retry after a delay.
-      if (offerSent && pc.signalingState !== "stable") {
-        if (!cancelled) {
-          retryTimer = setTimeout(trySendOffer, 3000);
-        }
-        return;
+    });
+    room.on(RoomEvent.TrackMuted, (publication) => {
+      if (!publication.isLocal && publication.source === Track.Source.Microphone) {
+        setInterviewerMicrophoneState("muted");
       }
-
-      if (pc.signalingState !== "stable") return;
-
-      pc.createOffer()
-        .then((offer) => pc!.setLocalDescription(offer))
-        .then(() => {
-          if (cancelled || !pc?.localDescription) return;
-          offerSent = true;
-          socket!.emit(INTERVIEW_EVENTS.cameraOffer, {
-            sessionId: actualSessionId,
-            targetUserId,
-            offer: pc.localDescription.toJSON(),
-          });
-          console.log("[CandidateWebRTC] Sent offer to", targetUserId);
-          // Schedule a retry in case the interviewer wasn't listening yet.
-          if (!cancelled) {
-            retryTimer = setTimeout(trySendOffer, 3000);
-          }
-        })
-        .catch((err) => {
-          if (!cancelled) console.error("[CandidateWebRTC] Error creating offer:", err);
-        });
-    }
-
-    // Create peer connection
-    pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-    // Add camera tracks
-    for (const track of stream.getTracks()) {
-      pc.addTrack(track, stream);
-    }
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && !cancelled) {
-        const targetUserId = findInterviewerId();
-        if (targetUserId) {
-          socket.emit(INTERVIEW_EVENTS.cameraIceCandidate, {
-            sessionId: actualSessionId,
-            targetUserId,
-            candidate: event.candidate.toJSON(),
-          });
-        }
+    });
+    room.on(RoomEvent.TrackUnmuted, (publication) => {
+      if (!publication.isLocal && publication.source === Track.Source.Microphone) {
+        setInterviewerMicrophoneState("live");
       }
-    };
-
-    pc.onconnectionstatechange = () => {
-      if (cancelled) return;
-      console.log("[CandidateWebRTC] Connection state:", pc?.connectionState);
-      // A failed connection may recover via a fresh offer; a live one must not
-      // be re-negotiated (see trySendOffer).
-    };
-
-    // Notify interviewer that camera is available
-    socket.emit(INTERVIEW_EVENTS.cameraState, {
-      sessionId: actualSessionId,
-      state: "enabled",
+    });
+    room.on(RoomEvent.LocalTrackPublished, (publication) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        setCandidateScreenShareState("sharing");
+      }
+    });
+    room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        setCandidateScreenShareState("idle");
+      }
     });
 
-    // Register answer/ICE listeners
-    socket.on(INTERVIEW_EVENTS.cameraAnswer, handleAnswer);
-    socket.on(INTERVIEW_EVENTS.cameraIceCandidate, handleIceCandidate);
+    async function restorePublishedTracks() {
+      const cameraTrack = stream.getVideoTracks()[0];
+      console.info("[CandidateLiveKit] restorePublishedTracks", {
+        hasCameraTrack: Boolean(cameraTrack),
+        cameraReady: cameraTrack?.readyState,
+        hasMicrophoneTrack: Boolean(stream.getAudioTracks()[0]),
+        microphoneReady: stream.getAudioTracks()[0]?.readyState,
+        roomState: room.state,
+        localIdentity: room.localParticipant.identity,
+      });
+      if (!cameraTrack || cameraTrack.readyState === "ended") {
+        throw new Error("The selected camera is no longer available.");
+      }
 
-    // Start trying to send an offer (may wait for interviewer to join)
-    trySendOffer();
+      if (!room.localParticipant.getTrackPublication(Track.Source.Camera)) {
+        const publication = await room.localParticipant.publishTrack(cameraTrack, {
+          source: Track.Source.Camera,
+        });
+        console.info("[CandidateLiveKit] Published video track", {
+          room: actualSessionId,
+          source: publication.source,
+          trackSid: publication.trackSid,
+        });
+      }
+      const cameraPublication = room.localParticipant.getTrackPublication(
+        Track.Source.Camera,
+      );
+      (cameraPublication?.track as LocalVideoTrack | undefined)?.setPublishingQuality(
+        candidateLowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
+      );
+
+      const microphoneTrack = stream.getAudioTracks()[0];
+      if (!microphoneTrack || microphoneTrack.readyState === "ended") {
+        throw new Error("The selected microphone is no longer available.");
+      }
+
+      let microphonePublication = room.localParticipant.getTrackPublication(
+        Track.Source.Microphone,
+      );
+      if (!microphonePublication) {
+        const wasMuted = candidateMicrophonePublicationRef.current?.isMuted ?? false;
+        microphonePublication = await room.localParticipant.publishTrack(
+          microphoneTrack,
+          { source: Track.Source.Microphone },
+        );
+        console.info("[CandidateLiveKit] Published microphone track", {
+          room: actualSessionId,
+          source: microphonePublication.source,
+          trackSid: microphonePublication.trackSid,
+          muted: microphonePublication.isMuted,
+        });
+        if (wasMuted) await microphonePublication.mute();
+      }
+      candidateMicrophonePublicationRef.current = microphonePublication;
+      setCandidateMicrophoneMuted(microphonePublication.isMuted);
+    }
+
+    room.on(
+      RoomEvent.ConnectionQualityChanged,
+      (quality: ConnectionQuality, participant: Participant) => {
+        if (participant === room.localParticipant && !cancelled) {
+          setCandidateConnectionQuality(mediaConnectionQuality(quality));
+        }
+      },
+    );
+    room.on(RoomEvent.Reconnecting, () => {
+      if (!cancelled) {
+        candidateCaptionControllerRef.current?.stop();
+        setCandidateMediaConnection("reconnecting");
+      }
+    });
+    room.on(RoomEvent.Reconnected, () => {
+      if (cancelled) return;
+      void restorePublishedTracks()
+        .then(() => {
+          setCandidateMediaConnection("connected");
+          restoreInterviewerAudio();
+          if (!candidateMicrophonePublicationRef.current?.isMuted) {
+            candidateCaptionControllerRef.current?.start();
+          }
+        })
+        .catch((error) => {
+          console.error("[CandidateLiveKit] Could not restore media:", error);
+          setCandidateMediaConnection("offline");
+          setActionError("We could not restore your live camera and microphone.");
+        });
+    });
+    room.on(RoomEvent.Disconnected, () => {
+      if (!cancelled) {
+        candidateCaptionControllerRef.current?.stop();
+        setCandidateMediaConnection("offline");
+        setInterviewerMicrophoneState("offline");
+      }
+    });
+
+    async function connectCandidateRoom() {
+      const maxAttempts = 3;
+      let lastError: unknown;
+
+      for (let attempt = 1; attempt <= maxAttempts && !cancelled; attempt += 1) {
+        try {
+          setCandidateMediaConnection(attempt === 1 ? "connecting" : "reconnecting");
+          const credentials = await apiPost<{
+            token: string;
+            url: string;
+          }>(
+            `/sessions/access/${encodeURIComponent(accessCode)}/livekit-token`,
+          );
+
+          if (cancelled) return false;
+          console.info("[CandidateLiveKit] Connecting to room", {
+            url: credentials.url,
+            hasToken: Boolean(credentials.token),
+            attempt,
+          });
+          await room.connect(credentials.url, credentials.token);
+          console.info("[CandidateLiveKit] Room connected", {
+            room: room.name,
+            participant: room.localParticipant.identity,
+          });
+          return true;
+        } catch (error) {
+          lastError = error;
+          console.warn(
+            `[CandidateLiveKit] Connection attempt ${attempt}/${maxAttempts} failed:`,
+            error,
+          );
+          await room.disconnect();
+          if (attempt < maxAttempts && !cancelled) {
+            await new Promise((resolve) => window.setTimeout(resolve, 1_000 * attempt));
+          }
+        }
+      }
+
+      if (cancelled) return false;
+      throw lastError instanceof Error
+        ? lastError
+        : new Error("Failed to connect to the live interview room.");
+    }
+
+    void (async () => {
+      try {
+        const connected = await connectCandidateRoom();
+        if (!connected || cancelled) return;
+        setCandidateMediaConnection("connected");
+        setCandidateConnectionQuality(
+          mediaConnectionQuality(room.localParticipant.connectionQuality),
+        );
+
+        if (cancelled) {
+          room.disconnect();
+          return;
+        }
+
+        await restorePublishedTracks();
+        restoreInterviewerAudio();
+        candidateCaptionControllerRef.current = createCandidateCaptionController(
+          room,
+          session?.candidateName || "Candidate",
+        );
+        candidateCaptionControllerRef.current.start();
+
+        console.log("[CandidateLiveKit] Published camera and microphone in room", actualSessionId);
+      } catch (error) {
+        room.disconnect();
+        if (!cancelled) {
+          console.error("[CandidateLiveKit] Could not publish camera:", error);
+          setActionError(
+            getErrorMessage(
+              error,
+              "We could not connect your camera to the live interview.",
+            ),
+          );
+        }
+      }
+    })();
 
     return () => {
       cancelled = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      socket.off(INTERVIEW_EVENTS.cameraAnswer, handleAnswer);
-      socket.off(INTERVIEW_EVENTS.cameraIceCandidate, handleIceCandidate);
-      socket.emit(INTERVIEW_EVENTS.cameraState, {
-        sessionId: actualSessionId,
-        state: "disabled",
-      });
-      pc?.close();
+      if (candidateMicrophonePublicationRef.current?.trackSid) {
+        candidateMicrophonePublicationRef.current = null;
+      }
+      setCandidateConnectionQuality("lost");
+      setCandidateMediaConnection("offline");
+      setCandidateScreenShareState("idle");
+      candidateCaptionControllerRef.current?.stop();
+      candidateCaptionControllerRef.current = null;
+      detachInterviewerAudio();
+      setInterviewerMicrophoneState("offline");
+      if (candidateLiveKitRoomRef.current === room) {
+        candidateLiveKitRoomRef.current = null;
+      }
+      room.disconnect();
     };
-  }, [candidateCameraStream, interviewer.socket, interviewer.participants, interviewer.connection, session?.id]);
+  }, [accessCode, candidateCameraStream, session?.id]);
 
   /* ============================================================
      LOAD ASSESSMENT
@@ -1989,6 +2223,7 @@ export default function CandidateAssessmentPage() {
   if (view === "camera") {
     return (
       <CameraPreflight
+        accessCode={accessCode}
         onCancel={() =>
           setView("welcome")
         }
@@ -2052,6 +2287,18 @@ export default function CandidateAssessmentPage() {
       {/* CAMERA */}
 
       <FloatingCandidateCamera
+        candidateName={session?.candidateName || "Candidate"}
+        connectionState={candidateMediaConnection}
+        connectionQuality={candidateConnectionQuality}
+        lowBandwidthMode={candidateLowBandwidthMode}
+        interviewerMicrophoneState={interviewerMicrophoneState}
+        microphoneMuted={candidateMicrophoneMuted}
+        screenShareState={candidateScreenShareState}
+        onToggleLowBandwidth={() => {
+          setCandidateLowBandwidthOverride(!candidateLowBandwidthMode);
+        }}
+        onToggleMicrophone={() => void toggleCandidateMicrophone()}
+        onToggleScreenShare={() => void toggleCandidateScreenShare()}
         stream={
           candidateCameraStream
         }
