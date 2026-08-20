@@ -276,11 +276,13 @@ export function SessionTranscriptView({
     [transcript],
   );
 
-  if (loading) {
+  if (loading && !transcript) {
     return (
-      <p className="px-1 text-xs text-[var(--theme-muted)]">
-        Loading transcript…
-      </p>
+      <div className="space-y-4 animate-pulse">
+        <div className="h-20 rounded-xl bg-gray-100" />
+        <div className="h-20 rounded-xl bg-gray-100" />
+        <div className="h-20 rounded-xl bg-gray-100" />
+      </div>
     );
   }
 

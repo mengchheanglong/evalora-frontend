@@ -4,7 +4,12 @@ import { useCallback, useRef, useState } from "react";
 
 type DraggableCameraProps = {
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  connectionState?: "waiting" | "connecting" | "reconnecting" | "connected" | "error" | "offline";
+  connectionQuality?: "excellent" | "good" | "poor" | "lost";
   label?: string;
+  lowBandwidthMode?: boolean;
+  microphoneState?: "waiting" | "live" | "muted";
+  onToggleLowBandwidth?: () => void;
 };
 
 /**
@@ -13,7 +18,12 @@ type DraggableCameraProps = {
  */
 export function DraggableCamera({
   videoRef,
+  connectionState = "connecting",
+  connectionQuality = "lost",
   label = "Camera",
+  lowBandwidthMode = false,
+  microphoneState = "waiting",
+  onToggleLowBandwidth,
 }: DraggableCameraProps) {
   const [pos, setPos] = useState({
     x: typeof window !== "undefined" ? window.innerWidth - 240 : 100,
@@ -76,7 +86,14 @@ export function DraggableCamera({
             className="block h-full w-full object-cover"
           />
 
-          {!playing ? (
+          {connectionState === "reconnecting" ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm">
+              <div className="text-center">
+                <span className="mx-auto block size-4 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                <p className="mt-2 text-[10px] font-semibold text-white">Reconnecting...</p>
+              </div>
+            </div>
+          ) : !playing ? (
             <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
               <p className="text-[10px] font-semibold text-white">Connecting…</p>
             </div>
@@ -87,12 +104,58 @@ export function DraggableCamera({
             <span className={`size-1.5 rounded-full ${playing ? "bg-emerald-400" : "bg-amber-400"}`} />
             <span className="text-[9px] font-bold text-white">{playing ? "Live" : "Camera"}</span>
           </div>
+
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5">
+            <span className={`size-1.5 rounded-full ${
+              connectionQuality === "excellent"
+                ? "bg-emerald-400"
+                : connectionQuality === "good"
+                  ? "bg-sky-400"
+                  : connectionQuality === "poor"
+                    ? "bg-amber-400"
+                    : "bg-rose-400"
+            }`} />
+            <span className="text-[9px] font-bold capitalize text-white">
+              {connectionQuality}
+            </span>
+          </div>
         </div>
 
         {/* Label */}
-        <div className="bg-white px-2.5 py-1.5">
-          <p className="text-[11px] font-bold text-neutral-800">{label}</p>
-          <p className="text-[9px] text-neutral-400">{playing ? "Active" : "Connecting…"}</p>
+        <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5">
+          <div>
+            <p className="text-[11px] font-bold text-neutral-800">{label}</p>
+            <p className="text-[9px] text-neutral-400">
+              {connectionState === "reconnecting" ? "Reconnecting..." : playing ? "Active" : "Connecting…"}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                lowBandwidthMode
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-sky-100 text-sky-700"
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleLowBandwidth?.();
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              title={lowBandwidthMode ? "Restore normal video quality" : "Enable low bandwidth mode"}
+              type="button"
+            >
+              {lowBandwidthMode ? "Low" : "Normal"}
+            </button>
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+              microphoneState === "muted"
+                ? "bg-rose-100 text-rose-700"
+                : microphoneState === "live"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-neutral-100 text-neutral-500"
+            }`}>
+              {microphoneState === "muted" ? "Mic muted" : microphoneState === "live" ? "Mic live" : "No mic"}
+            </span>
+          </div>
         </div>
       </div>
     </div>
