@@ -404,7 +404,7 @@ export default function TemplatesPage() {
             <TabButton active={mainTab === "mine"} onClick={() => setMainTab("mine")}>My Templates ({mine.length})</TabButton>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="group flex h-10 w-full items-center gap-2.5 rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 text-[var(--theme-text)] shadow-[var(--theme-shadow)] transition focus-within:border-[var(--color-primary-500)] focus-within:ring-2 focus-within:ring-[var(--color-primary-500)]/20 sm:w-72">
               <span className="sr-only">Search templates</span>
               <Icon className="pointer-events-none shrink-0 text-[var(--theme-muted)] transition group-focus-within:text-[var(--color-primary-600)]" name="search" size={16} />
@@ -416,6 +416,12 @@ export default function TemplatesPage() {
                 value={searchQuery}
               />
             </label>
+            <Link
+              className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-sky-200 bg-sky-50 px-4 text-xs font-bold text-sky-700 shadow-[var(--theme-shadow)] transition hover:border-sky-300 hover:bg-sky-100"
+              href="/templates/ai"
+            >
+              <Icon name="sparkle" size={16} /> Generate with AI
+            </Link>
             <Link href="/templates/create" className="session-blue-button h-10 px-4 text-xs">
               <Icon name="plus" size={16} /> New Template
             </Link>

@@ -541,6 +541,9 @@ export default function CreateTemplatePage() {
               <Link className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-sky-700 hover:underline" href="/templates">
                 Or start from prebuilt <Icon className="-rotate-90" name="chevron" size={12} />
               </Link>
+              <Link className="mt-2 flex w-fit items-center gap-1 text-sm font-semibold text-sky-700 hover:underline" href="/templates/ai">
+                Or generate with AI <Icon name="sparkle" size={12} />
+              </Link>
             </div>
           </div>
         </div>
