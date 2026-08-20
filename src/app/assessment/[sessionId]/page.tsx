@@ -36,14 +36,22 @@ import { CandidateCodingAssessment } from "@/components/candidate-coding-assessm
 import { CameraPreflight } from "@/features/live-video/camera-preflight";
 import { FloatingCandidateCamera } from "@/features/live-video/candidate-mini-camera";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { useAssessmentIntegrity } from "@/features/integrity/use-assessment-integrity";
 import { IntegrityWarningDialog } from "@/features/integrity/integrity-warning-dialog";
 =======
+=======
+>>>>>>> 60b274fdec1b9f222e96944cd70b1b0280de93e4
 import {
   createCandidateCaptionController,
   type CaptionController,
 } from "@/features/live-video/live-captions";
+<<<<<<< HEAD
 >>>>>>> e0f4e6af8e5b2c3df1307cd5d2e18ae506094861
+=======
+import { useAssessmentIntegrity } from "@/features/integrity/use-assessment-integrity";
+import { IntegrityWarningDialog } from "@/features/integrity/integrity-warning-dialog";
+>>>>>>> 60b274fdec1b9f222e96944cd70b1b0280de93e4
 import { Icon, type IconName } from "@/components/icons";
 import { useAiStream } from "@/components/use-ai-stream";
 import { EvaloraLogo } from "@/components/logo";
@@ -447,6 +455,9 @@ export default function CandidateAssessmentPage() {
 
   /* ============================================================
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 60b274fdec1b9f222e96944cd70b1b0280de93e4
      INTEGRITY FORCED EXIT
 
      When the backend counts an event (warningLimit = 1), the session is
@@ -467,10 +478,14 @@ export default function CandidateAssessmentPage() {
   }, [integrity.terminated, stopCandidateCamera]);
 
   /* ============================================================
+<<<<<<< HEAD
      CAMERA WEBRTC PUBLISHING
 =======
      CAMERA LIVEKIT PUBLISHING
 >>>>>>> e0f4e6af8e5b2c3df1307cd5d2e18ae506094861
+=======
+     CAMERA LIVEKIT PUBLISHING
+>>>>>>> 60b274fdec1b9f222e96944cd70b1b0280de93e4
      ============================================================
 
      CameraPreflight owns consent and capture. Once its MediaStream is

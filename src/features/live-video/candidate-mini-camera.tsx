@@ -89,6 +89,22 @@ export function FloatingCandidateCamera({
     };
   }, [stream]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      const cardWidth = cardRef.current?.offsetWidth ?? 200;
+      const cardHeight = cardRef.current?.offsetHeight ?? 150;
+      const maxX = Math.max(0, window.innerWidth - cardWidth);
+      const maxY = Math.max(0, window.innerHeight - cardHeight);
+      setPos((current) => ({
+        x: Math.max(0, Math.min(maxX, current.x)),
+        y: Math.max(0, Math.min(maxY, current.y)),
+      }));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
@@ -135,6 +151,7 @@ export function FloatingCandidateCamera({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         <div className="relative aspect-[3/2] overflow-hidden bg-neutral-900">
           <video

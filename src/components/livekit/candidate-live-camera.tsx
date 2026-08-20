@@ -153,19 +153,38 @@ export function CandidateLiveCamera({
         if (caption) onCaption?.(caption);
       }).catch(() => undefined);
     });
+    let isReconnecting = false;
 
     function cleanupVideo() {
       const video = targetVideoRef.current;
-      if (attachedTrack && video) {
-        attachedTrack.detach(video);
+      if (attachedTrack) {
+        try {
+          if (video) attachedTrack.detach(video);
+          else attachedTrack.detach();
+        } catch {
+          // Ignore detach error on unmounted elements
+        }
       }
       attachedTrack = null;
       if (video) video.srcObject = null;
     }
 
     function cleanupAudio() {
-      if (attachedAudioTrack && audioElement) {
-        attachedAudioTrack.detach(audioElement);
+      if (attachedAudioTrack) {
+        try {
+          if (audioElement) attachedAudioTrack.detach(audioElement);
+          else attachedAudioTrack.detach();
+        } catch {
+          // Ignore detach error
+        }
+      }
+      if (audioElement) {
+        try {
+          audioElement.pause();
+          audioElement.srcObject = null;
+        } catch {
+          // Ignore pause error
+        }
       }
       attachedAudioTrack = null;
       audioElement = null;
@@ -174,7 +193,14 @@ export function CandidateLiveCamera({
 
     function cleanupScreenShare() {
       const video = externalScreenShareRef?.current;
-      if (attachedScreenTrack && video) attachedScreenTrack.detach(video);
+      if (attachedScreenTrack) {
+        try {
+          if (video) attachedScreenTrack.detach(video);
+          else attachedScreenTrack.detach();
+        } catch {
+          // Ignore detach error
+        }
+      }
       attachedScreenTrack = null;
       if (video) video.srcObject = null;
       onScreenShareChange?.(false);
@@ -374,8 +400,13 @@ export function CandidateLiveCamera({
      * Attempt to reconnect to the LiveKit room with fresh credentials.
      * This forces a re-sync of the cluster participant list.
      */
+    /**
+     * Attempt to reconnect to the LiveKit room with fresh credentials.
+     * This forces a re-sync of the cluster participant list.
+     */
     async function forceReconnect(): Promise<boolean> {
       if (cancelled || room.state === "disconnected") return false;
+      isReconnecting = true;
       try {
         console.warn("[LiveKit] Force reconnecting to resync participants");
         setStatus("reconnecting");
@@ -422,6 +453,8 @@ export function CandidateLiveCamera({
         console.error("[LiveKit] Reconnection failed:", e);
         reconnectionAttempts++;
         return false;
+      } finally {
+        isReconnecting = false;
       }
     }
 
@@ -462,7 +495,7 @@ export function CandidateLiveCamera({
         }
       })
       .on(RoomEvent.Disconnected, () => {
-        if (!cancelled) {
+        if (!cancelled && !isReconnecting) {
           cleanupVideo();
           cleanupAudio();
           cleanupScreenShare();
@@ -516,8 +549,28 @@ export function CandidateLiveCamera({
         const pollInterval = setInterval(async () => {
           if (cancelled || room.state !== "connected") return;
 
-          // If we already have a video track attached, just update connection quality
+          // If we already have a video track attached, make sure video element has srcObject
           if (attachedTrack) {
+            const video = targetVideoRef.current;
+            if (video && !video.srcObject) {
+              try {
+                attachedTrack.attach(video);
+                void video.play().catch(() => undefined);
+              } catch {
+                // Ignore retry error
+              }
+            }
+            if (attachedScreenTrack) {
+              const screenVideo = externalScreenShareRef?.current;
+              if (screenVideo && !screenVideo.srcObject) {
+                try {
+                  attachedScreenTrack.attach(screenVideo);
+                  void screenVideo.play().catch(() => undefined);
+                } catch {
+                  // Ignore retry error
+                }
+              }
+            }
             // Only update connection quality, don't call subscribeToParticipant
             // to avoid interrupting the video stream
             if (room.remoteParticipants.size > 0) {
