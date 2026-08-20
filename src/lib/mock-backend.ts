@@ -31,6 +31,13 @@ import type {
   TranscriptEntry,
   UpcomingAssessment,
 } from "@/lib/types";
+import type {
+  DraftChatResult,
+  DraftModule,
+  DraftWeightSignals,
+  TemplateDraftDto,
+  TemplateDraftSummary,
+} from "@/lib/template-drafts";
 
 const mockUser: AuthUser = {
   id: "user-demo-owner",
@@ -239,6 +246,162 @@ const templates: AssessmentTemplate[] = [
   cloneTemplateIntoOrg(catalogTemplates[4], "tpl-team-leader"),
   cloneTemplateIntoOrg(catalogTemplates[5], "tpl-hr-generalist"),
 ];
+
+const mockDrafts: TemplateDraftDto[] = [
+  {
+    id: "draft-backend-lead",
+    status: "draft",
+    source: "prompt",
+    provider: "deepseek",
+    draft: {
+      title: "Senior Backend Engineer Assessment",
+      description: "Screening assessment for backend systems, distributed architecture, and reliability fundamentals.",
+      roleType: "Senior Backend Engineer",
+      timeLimitMin: 90,
+      warnings: [],
+      modules: [
+        {
+          key: "mod-coding",
+          type: "coding",
+          title: "Backend Coding",
+          description: "Practical algorithms and concurrency tasks.",
+          orderIndex: 1,
+          weight: 40,
+          weightRationale: "Core engineering capability is vital for backend engineers.",
+          weightSignals: { roleImportance: 5, riskIfWeak: 5, evidenceVolume: 5, difficulty: 4, essential: true },
+          questions: [
+            {
+              key: "q-rate-limiter",
+              questionText: "Implement a token-bucket rate limiter with thread safety.",
+              questionType: "coding",
+              rubric: ["correctness", "concurrency", "efficiency"],
+            },
+          ],
+        },
+        {
+          key: "mod-system-design",
+          type: "problem_solving",
+          title: "System Design",
+          description: "Distributed architecture and scaling trade-offs.",
+          orderIndex: 2,
+          weight: 35,
+          weightRationale: "Architecture judgment is essential for senior backend scope.",
+          weightSignals: { roleImportance: 5, riskIfWeak: 4, evidenceVolume: 4, difficulty: 4, essential: true },
+          questions: [
+            {
+              key: "q-sys-design",
+              questionText: "Design a fault-tolerant notification service handling 100k messages/sec.",
+              questionType: "scenario",
+              rubric: ["scalability", "trade-offs", "fault tolerance"],
+            },
+          ],
+        },
+        {
+          key: "mod-communication",
+          type: "communication",
+          title: "Technical Communication",
+          description: "Incident post-mortems and stakeholder updates.",
+          orderIndex: 3,
+          weight: 25,
+          weightRationale: "Backend engineers write documentation and incident summaries.",
+          weightSignals: { roleImportance: 4, riskIfWeak: 3, evidenceVolume: 3, difficulty: 3, essential: false },
+          questions: [
+            {
+              key: "q-incident",
+              questionText: "Write a concise post-mortem executive summary explaining a brief database failover.",
+              questionType: "roleplay",
+              rubric: ["clarity", "actionability", "tone"],
+            },
+          ],
+        },
+      ],
+    },
+    aiProposal: {
+      title: "Senior Backend Engineer Assessment",
+      description: "Screening assessment for backend systems, distributed architecture, and reliability fundamentals.",
+      roleType: "Senior Backend Engineer",
+      timeLimitMin: 90,
+      warnings: [],
+      modules: [
+        {
+          key: "mod-coding",
+          type: "coding",
+          title: "Backend Coding",
+          description: "Practical algorithms and concurrency tasks.",
+          orderIndex: 1,
+          weight: 40,
+          weightRationale: "Core engineering capability is vital for backend engineers.",
+          weightSignals: { roleImportance: 5, riskIfWeak: 5, evidenceVolume: 5, difficulty: 4, essential: true },
+          questions: [
+            {
+              key: "q-rate-limiter",
+              questionText: "Implement a token-bucket rate limiter with thread safety.",
+              questionType: "coding",
+              rubric: ["correctness", "concurrency", "efficiency"],
+            },
+          ],
+        },
+        {
+          key: "mod-system-design",
+          type: "problem_solving",
+          title: "System Design",
+          description: "Distributed architecture and scaling trade-offs.",
+          orderIndex: 2,
+          weight: 35,
+          weightRationale: "Architecture judgment is essential for senior backend scope.",
+          weightSignals: { roleImportance: 5, riskIfWeak: 4, evidenceVolume: 4, difficulty: 4, essential: true },
+          questions: [
+            {
+              key: "q-sys-design",
+              questionText: "Design a fault-tolerant notification service handling 100k messages/sec.",
+              questionType: "scenario",
+              rubric: ["scalability", "trade-offs", "fault tolerance"],
+            },
+          ],
+        },
+        {
+          key: "mod-communication",
+          type: "communication",
+          title: "Technical Communication",
+          description: "Incident post-mortems and stakeholder updates.",
+          orderIndex: 3,
+          weight: 25,
+          weightRationale: "Backend engineers write documentation and incident summaries.",
+          weightSignals: { roleImportance: 4, riskIfWeak: 3, evidenceVolume: 3, difficulty: 3, essential: false },
+          questions: [
+            {
+              key: "q-incident",
+              questionText: "Write a concise post-mortem executive summary explaining a brief database failover.",
+              questionType: "roleplay",
+              rubric: ["clarity", "actionability", "tone"],
+            },
+          ],
+        },
+      ],
+    },
+    createdAt: iso(-12),
+    updatedAt: iso(-12),
+  },
+];
+
+function toDraftSummary(draft: TemplateDraftDto): TemplateDraftSummary {
+  const moduleCount = draft.draft.modules.length;
+  const questionCount = draft.draft.modules.reduce((sum, m) => sum + m.questions.length, 0);
+  return {
+    id: draft.id,
+    status: draft.status,
+    source: draft.source,
+    sourceFileName: draft.sourceFileName,
+    provider: draft.provider,
+    title: draft.draft.title,
+    roleType: draft.draft.roleType,
+    moduleCount,
+    questionCount,
+    publishedTemplateId: draft.publishedTemplateId,
+    createdAt: draft.createdAt,
+    updatedAt: draft.updatedAt,
+  };
+}
 
 const sessions: InterviewSession[] = [
   {
@@ -811,6 +974,188 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     return json(cloned, 201);
   }
 
+  // Template drafts
+  if (relativePath === "templates/drafts" && method === "GET") {
+    return json(mockDrafts.map(toDraftSummary));
+  }
+  if (relativePath === "templates/drafts" && method === "POST") {
+    const input = asRecord(body);
+    const idea = typeof input.idea === "string" ? input.idea : "";
+    const roleType = typeof input.roleType === "string" && input.roleType.trim() ? input.roleType.trim() : (idea ? idea.slice(0, 40) : "Software Engineer");
+    const baseCatalog = catalogTemplates.find((t) => t.roleType.toLowerCase().includes(roleType.toLowerCase())) ?? catalogTemplates[0];
+    const newDraftId = `draft-${Date.now()}`;
+    const generatedModules: DraftModule[] = baseCatalog.modules.map((m, idx) => ({
+      key: `mod-${idx + 1}`,
+      type: m.type,
+      title: m.title,
+      description: m.description,
+      orderIndex: idx + 1,
+      weight: Math.round(100 / baseCatalog.modules.length),
+      weightRationale: `Evaluates fundamental ${m.title.toLowerCase()} capabilities.`,
+      weightSignals: { roleImportance: 4, riskIfWeak: 4, evidenceVolume: 3, difficulty: 3, essential: idx === 0 },
+      questions: (m.questions ?? []).map((q, qIdx) => ({
+        key: `q-${idx + 1}-${qIdx + 1}`,
+        questionText: q.questionText,
+        questionType: q.questionType,
+        options: Array.isArray(q.options) ? (q.options as string[]) : undefined,
+        rubric: Array.isArray(q.rubric) ? (q.rubric as string[]) : ["clarity", "accuracy"],
+      })),
+    }));
+    // Ensure weights sum to exactly 100
+    const sum = generatedModules.reduce((s, m) => s + m.weight, 0);
+    if (generatedModules.length > 0 && sum !== 100) {
+      generatedModules[0].weight += (100 - sum);
+    }
+
+    const newDraft: TemplateDraftDto = {
+      id: newDraftId,
+      status: "draft",
+      source: "prompt",
+      provider: "deepseek",
+      draft: {
+        title: `${roleType} Assessment`,
+        description: `Assessment generated for ${roleType}.`,
+        roleType,
+        timeLimitMin: baseCatalog.timeLimitMin || 60,
+        modules: generatedModules,
+        warnings: [],
+      },
+      aiProposal: {
+        title: `${roleType} Assessment`,
+        description: `Assessment generated for ${roleType}.`,
+        roleType,
+        timeLimitMin: baseCatalog.timeLimitMin || 60,
+        modules: JSON.parse(JSON.stringify(generatedModules)),
+        warnings: [],
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockDrafts.unshift(newDraft);
+    return json(newDraft, 201);
+  }
+
+  if (segments[0] === "templates" && segments[1] === "drafts" && segments[2] && method === "GET") {
+    const draftId = decodeURIComponent(segments[2]);
+    const found = mockDrafts.find((d) => d.id === draftId);
+    return jsonOr404(found, "Draft not found.");
+  }
+
+  if (segments[0] === "templates" && segments[1] === "drafts" && segments[2] && method === "PATCH") {
+    const draftId = decodeURIComponent(segments[2]);
+    const found = mockDrafts.find((d) => d.id === draftId);
+    if (!found) return json({ message: "Draft not found." }, 404);
+    if (found.status !== "draft") return json({ message: `Cannot edit a ${found.status} draft.` }, 409);
+    const input = asRecord(body);
+    if (typeof input.title === "string") found.draft.title = input.title;
+    if (typeof input.description === "string") found.draft.description = input.description;
+    if (typeof input.roleType === "string") found.draft.roleType = input.roleType;
+    if (input.timeLimitMin !== undefined) found.draft.timeLimitMin = Number(input.timeLimitMin);
+    if (Array.isArray(input.modules)) {
+      const inputModules = input.modules.map(asRecord);
+      found.draft.modules = inputModules.map((m, idx: number) => {
+        const rawQuestions = Array.isArray(m.questions) ? m.questions : [];
+        return {
+          key: typeof m.key === "string" ? m.key : `mod-${idx + 1}`,
+          type: (typeof m.type === "string" ? m.type : "behavioral") as ModuleType,
+          title: typeof m.title === "string" ? m.title : "Module",
+          description: typeof m.description === "string" ? m.description : "",
+          orderIndex: idx + 1,
+          weight: Number(m.weight ?? Math.round(100 / inputModules.length)),
+          weightRationale: typeof m.weightRationale === "string" ? m.weightRationale : "Standard evaluation weighting.",
+          weightSignals: (typeof m.weightSignals === "object" && m.weightSignals !== null
+            ? (m.weightSignals as DraftWeightSignals)
+            : { roleImportance: 3, riskIfWeak: 3, evidenceVolume: 3, difficulty: 3, essential: false }),
+          questions: rawQuestions.map((rawQ, qIdx: number) => {
+            const q = asRecord(rawQ);
+            return {
+              key: typeof q.key === "string" ? q.key : `q-${idx + 1}-${qIdx + 1}`,
+              questionText: typeof q.questionText === "string" ? q.questionText : "",
+              questionType: (typeof q.questionType === "string" ? q.questionType : "short_answer") as QuestionType,
+              options: Array.isArray(q.options) ? (q.options as string[]) : undefined,
+              rubric: Array.isArray(q.rubric) ? (q.rubric as string[]) : ["clarity"],
+            };
+          }),
+        };
+      });
+      // Balance weights
+      const totalWeight = found.draft.modules.reduce((s, m) => s + m.weight, 0);
+      if (found.draft.modules.length > 0 && totalWeight !== 100) {
+        found.draft.modules[0].weight += (100 - totalWeight);
+      }
+    }
+    found.updatedAt = new Date().toISOString();
+    return json(found);
+  }
+
+  if (segments[0] === "templates" && segments[1] === "drafts" && segments[2] && segments[3] === "chat" && method === "POST") {
+    const draftId = decodeURIComponent(segments[2]);
+    const found = mockDrafts.find((d) => d.id === draftId);
+    if (!found) return json({ message: "Draft not found." }, 404);
+    if (found.status !== "draft") return json({ message: `Cannot revise a ${found.status} draft.` }, 409);
+    const input = asRecord(body);
+    const message = String(input.message ?? "");
+    found.updatedAt = new Date().toISOString();
+    const chatResult: DraftChatResult = {
+      applied: true,
+      reply: `I've updated the assessment based on your instruction: "${message}". Review the changes in the modules below.`,
+      draft: found,
+    };
+    return json(chatResult);
+  }
+
+  if (segments[0] === "templates" && segments[1] === "drafts" && segments[2] && segments[3] === "confirm" && method === "POST") {
+    const draftId = decodeURIComponent(segments[2]);
+    const found = mockDrafts.find((d) => d.id === draftId);
+    if (!found) return json({ message: "Draft not found." }, 404);
+    if (found.status === "published") return json({ message: "That draft has already been published." }, 409);
+    if (found.status === "discarded") return json({ message: "A discarded draft cannot be published." }, 409);
+    const input = asRecord(body);
+    const title = typeof input.title === "string" && input.title.trim() ? input.title.trim() : found.draft.title;
+    const createdTemplate: AssessmentTemplate = {
+      id: `tpl-${Date.now()}`,
+      title,
+      description: found.draft.description,
+      roleType: found.draft.roleType,
+      timeLimitMin: found.draft.timeLimitMin,
+      scoringRules: {
+        weights: Object.fromEntries(found.draft.modules.map((m) => [m.key, m.weight])),
+        advisoryOnly: true,
+      },
+      modules: found.draft.modules.map((m, mIdx) => ({
+        id: `mod-${found.id}-${mIdx + 1}`,
+        type: m.type,
+        title: m.title,
+        description: m.description,
+        weight: m.weight,
+        orderIndex: m.orderIndex,
+        settings: {},
+        questions: (m.questions ?? []).map((q, qIdx) => ({
+          id: `q-${found.id}-${mIdx + 1}-${qIdx + 1}`,
+          questionText: q.questionText,
+          questionType: q.questionType,
+          options: q.options ?? null,
+          rubric: q.rubric,
+        })),
+      })),
+    };
+    templates.unshift(createdTemplate);
+    found.status = "published";
+    found.publishedTemplateId = createdTemplate.id;
+    found.publishedAt = new Date().toISOString();
+    found.updatedAt = new Date().toISOString();
+    return json({ id: createdTemplate.id }, 201);
+  }
+
+  if (segments[0] === "templates" && segments[1] === "drafts" && segments[2] && method === "DELETE") {
+    const draftId = decodeURIComponent(segments[2]);
+    const found = mockDrafts.find((d) => d.id === draftId);
+    if (!found) return json({ message: "Draft not found." }, 404);
+    found.status = "discarded";
+    found.updatedAt = new Date().toISOString();
+    return json({ id: found.id, status: "discarded" });
+  }
+
   if (relativePath === "templates" && method === "GET") return json(templates);
   if (relativePath === "templates" && method === "POST") {
     const input = asRecord(body);
@@ -818,7 +1163,7 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     templates.unshift(template);
     return json(template, 201);
   }
-  if (segments[0] === "templates" && segments[1] && segments[2] === "duplicate" && method === "POST") {
+  if (segments[0] === "templates" && segments[1] && segments[1] !== "drafts" && segments[1] !== "catalog" && segments[2] === "duplicate" && method === "POST") {
     const id = decodeURIComponent(segments[1]);
     const source = templates.find((template) => template.id === id);
     if (!source) return json({ message: "Template not found." }, 404);
@@ -826,10 +1171,10 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     templates.unshift(copy);
     return json(copy, 201);
   }
-  if (segments[0] === "templates" && segments[1] && method === "GET") {
+  if (segments[0] === "templates" && segments[1] && segments[1] !== "drafts" && segments[1] !== "catalog" && method === "GET") {
     return jsonOr404(templates.find((template) => template.id === decodeURIComponent(segments[1])), "Template not found.");
   }
-  if (segments[0] === "templates" && segments[1] && method === "PUT") {
+  if (segments[0] === "templates" && segments[1] && segments[1] !== "drafts" && segments[1] !== "catalog" && method === "PUT") {
     const id = decodeURIComponent(segments[1]);
     const index = templates.findIndex((template) => template.id === id);
     if (index < 0) return json({ message: "Template not found." }, 404);
@@ -872,7 +1217,7 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     templates[index] = updated;
     return json(updated);
   }
-  if (segments[0] === "templates" && segments[1] && method === "DELETE") {
+  if (segments[0] === "templates" && segments[1] && segments[1] !== "drafts" && segments[1] !== "catalog" && method === "DELETE") {
     const id = decodeURIComponent(segments[1]);
     const inUse = sessions.filter((session) => session.templateId === id).length;
     if (inUse > 0) {

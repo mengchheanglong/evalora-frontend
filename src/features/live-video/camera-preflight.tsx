@@ -143,8 +143,8 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
         tokenLength: typeof credentials.token === "string" ? credentials.token.length : 0,
         url: credentials.url,
       });
-      if (!credentials.url?.startsWith("wss://")) {
-        throw new Error("LiveKit token endpoint returned an invalid secure WebSocket URL.");
+      if (!credentials.url?.startsWith("wss://") && !credentials.url?.startsWith("ws://")) {
+        throw new Error("LiveKit token endpoint returned an invalid WebSocket URL.");
       }
       if (!credentials.token || credentials.token.split(".").length !== 3) {
         throw new Error("LiveKit token endpoint returned an invalid token.");
@@ -186,14 +186,28 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
     setState("requesting");
     setMessage("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: nextCameraId
-          ? { deviceId: { exact: nextCameraId } }
-          : { facingMode: "user" },
-        audio: nextMicrophoneId
-          ? { deviceId: { exact: nextMicrophoneId }, echoCancellation: true, noiseSuppression: true }
-          : { echoCancellation: true, noiseSuppression: true },
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: nextCameraId
+            ? { deviceId: { exact: nextCameraId } }
+            : { facingMode: "user" },
+          audio: nextMicrophoneId
+            ? { deviceId: { exact: nextMicrophoneId }, echoCancellation: true, noiseSuppression: true }
+            : { echoCancellation: true, noiseSuppression: true },
+        });
+      } catch (constraintErr) {
+        // Fallback to default devices if exact device ID constraint failed
+        if (nextCameraId || nextMicrophoneId) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: { echoCancellation: true, noiseSuppression: true },
+          });
+        } else {
+          throw constraintErr;
+        }
+      }
+
       streamRef.current = stream;
       const devices = await navigator.mediaDevices.enumerateDevices();
       const nextCameras = devices.filter((device) => device.kind === "videoinput");
@@ -217,8 +231,14 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
       setMessage(
         connectivityFailed
           ? "Your devices are ready, but we could not reach the live interview service. Check your network and try again."
-          : name === "NotAllowedError"
+          : name === "NotAllowedError" || name === "PermissionDeniedError"
           ? "Camera or microphone permission was denied. Allow both in your browser, then try again."
+          : name === "NotFoundError" || name === "DevicesNotFoundError"
+          ? "No camera or microphone was found on this device. Please connect a device and try again."
+          : name === "NotReadableError" || name === "TrackStartError"
+          ? "Your camera or microphone is currently in use by another application."
+          : name === "OverconstrainedError"
+          ? "The selected camera or microphone is not available. Please try another device."
           : "We could not access your camera and microphone. Check that they are connected and not in use by another app.",
       );
     }

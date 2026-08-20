@@ -1,4 +1,4 @@
-import { ApiError, apiGet, apiPost, apiRequest, getErrorMessage, invalidateGetCache } from "@/lib/api";
+import { ApiError, apiGet, apiPost, apiRequest, getErrorMessage, invalidateGetCache } from "./api";
 import type { ModuleType, QuestionType } from "@/lib/types";
 
 /**
