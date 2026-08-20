@@ -88,6 +88,7 @@ export function useInterviewSocket({ sessionId, accessCode, enabled = true, disp
         INTERVIEW_EVENTS.questionAnswered,
         INTERVIEW_EVENTS.questionCancelled,
         INTERVIEW_EVENTS.sessionUpdated,
+        INTERVIEW_EVENTS.integrityUpdated,
       ]) {
         socket.on(event, (payload: unknown) => handlerRef.current?.(event, payload));
       }
