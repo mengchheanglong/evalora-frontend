@@ -100,6 +100,9 @@ function OverviewContent({
     color: STATUS_META[status].color,
   }));
   const inFlight = summary.pendingAssessments + summary.inProgressAssessments;
+  const closedCompletionPercent = summary.closedCompletionRate === null
+    ? null
+    : summary.closedCompletionRate * 100;
 
   return (
     <div className="space-y-5">
@@ -112,9 +115,9 @@ function OverviewContent({
               label="In flight"
               value={inFlight.toLocaleString()}
             />
-            {summary.closedCompletionRate !== null ? (
+            {closedCompletionPercent !== null ? (
               <p className="mt-3 border-t border-[var(--theme-border)] pt-3 text-xs text-[var(--theme-muted)]">
-                <span className="font-bold text-[var(--theme-heading)]">{summary.closedCompletionRate}%</span> of finished
+                <span className="font-bold text-[var(--theme-heading)]">{closedCompletionPercent}%</span> of finished
                 sessions were completed
               </p>
             ) : null}
