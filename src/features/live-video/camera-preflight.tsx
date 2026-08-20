@@ -249,9 +249,7 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
     cameras.length > 0 &&
     microphones.length > 0 &&
     Boolean(streamRef.current?.getVideoTracks().some((track) => track.readyState === "live")) &&
-    Boolean(streamRef.current?.getAudioTracks().some((track) => track.readyState === "live")) &&
-    connectivity === "connected" &&
-    networkQuality !== "lost";
+    Boolean(streamRef.current?.getAudioTracks().some((track) => track.readyState === "live"));
 
   async function continueAssessment() {
     const stream = streamRef.current;

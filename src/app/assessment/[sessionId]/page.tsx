@@ -394,16 +394,18 @@ export default function CandidateAssessmentPage() {
      CONNECTED HOOKS
      ---------------------------------------------------------- */
 
+  const effectiveAccessCode = session?.accessCode || accessCode;
+
   const interviewer =
     useInterviewerFollowUps(
-      accessCode,
+      effectiveAccessCode,
       view === "assessment" ||
         view === "review" ||
         view === "interviewer",
     );
 
   const aiStream =
-    useAiStream(accessCode);
+    useAiStream(effectiveAccessCode);
 
   /* ----------------------------------------------------------
      INTEGRITY MONITORING
@@ -416,7 +418,7 @@ export default function CandidateAssessmentPage() {
 
   const integrity =
     useAssessmentIntegrity({
-      accessCode,
+      accessCode: effectiveAccessCode,
       active:
         session?.status === "in_progress" &&
         (view === "assessment" ||
@@ -664,7 +666,7 @@ export default function CandidateAssessmentPage() {
             token: string;
             url: string;
           }>(
-            `/sessions/access/${encodeURIComponent(accessCode)}/livekit-token`,
+            `/sessions/access/${encodeURIComponent(effectiveAccessCode)}/livekit-token`,
           );
 
           if (cancelled) return false;
@@ -2264,7 +2266,7 @@ export default function CandidateAssessmentPage() {
   if (view === "camera") {
     return (
       <CameraPreflight
-        accessCode={accessCode}
+        accessCode={effectiveAccessCode}
         onCancel={() =>
           setView("welcome")
         }

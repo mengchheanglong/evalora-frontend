@@ -1269,6 +1269,14 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   }
   if (segments[0] === "sessions" && segments[1] === "access" && segments[2]) return handleCandidateSession(method, decodeURIComponent(segments[2]), segments[3], body);
   // Must be registered before /sessions/:id
+  if (segments[0] === "sessions" && segments[1] && segments[2] === "livekit-token" && method === "POST") {
+    const session = sessions.find((item) => item.id === decodeURIComponent(segments[1]));
+    if (!session) return json({ message: "Session not found." }, 404);
+    return json({
+      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.mock-interviewer",
+      url: "ws://localhost:7880",
+    });
+  }
   if (segments[0] === "sessions" && segments[1] && segments[2] === "integrity-events" && method === "GET") {
     const session = sessions.find((item) => item.id === decodeURIComponent(segments[1]));
     if (!session) return json({ message: "Session not found." }, 404);
@@ -1415,7 +1423,14 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
     session.updatedAt = new Date().toISOString();
     if (!reports.some((report) => report.sessionId === session.id)) reports.push(generateReportFor(session));
     return json(withTemplate(session));
-  }    if (method === "POST" && action === "integrity-events") {
+  }
+  if (method === "POST" && action === "livekit-token") {
+    return json({
+      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.mock-candidate",
+      url: "ws://localhost:7880",
+    });
+  }
+  if (method === "POST" && action === "integrity-events") {
     const input = asRecord(body);
     const clientEventId = String(input.clientEventId ?? "").trim();
     const type = String(input.type ?? "").trim();
