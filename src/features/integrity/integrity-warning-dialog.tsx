@@ -17,6 +17,9 @@ export function IntegrityWarningDialog({ integrity }: { integrity: AssessmentInt
 
   const terminated = integrity.terminated;
   const reason = integrity.reason || "Possible tab switching detected.";
+  // The wording explains exactly what was detected without ever claiming
+  // cheating was proven. Keyed off the server-authored event type/reason.
+  const isPointerExit = integrity.latestEvent?.type === "pointer_exit" || /pointer/i.test(reason);
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-5 backdrop-blur-sm">
@@ -51,10 +54,17 @@ export function IntegrityWarningDialog({ integrity }: { integrity: AssessmentInt
             The integrity violation limit has been reached. Please contact the
             recruiter if you believe this is a mistake.
           </p>
+        ) : isPointerExit ? (
+          <p className="mt-4 text-sm leading-6 text-neutral-600">
+            We detected that your mouse pointer left the assessment window.
+            Keep your pointer inside the assessment screen during the
+            interview. If this happens again, the interview will end.
+          </p>
         ) : (
           <p className="mt-4 text-sm leading-6 text-neutral-600">
-            You can continue the interview, but if this happens again, the
-            interview will end.
+            Possible tab switching or leaving the assessment screen was
+            detected. You can continue the interview, but if this happens
+            again, the interview will end.
           </p>
         )}
 
@@ -65,9 +75,9 @@ export function IntegrityWarningDialog({ integrity }: { integrity: AssessmentInt
         </div>
 
         <p className="mt-5 text-xs leading-5 text-neutral-500">
-          Possible tab switching or leaving the assessment screen was detected.
-          The review team can see this event in the session record. If you
-          believe this was a mistake, let your interviewer know.
+          {isPointerExit
+            ? "Your mouse pointer left the assessment window. The review team can see this event in the session record. If you believe this was a mistake, let your interviewer know."
+            : "Possible tab switching or leaving the assessment screen was detected. The review team can see this event in the session record. If you believe this was a mistake, let your interviewer know."}
         </p>
 
         {terminated ? (

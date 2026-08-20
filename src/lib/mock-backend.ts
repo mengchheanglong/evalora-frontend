@@ -1420,7 +1420,7 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
     const clientEventId = String(input.clientEventId ?? "").trim();
     const type = String(input.type ?? "").trim();
     if (!clientEventId || !type) return json({ message: "clientEventId and type are required." }, 400);
-    if (!["visibilitychange", "blur", "pagehide", "beforeunload"].includes(type)) {
+    if (!["visibilitychange", "pointer_exit", "blur", "pagehide", "beforeunload"].includes(type)) {
       return json({ message: "Invalid event type." }, 400);
     }
     if (session.status !== "in_progress") {
@@ -1442,7 +1442,7 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
         event: existing,
       });
     }
-    const counted = type === "visibilitychange";
+    const counted = type === "visibilitychange" || type === "pointer_exit";
     const event: IntegrityEvent = {
       id: `iev-${Date.now()}`,
       sessionId: session.id,
@@ -1452,7 +1452,11 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
       returnedAt: input.returnedAt ? String(input.returnedAt) : undefined,
       durationMs: input.durationMs != null ? Number(input.durationMs) : undefined,
       counted,
-      reason: counted ? "Possible tab switching detected." : "Supporting signal: the browser window lost focus.",
+      reason: counted
+        ? type === "pointer_exit"
+          ? "Pointer left the assessment window."
+          : "Possible tab switching detected."
+        : "Supporting signal: the browser window lost focus.",
     };
     events.push(event);
     integrityEventsBySession.set(session.id, events);

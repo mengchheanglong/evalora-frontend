@@ -1380,6 +1380,7 @@ function CodeBlock({
 
 const INTEGRITY_TYPE_LABELS: Record<string, string> = {
   visibilitychange: "Tab switch (visibility change)",
+  pointer_exit: "Pointer left the assessment window",
   blur: "Window lost focus",
   pagehide: "Page left",
   beforeunload: "Exit attempted",
