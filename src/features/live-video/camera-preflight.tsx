@@ -197,8 +197,18 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
             : { echoCancellation: true, noiseSuppression: true },
         });
       } catch (constraintErr) {
-        // Fallback to default devices if exact device ID constraint failed
-        if (nextCameraId || nextMicrophoneId) {
+        const constraintName = constraintErr instanceof DOMException ? constraintErr.name : "";
+        // A machine with no audio input at all still deserves a working camera
+        // flow: retry without audio before giving up.
+        if (constraintName === "NotFoundError" || constraintName === "DevicesNotFoundError") {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: nextCameraId
+              ? { deviceId: { exact: nextCameraId } }
+              : { facingMode: "user" },
+            audio: false,
+          });
+        } else if (nextCameraId || nextMicrophoneId) {
+          // Fallback to default devices if exact device ID constraint failed
           stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "user" },
             audio: { echoCancellation: true, noiseSuppression: true },
@@ -227,16 +237,25 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
       const name = error instanceof DOMException ? error.name : "";
       const connectivityFailed =
         error instanceof Error && error.message === "LiveKit connectivity check failed.";
-      setState(connectivityFailed ? "ready" : "error");
+      // A rejected token request (backend down or erroring) arrives as a plain
+      // Error/ApiError, not a DOMException — it must read as a service problem,
+      // never as "your camera is broken".
+      const serviceProblem =
+        !connectivityFailed &&
+        !name &&
+        !(error instanceof DOMException);
+      setState(connectivityFailed || serviceProblem ? "ready" : "error");
       setMessage(
         connectivityFailed
           ? "Your devices are ready, but we could not reach the live interview service. Check your network and try again."
+          : serviceProblem
+          ? "We could not reach the interview service right now. Your devices are ready — please try again in a moment."
           : name === "NotAllowedError" || name === "PermissionDeniedError"
           ? "Camera or microphone permission was denied. Allow both in your browser, then try again."
           : name === "NotFoundError" || name === "DevicesNotFoundError"
-          ? "No camera or microphone was found on this device. Please connect a device and try again."
+          ? "No camera was found on this device. Please connect a camera and try again."
           : name === "NotReadableError" || name === "TrackStartError"
-          ? "Your camera or microphone is currently in use by another application."
+          ? "Your camera is currently in use by another application."
           : name === "OverconstrainedError"
           ? "The selected camera or microphone is not available. Please try another device."
           : "We could not access your camera and microphone. Check that they are connected and not in use by another app.",
@@ -244,12 +263,12 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
     }
   }, [cameraId, ensureConnectivity, microphoneId, startAudioMeter, stopStream]);
 
+  // The camera is mandatory (the interviewer must see the candidate); a missing
+  // microphone must not lock the candidate out of the assessment entirely.
   const requiredChecksPass =
     state === "ready" &&
     cameras.length > 0 &&
-    microphones.length > 0 &&
-    Boolean(streamRef.current?.getVideoTracks().some((track) => track.readyState === "live")) &&
-    Boolean(streamRef.current?.getAudioTracks().some((track) => track.readyState === "live"));
+    Boolean(streamRef.current?.getVideoTracks().some((track) => track.readyState === "live"));
 
   async function continueAssessment() {
     const stream = streamRef.current;

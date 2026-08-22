@@ -231,6 +231,8 @@ export default function CandidateAssessmentPage() {
 
   const candidateLiveKitRoomRef = useRef<Room | null>(null);
   const candidateCaptionControllerRef = useRef<CaptionController | null>(null);
+  // Surfaced in the captions UI when the browser has no Web Speech API.
+  const [captionUnsupported, setCaptionUnsupported] = useState("");
   const [candidateLowBandwidthOverride, setCandidateLowBandwidthOverride] =
     useState<boolean | null>(null);
   const candidateLowBandwidthMode = candidateLowBandwidthOverride ??
@@ -720,6 +722,11 @@ export default function CandidateAssessmentPage() {
           room,
           session?.candidateName || "Candidate",
         );
+        if (!candidateCaptionControllerRef.current.supported) {
+          setCaptionUnsupported(candidateCaptionControllerRef.current.unsupportedReason ?? "");
+        } else {
+          setCaptionUnsupported("");
+        }
         candidateCaptionControllerRef.current.start();
 
         console.log("[CandidateLiveKit] Published camera and microphone in room", actualSessionId);
@@ -2337,6 +2344,7 @@ export default function CandidateAssessmentPage() {
         interviewerMicrophoneState={interviewerMicrophoneState}
         microphoneMuted={candidateMicrophoneMuted}
         screenShareState={candidateScreenShareState}
+        captionNotice={captionUnsupported}
         onToggleLowBandwidth={() => {
           setCandidateLowBandwidthOverride(!candidateLowBandwidthMode);
         }}

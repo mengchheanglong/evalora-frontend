@@ -128,11 +128,21 @@ export type IntegrityOutcome = "warning" | "terminated" | "none";
  * - a counted event that reached the limit (or ended the session) is the
  *   forced-exit state;
  * - anything else (supporting signal, duplicate) changes nothing.
+ *
+ * `action: "terminated"` means the backend ended the session BECAUSE of this
+ * violation. An expired status without it (a timeout, for example) is not a
+ * violation and must not show the "assessment terminated" dialog — the
+ * timeout flow already handles that case.
  */
 export function interpretIntegrityResult(result: IntegrityEventResult): IntegrityOutcome {
-  if (!result.counted) return "none";
   if (result.action === "terminated") return "terminated";
-  if (result.sessionStatus !== "in_progress") return "terminated";
+  if (!result.counted) return "none";
+  // The session ended without the backend declaring a violation termination —
+  // normally a timeout. Only treat the ending as a forced exit when this
+  // candidate's own warnings reached the limit (a concurrent second strike).
+  if (result.sessionStatus !== "in_progress") {
+    return result.warningCount >= result.warningLimit ? "terminated" : "none";
+  }
   if (result.warningCount >= result.warningLimit) return "terminated";
   return "warning";
 }

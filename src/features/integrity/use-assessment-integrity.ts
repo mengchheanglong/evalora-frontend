@@ -59,6 +59,8 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
     showWarning: false,
     terminated: false,
   });
+  /** Set when reports cannot reach the backend (offline/mock) so the UI can say monitoring is degraded. */
+  const [deliveryFailed, setDeliveryFailed] = useState(false);
 
   const pendingRef = useRef<PendingDetection | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -118,10 +120,13 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
           returnedAt: detection.returnedAt,
           durationMs: detection.durationMs,
         });
+        setDeliveryFailed(false);
         applyResult(result);
       } catch {
         // The backend decides. A rejected report (session already ended) is
-        // never converted into a local warning here.
+        // never converted into a local warning here, but a delivery failure
+        // must not be fully invisible: the UI shows monitoring as degraded.
+        setDeliveryFailed(true);
       }
     },
     [applyResult],
@@ -277,7 +282,7 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
     setState((current) => (current.terminated ? current : { ...current, showWarning: false }));
   }, []);
 
-  return { ...state, dismiss };
+  return { ...state, deliveryFailed, dismiss };
 }
 
 export type AssessmentIntegrity = ReturnType<typeof useAssessmentIntegrity>;
