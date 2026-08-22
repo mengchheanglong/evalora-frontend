@@ -12,6 +12,8 @@ type FloatingCandidateCameraProps = {
   interviewerMicrophoneState: "waiting" | "live" | "muted" | "offline";
   microphoneMuted: boolean;
   screenShareState: "idle" | "starting" | "sharing";
+  /** Shown under the camera when live captions are unavailable in this browser. */
+  captionNotice?: string;
   onToggleLowBandwidth: () => void;
   onToggleMicrophone: () => void;
   onToggleScreenShare: () => void;
@@ -24,6 +26,7 @@ export function FloatingCandidateCamera({
   lowBandwidthMode,
   microphoneMuted,
   screenShareState,
+  captionNotice,
   onToggleLowBandwidth,
   onToggleMicrophone,
   onToggleScreenShare,
@@ -266,6 +269,12 @@ export function FloatingCandidateCamera({
           </div>
 
         </div>
+
+        {captionNotice ? (
+          <div className="border-t border-neutral-100 bg-amber-50 px-2 py-1.5">
+            <p className="text-[8px] leading-tight text-amber-700">{captionNotice}</p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

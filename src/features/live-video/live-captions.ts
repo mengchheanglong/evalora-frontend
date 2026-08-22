@@ -36,6 +36,8 @@ type RecognitionConstructor = new () => Recognition;
 
 export type CaptionController = {
   supported: boolean;
+  /** Human-readable reason when supported is false (browser has no Web Speech API). */
+  unsupportedReason?: string;
   start(): void;
   stop(): void;
 };
@@ -50,7 +52,13 @@ export function createCandidateCaptionController(
   };
   const Constructor = browser.SpeechRecognition ?? browser.webkitSpeechRecognition;
   if (!Constructor) {
-    return { supported: false, start() {}, stop() {} };
+    return {
+      supported: false,
+      unsupportedReason:
+        "Live captions are not supported in this browser. Use Chrome or Edge to see your speech transcribed live.",
+      start() {},
+      stop() {},
+    };
   }
 
   const recognition = new Constructor();

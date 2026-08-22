@@ -400,10 +400,6 @@ export function CandidateLiveCamera({
      * Attempt to reconnect to the LiveKit room with fresh credentials.
      * This forces a re-sync of the cluster participant list.
      */
-    /**
-     * Attempt to reconnect to the LiveKit room with fresh credentials.
-     * This forces a re-sync of the cluster participant list.
-     */
     async function forceReconnect(): Promise<boolean> {
       if (cancelled || room.state === "disconnected") return false;
       isReconnecting = true;
@@ -501,6 +497,19 @@ export function CandidateLiveCamera({
           cleanupScreenShare();
           setStatus("offline");
           setConnectionQuality("lost");
+          // An unexpected disconnect (network drop, server restart) is the one
+          // case a scheduled reconnect is correct for. Retry with backoff; the
+          // candidate-joining case never reaches this handler.
+          void (async () => {
+            while (!cancelled && reconnectionAttempts < MAX_RECONNECTION_ATTEMPTS) {
+              const success = await forceReconnect();
+              if (success || cancelled) return;
+            }
+            if (!cancelled) {
+              setError("Unable to connect to the live room. Please refresh the page.");
+              setStatus("error");
+            }
+          })();
         }
       });
 
@@ -545,7 +554,8 @@ export function CandidateLiveCamera({
         restoreSubscribedTracks();
 
         // Continuous polling: check for participants and reattach tracks
-        // every 3 seconds. If no participants found, attempt reconnection.
+        // every 3 seconds. Waiting for the candidate is normal — reconnect only
+        // after a genuine outage.
         const pollInterval = setInterval(async () => {
           if (cancelled || room.state !== "connected") return;
 
@@ -593,17 +603,11 @@ export function CandidateLiveCamera({
             return;
           }
 
-          // No participants at all - try to reconnect
-          if (reconnectionAttempts < MAX_RECONNECTION_ATTEMPTS) {
-            console.warn("[LiveKit] No participants found, attempt", reconnectionAttempts + 1);
-            const success = await forceReconnect();
-            if (success) {
-              console.log("[LiveKit] Found participants after reconnection");
-            } else if (reconnectionAttempts >= MAX_RECONNECTION_ATTEMPTS) {
-              setError("Unable to connect to the candidate. They may need to refresh their page.");
-              setStatus("error");
-            }
-          }
+          // No participants yet — the candidate simply has not joined. Waiting
+          // is correct: force-cycling the connection here (the old behavior)
+          // tore down the socket every 3 seconds and caused recurring video
+          // cuts. Genuine outages are handled by the Reconnecting/Reconnected
+          // room events above.
         }, 3_000);
 
         cleanupRef.current = pollInterval;
