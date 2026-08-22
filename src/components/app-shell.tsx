@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { EvaloraLogo } from "@/components/logo";
 import { Icon, type IconName } from "@/components/icons";
 import { PageLoader } from "@/components/ui-states";
+import { BackendHealthBanner } from "@/components/backend-health-banner";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { apiGet } from "@/lib/api";
 import { ORG_LOGO_CHANGED_EVENT, orgInitials, readOrgLogo } from "@/lib/org-logo";
@@ -254,6 +255,7 @@ export function AppShell({
         </header>
 
         <div className="px-4 py-6 sm:px-6 lg:py-7 xl:px-8">
+          <BackendHealthBanner />
           {showPageHeader ? (
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
               <div>

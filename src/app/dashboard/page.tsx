@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { BackendOfflineState } from "@/components/ui-states";
 import { DataTable, HeroStat, PipelineBar, TrendChart, type TrendPoint } from "@/components/charts";
 import { Icon } from "@/components/icons";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiGet, getErrorMessage } from "@/lib/api";
+import { useBackendHealth } from "@/lib/backend-health";
 import type { ActivityItem, AnalyticsSummary, SessionStatus, UpcomingAssessment } from "@/lib/types";
 
 /**
@@ -31,6 +33,10 @@ export default function DashboardPage() {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // When the API is unreachable the generic error message is misleading —
+  // show a dedicated offline state instead.
+  const backendHealth = useBackendHealth();
+  const backendOffline = backendHealth === "offline";
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -72,7 +78,10 @@ export default function DashboardPage() {
       title="Overview"
     >
       {loading ? <PageLoader label="Loading assessment work" /> : null}
-      {!loading && error ? <ErrorState message={error} onRetry={() => void loadDashboard()} /> : null}
+      {!loading && backendOffline ? (
+        <BackendOfflineState onRetry={() => void loadDashboard()} />
+      ) : null}
+      {!loading && !backendOffline && error ? <ErrorState message={error} onRetry={() => void loadDashboard()} /> : null}
       {!loading && !error && summary ? (
         <OverviewContent activity={activity} readyReports={readyReports} summary={summary} trend={trend} upcoming={upcoming} />
       ) : null}
