@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Icon, type IconName } from "@/components/icons";
@@ -16,6 +16,17 @@ const fieldWithLeftIconClass =
   "w-full h-11 rounded-lg border border-slate-300 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/15";
 const fieldHintClass = "mt-1.5 text-xs text-slate-500";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+interface InviteOutcome {
+  email: string;
+  ok: boolean;
+  /** Failure reason when the session could not be created. */
+  reason: string;
+  /** Whether the invitation email was sent or queued for a created session. */
+  emailQueued: boolean;
+}
+
 export default function CreateSessionPage() {
   const router = useRouter();
   const { status, user } = useAuth();
@@ -26,7 +37,8 @@ export default function CreateSessionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [createdLink, setCreatedLink] = useState("");
+  const [failedInvites, setFailedInvites] = useState<{ email: string; reason: string }[]>([]);
+  const [deliveryWarning, setDeliveryWarning] = useState("");
 
   // Form state (Cleared defaults for real usage)
   const [sessionTitle, setSessionTitle] = useState("");
@@ -38,8 +50,9 @@ export default function CreateSessionPage() {
   const [notes, setNotes] = useState("");
   const [sessionLanguage, setSessionLanguage] = useState("English");
   
-  const [candidate, setCandidate] = useState("");
-  const [candidateEmail, setCandidateEmail] = useState("");
+  const [candidateEmails, setCandidateEmails] = useState<string[]>([]);
+  const [candidateEmailInput, setCandidateEmailInput] = useState("");
+  const [candidateEmailError, setCandidateEmailError] = useState("");
   const [position, setPosition] = useState("");
   const [department, setDepartment] = useState("");
   
@@ -128,12 +141,68 @@ export default function CreateSessionPage() {
     setInterviewerIds((current) => current.filter((interviewerId) => interviewerId !== id));
   }
 
+  // --- Candidate Emails Logic ---
+  /** Splits raw text into email tokens and merges valid ones into the chip list. Returns the merged list, or null when a token is invalid. */
+  function mergeCandidateEmails(raw: string): string[] | null {
+    const tokens = raw.split(/[\s,;]+/).map((token) => token.trim()).filter(Boolean);
+    const invalid = tokens.filter((token) => !EMAIL_PATTERN.test(token));
+    if (invalid.length) {
+      setCandidateEmailError(`Not a valid email: ${invalid.join(", ")}`);
+      return null;
+    }
+    setCandidateEmailError("");
+    const seen = new Set(candidateEmails.map((item) => item.toLowerCase()));
+    const merged = [...candidateEmails];
+    for (const token of tokens) {
+      const normalized = token.toLowerCase();
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      merged.push(token);
+    }
+    return merged;
+  }
+
+  function commitCandidateEmails(raw: string) {
+    const merged = mergeCandidateEmails(raw);
+    if (!merged) return;
+    setCandidateEmails(merged);
+    setCandidateEmailInput("");
+  }
+
+  function handleCandidateEmailKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+      e.preventDefault();
+      commitCandidateEmails(candidateEmailInput);
+      return;
+    }
+    if (e.key === "Backspace" && !candidateEmailInput && candidateEmails.length) {
+      setCandidateEmails((current) => current.slice(0, -1));
+    }
+  }
+
+  function handleCandidateEmailPaste(e: ClipboardEvent<HTMLInputElement>) {
+    const text = e.clipboardData.getData("text");
+    if (!/[\s,;]/.test(text.trim())) return;
+    e.preventDefault();
+    commitCandidateEmails(`${candidateEmailInput} ${text}`);
+  }
+
+  function removeCandidateEmail(email: string) {
+    setCandidateEmails((current) => current.filter((item) => item !== email));
+  }
+
   // --- Backend Submission ---
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    
-    if (!candidate.trim() || !candidateEmail.trim()) {
-      setError("Candidate Name and Email are required.");
+
+    // Fold anything still typed in the email input into the chip list before validating.
+    const emails = mergeCandidateEmails(candidateEmailInput);
+    if (!emails) return;
+    setCandidateEmails(emails);
+    setCandidateEmailInput("");
+
+    if (!emails.length) {
+      setError("Add at least one candidate email.");
       return;
     }
     if (!selectedTemplateId) {
@@ -143,56 +212,80 @@ export default function CreateSessionPage() {
 
     setError("");
     setSuccess("");
-    setCreatedLink("");
+    setFailedInvites([]);
+    setDeliveryWarning("");
     setSubmitting(true);
 
-    try {
-      // Map UI state to Backend Payload (matches POST /sessions workspace metadata).
-      const payload = {
-        candidateName: candidate,
-        candidateEmail: candidateEmail,
-        templateId: selectedTemplateId,
-        title: sessionTitle || undefined,
-        interviewType: interviewType || undefined,
-        interviewers: selectedInterviewers.length ? selectedInterviewers.map((member) => member.name) : undefined,
-        interviewerIds: selectedInterviewers.length ? selectedInterviewers.map((member) => member.id) : undefined,
-        notes: notes || undefined,
-        targetRole: position || undefined,
-        department: department || undefined,
-        sessionDate: sessionDate || undefined,
-        startTime: startTime || undefined,
-        durationMin: duration ? Number(duration) : undefined,
-        language: sessionLanguage || undefined,
-        timeZone: timeZone || undefined,
-      };
+    // Map UI state to Backend Payload (matches POST /sessions workspace metadata).
+    // The backend derives each candidate's name from their email.
+    const basePayload = {
+      templateId: selectedTemplateId,
+      title: sessionTitle || undefined,
+      interviewType: interviewType || undefined,
+      interviewers: selectedInterviewers.length ? selectedInterviewers.map((member) => member.name) : undefined,
+      interviewerIds: selectedInterviewers.length ? selectedInterviewers.map((member) => member.id) : undefined,
+      notes: notes || undefined,
+      targetRole: position || undefined,
+      department: department || undefined,
+      sessionDate: sessionDate || undefined,
+      startTime: startTime || undefined,
+      durationMin: duration ? Number(duration) : undefined,
+      language: sessionLanguage || undefined,
+      timeZone: timeZone || undefined,
+    };
 
-      const session = await apiPost<InterviewSession>("/sessions", payload);
-      const link =
-        session.assessmentUrl ||
-        `${window.location.origin}/assessment/${encodeURIComponent(session.accessCode)}`;
-      setCreatedLink(link);
-      const delivery = session.emailDelivery;
-      if (delivery?.status === "sent") {
-        setSuccess(`Session created and assessment email sent to ${candidateEmail}.`);
-      } else if (delivery?.status === "queued") {
-        setSuccess(`Session created. Email is sending in the background to ${candidateEmail}. Copy the link below as backup.`);
-      } else if (delivery?.status === "failed") {
-        setSuccess(`Session created, but email failed (${delivery.reason ?? "unknown"}). Copy the assessment link below.`);
+    // One session per candidate — each gets their own access code and invite email.
+    const results = await Promise.all(
+      emails.map(async (email): Promise<InviteOutcome> => {
+        try {
+          const session = await apiPost<InterviewSession>("/sessions", { ...basePayload, candidateEmail: email });
+          const delivery = session.emailDelivery;
+          return { email, ok: true, reason: "", emailQueued: delivery?.status === "sent" || delivery?.status === "queued" };
+        } catch (requestError) {
+          return { email, ok: false, reason: getErrorMessage(requestError, "Unable to create the session."), emailQueued: false };
+        }
+      }),
+    );
+
+    const failed = results.filter((result) => !result.ok);
+    const created = results.filter((result) => result.ok);
+    const unsent = created.filter((result) => !result.emailQueued);
+
+    setFailedInvites(failed.map(({ email, reason }) => ({ email, reason })));
+    setDeliveryWarning(
+      unsent.length
+        ? `The invitation email could not be sent to ${unsent.map((result) => result.email).join(", ")}. Share their assessment links from the session list instead.`
+        : "",
+    );
+
+    if (!failed.length) {
+      setCandidateEmails([]);
+      if (unsent.length) {
+        setSuccess(created.length === 1 ? "Session created." : `Sessions created for all ${created.length} candidates.`);
       } else {
         setSuccess(
-          `Session created. ${delivery?.reason ?? "Email is not configured — share the assessment link below."}`,
+          created.length === 1
+            ? "Session created — the invitation email is on its way to the candidate."
+            : `Sessions created — invitation emails are on their way to all ${created.length} candidates.`,
         );
+        window.setTimeout(() => {
+          router.push("/assessment");
+          router.refresh();
+        }, 2500);
       }
-      // Brief pause so the user can copy the link, then go to the list.
-      window.setTimeout(() => {
-        router.push("/assessment");
-        router.refresh();
-      }, 2500);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "Unable to create the session."));
-    } finally {
-      setSubmitting(false);
+    } else {
+      // Keep only the failed emails in the field so the user can retry them.
+      setCandidateEmails(failed.map((result) => result.email));
+      if (created.length) {
+        setSuccess(`Sessions created and invitations sent for ${created.length} of ${results.length} candidates.`);
+      }
+      setError(
+        failed.length === 1
+          ? "1 invitation failed. The failed email was kept in the form — fix the issue and create again."
+          : `${failed.length} invitations failed. The failed emails were kept in the form — fix the issue and create again.`,
+      );
     }
+    setSubmitting(false);
   }
 
   if (loading) {
@@ -232,27 +325,28 @@ export default function CreateSessionPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Create Interview Session</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Assign an assessment template to a candidate and schedule the session.
+            Assign an assessment template to one or more candidates and schedule the session.
           </p>
         </div>
 
-        {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
-        {success ? (
-          <div className="mb-4 space-y-2">
-            <InlineAlert tone="success">{success}</InlineAlert>
-            {createdLink ? (
-              <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-3 text-sm">
-                <p className="text-xs font-bold text-primary-800">Assessment link</p>
-                <code className="mt-1 block break-all text-xs text-neutral-800">{createdLink}</code>
-                <button
-                  className="mt-2 text-xs font-bold text-primary-700 hover:text-primary-600"
-                  onClick={() => void navigator.clipboard.writeText(createdLink)}
-                  type="button"
-                >
-                  Copy link
-                </button>
-              </div>
+        {error ? (
+          <InlineAlert tone="error">
+            {error}
+            {failedInvites.length ? (
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+                {failedInvites.map((failure) => (
+                  <li key={failure.email}>
+                    <span className="font-semibold">{failure.email}</span> — {failure.reason}
+                  </li>
+                ))}
+              </ul>
             ) : null}
+          </InlineAlert>
+        ) : null}
+        {success || deliveryWarning ? (
+          <div className="mb-4 space-y-2">
+            {success ? <InlineAlert tone="success">{success}</InlineAlert> : null}
+            {deliveryWarning ? <InlineAlert tone="warning">{deliveryWarning}</InlineAlert> : null}
           </div>
         ) : null}
 
@@ -432,8 +526,50 @@ export default function CreateSessionPage() {
               <div className="mb-8">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">Candidate Information</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <InputField label="Candidate Name" value={candidate} onChange={setCandidate} required />
-                  <InputField label="Candidate Email" value={candidateEmail} onChange={setCandidateEmail} type="email" required />
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="candidate-emails">
+                      Candidate Emails <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 transition hover:border-slate-400 focus-within:border-sky-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-sky-500/15">
+                      {candidateEmails.map((email) => (
+                        <span
+                          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 text-xs font-medium text-sky-800"
+                          key={email}
+                        >
+                          {email}
+                          <button
+                            aria-label={`Remove ${email}`}
+                            className="text-sky-500 transition hover:text-sky-800"
+                            onClick={() => removeCandidateEmail(email)}
+                            type="button"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        autoComplete="off"
+                        className="h-7 min-w-[220px] flex-1 bg-transparent px-1 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                        id="candidate-emails"
+                        onBlur={() => { if (candidateEmailInput.trim()) commitCandidateEmails(candidateEmailInput); }}
+                        onChange={(event) => {
+                          setCandidateEmailInput(event.target.value);
+                          if (candidateEmailError) setCandidateEmailError("");
+                        }}
+                        onKeyDown={handleCandidateEmailKeyDown}
+                        onPaste={handleCandidateEmailPaste}
+                        placeholder={candidateEmails.length ? "Add another email..." : "candidate@example.com, another@example.com"}
+                        type="text"
+                        value={candidateEmailInput}
+                      />
+                    </div>
+                    <p className={candidateEmailError ? "mt-1.5 text-xs text-red-600" : fieldHintClass}>
+                      {candidateEmailError ||
+                        (candidateEmails.length
+                          ? `${candidateEmails.length} candidate${candidateEmails.length === 1 ? "" : "s"} will be invited — each gets their own session and assessment link.`
+                          : "Type an email and press Enter, or paste a comma-separated list to invite several candidates at once.")}
+                    </p>
+                  </div>
                   <InputField label="Position" value={position} onChange={setPosition} />
                   <InputField label="Department (Optional)" value={department} onChange={setDepartment} />
                 </div>
@@ -497,7 +633,7 @@ export default function CreateSessionPage() {
                     </div>
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">The candidate will receive an email invitation with the session details.</p>
+                <p className="mt-2 text-xs text-slate-500">Each candidate will receive their own email invitation with the session details.</p>
               </div>
             </div>
 
@@ -519,7 +655,15 @@ export default function CreateSessionPage() {
                         : `${defaultInterviewerName} (default)`
                     }
                   />
-                  <SummaryRow icon="user" label="Candidate" value={candidate || "Not selected"} />
+                  <SummaryRow
+                    icon="user"
+                    label="Candidates"
+                    value={
+                      candidateEmails.length
+                        ? `${candidateEmails.length} invited: ${candidateEmails.join(", ")}`
+                        : "None added"
+                    }
+                  />
                   <SummaryRow icon="clock" label="Estimated Duration" value={duration ? `${duration} minutes` : "Not set"} />
                   <SummaryRow icon="globe" label="Language" value={sessionLanguage} />
                 </div>
@@ -563,7 +707,7 @@ export default function CreateSessionPage() {
                   disabled={submitting}
                   className="flex-1 h-10 bg-sky-500 rounded-lg text-sm font-medium text-white hover:bg-sky-600 transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Creating..." : "Create Session"} <Icon name="chevron" size={14} className="-rotate-90" />
+                  {submitting ? "Creating..." : candidateEmails.length > 1 ? `Create ${candidateEmails.length} Sessions` : "Create Session"} <Icon name="chevron" size={14} className="-rotate-90" />
                 </button>
               </div>
             </div>
