@@ -317,14 +317,6 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
                     <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
                     Camera and microphone ready
                   </div>
-                  <button
-                    className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-black/60 text-white/80 backdrop-blur transition-colors hover:bg-black/80 hover:text-white"
-                    onClick={cancel}
-                    title="Delete camera"
-                    type="button"
-                  >
-                    <Icon name="trash" size={14} />
-                  </button>
                 </>
               )}
             </div>
