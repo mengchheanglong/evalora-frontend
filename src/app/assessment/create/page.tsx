@@ -147,6 +147,13 @@ export default function CreateSessionPage() {
     setSubmitting(true);
 
     try {
+      // The date/time controls describe a wall-clock time in the interviewer's
+      // browser. Send its absolute ISO instant as well as the display fields;
+      // otherwise the API has no timezone context and used to treat it as UTC.
+      const scheduledAt = sessionDate && startTime
+        ? new Date(`${sessionDate}T${startTime}`).toISOString()
+        : undefined;
+
       // Map UI state to Backend Payload (matches POST /sessions workspace metadata).
       const payload = {
         candidateName: candidate,
@@ -159,6 +166,7 @@ export default function CreateSessionPage() {
         notes: notes || undefined,
         targetRole: position || undefined,
         department: department || undefined,
+        scheduledAt,
         sessionDate: sessionDate || undefined,
         startTime: startTime || undefined,
         durationMin: duration ? Number(duration) : undefined,
