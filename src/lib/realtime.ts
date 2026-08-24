@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import type { IntegrityAction, IntegrityEvent, InterviewerFollowUp, SessionStatus } from "@/lib/types";
+import type { IntegrityAction, IntegrityEvent, IntegrityPolicyUpdatedEvent, InterviewerFollowUp, SessionStatus } from "@/lib/types";
 
 /** Must match the backend contract in modules/realtime/realtime.types.ts. */
 export const INTERVIEW_EVENTS = {
@@ -14,6 +14,7 @@ export const INTERVIEW_EVENTS = {
   questionAnswered: "interviewer-question.answered",
   questionCancelled: "interviewer-question.cancelled",
   integrityUpdated: "integrity.updated",
+  integrityPolicyUpdated: "integrity.policy.updated",
   error: "session.error",
 } as const;
 
@@ -31,6 +32,9 @@ export interface IntegrityUpdatedEvent {
   reason: string;
   event?: IntegrityEvent;
 }
+
+/** Server-authored integrity policy update broadcast to the authorized session room. */
+export type { IntegrityPolicyUpdatedEvent };
 
 export type ParticipantRole = "candidate" | "interviewer";
 export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";

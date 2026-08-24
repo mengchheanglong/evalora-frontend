@@ -40,6 +40,8 @@ type Options = {
   accessCode: string;
   /** Only monitor while the assessment is running and before completion. */
   active: boolean;
+  /** Interviewer-controlled toggle for pointer-exit detection. */
+  pointerDetectionEnabled?: boolean;
 };
 
 /**
@@ -50,7 +52,7 @@ type Options = {
  * returns. It never stores or increments a local warning count, so refreshing
  * the page can never reset enforcement.
  */
-export function useAssessmentIntegrity({ accessCode, active }: Options) {
+export function useAssessmentIntegrity({ accessCode, active, pointerDetectionEnabled = true }: Options) {
   const [state, setState] = useState<IntegrityState>({
     warningCount: 0,
     warningLimit: 2,
@@ -248,10 +250,31 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
     window.addEventListener("blur", onBlur);
     document.addEventListener("pagehide", onPagehide);
     window.addEventListener("beforeunload", onBeforeunload);
-    document.documentElement.addEventListener("mouseleave", onPointerLeave);
-    document.addEventListener("mouseout", onPointerOut);
-    document.documentElement.addEventListener("mouseenter", onPointerReturn);
-    document.addEventListener("mouseover", onPointerOver);
+
+    // ----------------------------------------------------------------
+    // Pointer-exit listeners: only active when the interviewer toggle is ON.
+    // When paused, any pending outside-timer is cancelled immediately.
+    // ----------------------------------------------------------------
+    let pointerActive = pointerDetectionEnabled;
+    const attachPointer = () => {
+      if (!pointerActive) return;
+      document.documentElement.addEventListener("mouseleave", onPointerLeave);
+      document.addEventListener("mouseout", onPointerOut);
+      document.documentElement.addEventListener("mouseenter", onPointerReturn);
+      document.addEventListener("mouseover", onPointerOver);
+    };
+    const detachPointer = (cancelPending = true) => {
+      document.documentElement.removeEventListener("mouseleave", onPointerLeave);
+      document.removeEventListener("mouseout", onPointerOut);
+      document.documentElement.removeEventListener("mouseenter", onPointerReturn);
+      document.removeEventListener("mouseover", onPointerOver);
+      if (cancelPending && pointerTimerRef.current !== null) {
+        window.clearTimeout(pointerTimerRef.current);
+        pointerTimerRef.current = null;
+      }
+      if (cancelPending) pointerOutAtRef.current = null;
+    };
+    attachPointer();
 
     return () => {
       disposed = true;
@@ -265,12 +288,21 @@ export function useAssessmentIntegrity({ accessCode, active }: Options) {
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("pagehide", onPagehide);
       window.removeEventListener("beforeunload", onBeforeunload);
-      document.documentElement.removeEventListener("mouseleave", onPointerLeave);
-      document.removeEventListener("mouseout", onPointerOut);
-      document.documentElement.removeEventListener("mouseenter", onPointerReturn);
-      document.removeEventListener("mouseover", onPointerOver);
+      detachPointer(false);
     };
-  }, [active, beaconDetection, queueSignal]);
+  }, [active, pointerDetectionEnabled, beaconDetection, queueSignal]);
+
+  // When the interviewer pauses pointer detection at runtime, cancel any
+  // pending outside-timer and clear the out-at state so the hook is clean
+  // before the next pointer re-entry.
+  useEffect(() => {
+    if (pointerDetectionEnabled) return;
+    if (pointerTimerRef.current !== null) {
+      window.clearTimeout(pointerTimerRef.current);
+      pointerTimerRef.current = null;
+    }
+    pointerOutAtRef.current = null;
+  }, [pointerDetectionEnabled]);
 
   const dismiss = useCallback(() => {
     // Only the first-strike warning is dismissable; the forced exit is not.

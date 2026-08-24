@@ -35,15 +35,12 @@ import type { ConnectionState } from "@/lib/realtime";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { CameraPreflight } from "@/features/live-video/camera-preflight";
 import { FloatingCandidateCamera } from "@/features/live-video/candidate-mini-camera";
-<<<<<<< HEAD
 import { useAssessmentIntegrity } from "@/features/integrity/use-assessment-integrity";
 import { IntegrityWarningDialog } from "@/features/integrity/integrity-warning-dialog";
-=======
 import {
   createCandidateCaptionController,
   type CaptionController,
 } from "@/features/live-video/live-captions";
->>>>>>> e0f4e6af8e5b2c3df1307cd5d2e18ae506094861
 import { Icon, type IconName } from "@/components/icons";
 import { useAiStream } from "@/components/use-ai-stream";
 import { EvaloraLogo } from "@/components/logo";
@@ -166,6 +163,18 @@ export default function CandidateAssessmentPage() {
 
   const [session, setSession] =
     useState<CandidateAccessSession | null>(null);
+
+  /**
+   * Interviewer-controlled pointer detection toggle. Initialized from the
+   * session response and synced whenever the session data changes (reload,
+   * reconnect, or re-fetch). The candidate cannot change this setting.
+   */
+  const [pointerDetectionEnabled, setPointerDetectionEnabled] = useState(true);
+
+  // Keep pointer toggle in sync with the session data the backend returns.
+  useEffect(() => {
+    if (session) setPointerDetectionEnabled(session.pointerDetectionEnabled ?? true);
+  }, [session]);
 
   const [view, setView] =
     useState<View>("loading");
@@ -425,6 +434,7 @@ export default function CandidateAssessmentPage() {
         (view === "assessment" ||
           view === "review" ||
           view === "interviewer"),
+      pointerDetectionEnabled,
     });
 
   /* ============================================================
@@ -446,12 +456,12 @@ export default function CandidateAssessmentPage() {
   }, []);
 
   /* ============================================================
-<<<<<<< HEAD
      INTEGRITY FORCED EXIT
 
-     When the backend counts an event (warningLimit = 1), the session is
-     already EXPIRED server-side. Follow that official state: drop the camera
-     and mirror the status so every control stops accepting input.
+     When the backend counts an event and warningCount >= warningLimit,
+     the session is EXPIRED server-side. Follow that official state:
+     drop the camera and mirror the status so every control stops
+     accepting input.
      ============================================================ */
 
   useEffect(() => {
@@ -467,10 +477,7 @@ export default function CandidateAssessmentPage() {
   }, [integrity.terminated, stopCandidateCamera]);
 
   /* ============================================================
-     CAMERA WEBRTC PUBLISHING
-=======
      CAMERA LIVEKIT PUBLISHING
->>>>>>> e0f4e6af8e5b2c3df1307cd5d2e18ae506094861
      ============================================================
 
      CameraPreflight owns consent and capture. Once its MediaStream is
