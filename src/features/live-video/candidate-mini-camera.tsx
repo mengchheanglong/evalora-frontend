@@ -10,12 +10,14 @@ type FloatingCandidateCameraProps = {
   connectionQuality: "excellent" | "good" | "poor" | "lost";
   lowBandwidthMode: boolean;
   interviewerMicrophoneState: "waiting" | "live" | "muted" | "offline";
+  cameraMuted: boolean;
   microphoneMuted: boolean;
   screenShareState: "idle" | "starting" | "sharing";
   /** Shown under the camera when live captions are unavailable in this browser. */
   captionNotice?: string;
   onToggleLowBandwidth: () => void;
   onToggleMicrophone: () => void;
+  onToggleCamera: () => void;
   onToggleScreenShare: () => void;
 };
 
@@ -23,17 +25,19 @@ export function FloatingCandidateCamera({
   stream,
   candidateName,
   connectionQuality,
-  lowBandwidthMode,
+  cameraMuted,
   microphoneMuted,
   screenShareState,
   captionNotice,
-  onToggleLowBandwidth,
   onToggleMicrophone,
+  onToggleCamera,
   onToggleScreenShare,
 }: FloatingCandidateCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({
     x: typeof window !== "undefined" ? Math.max(16, window.innerWidth - 316) : 20,
     y: typeof window !== "undefined" ? Math.max(16, window.innerHeight - 340) : 500,
@@ -108,6 +112,24 @@ export function FloatingCandidateCamera({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const closeOutside = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
@@ -165,9 +187,16 @@ export function FloatingCandidateCamera({
             className="block size-full object-cover"
           />
 
-          {!playing ? (
+          {!playing || cameraMuted ? (
             <div className="absolute inset-0 z-10 grid place-items-center bg-neutral-900/85 backdrop-blur-sm">
-              <span className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
+              {cameraMuted ? (
+                <div className="text-center text-white/80">
+                  <Icon className="mx-auto" name="video" size={20} />
+                  <p className="mt-1 text-[9px] font-semibold">Camera off</p>
+                </div>
+              ) : (
+                <span className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
+              )}
             </div>
           ) : null}
 
@@ -205,67 +234,49 @@ export function FloatingCandidateCamera({
             <p className="mt-0.5 text-[8px] text-neutral-400">Candidate</p>
           </div>
 
-          <div className="flex shrink-0 items-center justify-center gap-1 rounded-full border border-neutral-200/80 bg-neutral-50/90 p-1 shadow-sm">
+          <div className="relative shrink-0" ref={menuRef}>
             <button
-              aria-label={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
-              className={`grid size-[22px] shrink-0 place-items-center rounded-full border transition-all ${
-                microphoneMuted
-                  ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
-                  : "border-neutral-200 bg-white text-emerald-600 hover:bg-neutral-50"
-              }`}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              aria-label="Open media controls"
+              className="grid size-8 place-items-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-600 shadow-sm transition hover:bg-neutral-100 hover:text-neutral-900"
               onClick={(event) => {
                 event.stopPropagation();
-                onToggleMicrophone();
+                setMenuOpen((open) => !open);
               }}
               onPointerDown={(event) => event.stopPropagation()}
-              title={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
+              title="Media controls"
               type="button"
             >
-              <Icon name="waves" size={11} />
+              <Icon name="more" size={16} />
             </button>
 
-            <button
-              aria-label={lowBandwidthMode ? "Restore normal video quality" : "Enable low bandwidth mode"}
-              className={`relative grid size-[22px] shrink-0 place-items-center rounded-full border transition-all ${
-                lowBandwidthMode
-                  ? "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
-                  : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
-              }`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleLowBandwidth();
-              }}
-              onPointerDown={(event) => event.stopPropagation()}
-              title={lowBandwidthMode ? "Low bandwidth mode enabled" : "Use low bandwidth mode"}
-              type="button"
-            >
-              <Icon name="video" size={11} />
-              {lowBandwidthMode ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-amber-500" /> : null}
-            </button>
-
-            <button
-              aria-label={screenShareState === "sharing" ? "Stop sharing screen" : "Share screen"}
-              className={`relative grid size-[22px] shrink-0 place-items-center rounded-full border transition-all ${
-                screenShareState === "sharing"
-                  ? "border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100"
-                  : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
-              } disabled:cursor-wait disabled:opacity-50`}
-              disabled={screenShareState === "starting"}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleScreenShare();
-              }}
-              onPointerDown={(event) => event.stopPropagation()}
-              title={screenShareState === "sharing" ? "Stop sharing screen" : "Share your screen"}
-              type="button"
-            >
-              {screenShareState === "starting" ? (
-                <span className="size-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
-              ) : (
-                <Icon name="eye" size={11} />
-              )}
-              {screenShareState === "sharing" ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-violet-500" /> : null}
-            </button>
+            {menuOpen ? (
+              <div className="absolute bottom-10 right-0 z-30 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-xl" role="menu">
+                {[
+                  { label: microphoneMuted ? "Unmute microphone" : "Mute microphone", icon: "microphone" as const, action: onToggleMicrophone, active: microphoneMuted },
+                  { label: cameraMuted ? "Turn on camera" : "Turn off camera", icon: "video" as const, action: onToggleCamera, active: cameraMuted },
+                  { label: screenShareState === "sharing" ? "Stop sharing" : "Share screen", icon: "eye" as const, action: onToggleScreenShare, active: screenShareState === "sharing" },
+                ].map((item) => (
+                  <button
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold transition disabled:cursor-wait disabled:opacity-50 ${item.active ? "bg-sky-50 text-sky-700" : "text-neutral-700 hover:bg-neutral-50"}`}
+                    disabled={item.icon === "eye" && screenShareState === "starting"}
+                    key={item.label}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      item.action();
+                      setMenuOpen(false);
+                    }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <Icon name={item.icon} size={15} />
+                    {item.icon === "eye" && screenShareState === "starting" ? "Starting share…" : item.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
         </div>

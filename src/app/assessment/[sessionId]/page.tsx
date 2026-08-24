@@ -215,7 +215,13 @@ export default function CandidateAssessmentPage() {
   const candidateMicrophonePublicationRef =
     useRef<LocalTrackPublication | null>(null);
 
+  const candidateCameraPublicationRef =
+    useRef<LocalTrackPublication | null>(null);
+
   const [candidateMicrophoneMuted, setCandidateMicrophoneMuted] =
+    useState(false);
+
+  const [candidateCameraMuted, setCandidateCameraMuted] =
     useState(false);
 
   const [candidateScreenShareState, setCandidateScreenShareState] =
@@ -262,9 +268,28 @@ export default function CandidateAssessmentPage() {
     });
 
     candidateCameraStreamRef.current = null;
+    candidateCameraPublicationRef.current = null;
     candidateMicrophonePublicationRef.current = null;
+    setCandidateCameraMuted(false);
     setCandidateMicrophoneMuted(false);
     setCandidateCameraStream(null);
+  }, []);
+
+  const toggleCandidateCamera = useCallback(async () => {
+    const publication = candidateCameraPublicationRef.current;
+    if (!publication) return;
+
+    try {
+      if (publication.isMuted) {
+        await publication.unmute();
+        setCandidateCameraMuted(false);
+      } else {
+        await publication.mute();
+        setCandidateCameraMuted(true);
+      }
+    } catch {
+      setActionError("We could not change your camera state.");
+    }
   }, []);
 
   const toggleCandidateMicrophone = useCallback(async () => {
@@ -589,6 +614,8 @@ export default function CandidateAssessmentPage() {
       const cameraPublication = room.localParticipant.getTrackPublication(
         Track.Source.Camera,
       );
+      candidateCameraPublicationRef.current = cameraPublication ?? null;
+      setCandidateCameraMuted(cameraPublication?.isMuted ?? false);
       (cameraPublication?.track as LocalVideoTrack | undefined)?.setPublishingQuality(
         candidateLowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
       );
@@ -2338,6 +2365,7 @@ export default function CandidateAssessmentPage() {
 
       <FloatingCandidateCamera
         candidateName={session?.candidateName || "Candidate"}
+        cameraMuted={candidateCameraMuted}
         connectionState={candidateMediaConnection}
         connectionQuality={candidateConnectionQuality}
         lowBandwidthMode={candidateLowBandwidthMode}
@@ -2349,6 +2377,7 @@ export default function CandidateAssessmentPage() {
           setCandidateLowBandwidthOverride(!candidateLowBandwidthMode);
         }}
         onToggleMicrophone={() => void toggleCandidateMicrophone()}
+        onToggleCamera={() => void toggleCandidateCamera()}
         onToggleScreenShare={() => void toggleCandidateScreenShare()}
         stream={
           candidateCameraStream
