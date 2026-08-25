@@ -349,20 +349,10 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
                   ) : null}
                 </div>
               ) : (
-                <>
-                  <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
-                    <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
-                    Camera and microphone ready
-                  </div>
-                  <button
-                    className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-black/60 text-white/80 backdrop-blur transition-colors hover:bg-black/80 hover:text-white"
-                    onClick={cancel}
-                    title="Delete camera"
-                    type="button"
-                  >
-                    <Icon name="trash" size={14} />
-                  </button>
-                </>
+                <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
+                  <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
+                  Camera and microphone ready
+                </div>
               )}
             </div>
 
@@ -459,24 +449,26 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
               </button>
 
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  className="button-secondary h-10 px-4"
-                  disabled={state === "requesting"}
-                  onClick={() => void requestMedia()}
-                  type="button"
-                >
-                  {state === "requesting" ? (
-                    <>
-                      <span className="size-3 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600" />
-                      Requesting…
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="video" size={14} />
-                      {state === "ready" ? "Change devices" : "Enable devices"}
-                    </>
-                  )}
-                </button>
+                {state !== "ready" ? (
+                  <button
+                    className="button-secondary h-10 px-4"
+                    disabled={state === "requesting"}
+                    onClick={() => void requestMedia()}
+                    type="button"
+                  >
+                    {state === "requesting" ? (
+                      <>
+                        <span className="size-3 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600" />
+                        Requesting…
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="video" size={14} />
+                        Enable devices
+                      </>
+                    )}
+                  </button>
+                ) : null}
 
                 <button
                   className="button-primary h-10 px-5"
