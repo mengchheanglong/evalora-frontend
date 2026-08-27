@@ -190,7 +190,7 @@ test("a duplicate or supporting event never triggers a warning", () => {
   assert.equal(supporting, "none");
 });
 
-test("a counted event on an ended session still maps to the forced-exit state", () => {
+test("a counted event that reaches the warning limit maps to the forced-exit state", () => {
   const outcome = interpretIntegrityResult({
     sessionId: "s1",
     clientEventId: "evt-4",
@@ -211,4 +211,27 @@ test("a counted event on an ended session still maps to the forced-exit state", 
     },
   });
   assert.equal(outcome, "terminated");
+});
+
+test("a non-in-progress status without a violation action is NOT a forced exit (timeout expiry)", () => {
+  const timeoutExpiry = interpretIntegrityResult({
+    sessionId: "s1",
+    clientEventId: "evt-5",
+    counted: false,
+    warningCount: 0,
+    warningLimit: 2,
+    sessionStatus: "expired",
+    action: "recorded",
+    reason: "Supporting signal: the browser window lost focus.",
+    event: {
+      id: "e5",
+      sessionId: "s1",
+      clientEventId: "evt-5",
+      type: "blur",
+      detectedAt: "2026-07-06T13:20:00.000Z",
+      counted: false,
+      reason: "Supporting signal: the browser window lost focus.",
+    },
+  });
+  assert.equal(timeoutExpiry, "none");
 });

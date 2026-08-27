@@ -35,12 +35,12 @@ import type { ConnectionState } from "@/lib/realtime";
 import { CandidateCodingAssessment } from "@/components/candidate-coding-assessment";
 import { CameraPreflight } from "@/features/live-video/camera-preflight";
 import { FloatingCandidateCamera } from "@/features/live-video/candidate-mini-camera";
-import { useAssessmentIntegrity } from "@/features/integrity/use-assessment-integrity";
-import { IntegrityWarningDialog } from "@/features/integrity/integrity-warning-dialog";
 import {
   createCandidateCaptionController,
   type CaptionController,
 } from "@/features/live-video/live-captions";
+import { useAssessmentIntegrity } from "@/features/integrity/use-assessment-integrity";
+import { IntegrityWarningDialog } from "@/features/integrity/integrity-warning-dialog";
 import { Icon, type IconName } from "@/components/icons";
 import { useAiStream } from "@/components/use-ai-stream";
 import { EvaloraLogo } from "@/components/logo";
@@ -227,7 +227,13 @@ export default function CandidateAssessmentPage() {
   const candidateMicrophonePublicationRef =
     useRef<LocalTrackPublication | null>(null);
 
+  const candidateCameraPublicationRef =
+    useRef<LocalTrackPublication | null>(null);
+
   const [candidateMicrophoneMuted, setCandidateMicrophoneMuted] =
+    useState(false);
+
+  const [candidateCameraMuted, setCandidateCameraMuted] =
     useState(false);
 
   const [candidateScreenShareState, setCandidateScreenShareState] =
@@ -243,6 +249,8 @@ export default function CandidateAssessmentPage() {
 
   const candidateLiveKitRoomRef = useRef<Room | null>(null);
   const candidateCaptionControllerRef = useRef<CaptionController | null>(null);
+  // Surfaced in the captions UI when the browser has no Web Speech API.
+  const [captionUnsupported, setCaptionUnsupported] = useState("");
   const [candidateLowBandwidthOverride, setCandidateLowBandwidthOverride] =
     useState<boolean | null>(null);
   const candidateLowBandwidthMode = candidateLowBandwidthOverride ??
@@ -272,9 +280,28 @@ export default function CandidateAssessmentPage() {
     });
 
     candidateCameraStreamRef.current = null;
+    candidateCameraPublicationRef.current = null;
     candidateMicrophonePublicationRef.current = null;
+    setCandidateCameraMuted(false);
     setCandidateMicrophoneMuted(false);
     setCandidateCameraStream(null);
+  }, []);
+
+  const toggleCandidateCamera = useCallback(async () => {
+    const publication = candidateCameraPublicationRef.current;
+    if (!publication) return;
+
+    try {
+      if (publication.isMuted) {
+        await publication.unmute();
+        setCandidateCameraMuted(false);
+      } else {
+        await publication.mute();
+        setCandidateCameraMuted(true);
+      }
+    } catch {
+      setActionError("We could not change your camera state.");
+    }
   }, []);
 
   const toggleCandidateMicrophone = useCallback(async () => {
@@ -406,16 +433,18 @@ export default function CandidateAssessmentPage() {
      CONNECTED HOOKS
      ---------------------------------------------------------- */
 
+  const effectiveAccessCode = session?.accessCode || accessCode;
+
   const interviewer =
     useInterviewerFollowUps(
-      accessCode,
+      effectiveAccessCode,
       view === "assessment" ||
         view === "review" ||
         view === "interviewer",
     );
 
   const aiStream =
-    useAiStream(accessCode);
+    useAiStream(effectiveAccessCode);
 
   /* ----------------------------------------------------------
      INTEGRITY MONITORING
@@ -428,7 +457,7 @@ export default function CandidateAssessmentPage() {
 
   const integrity =
     useAssessmentIntegrity({
-      accessCode,
+      accessCode: effectiveAccessCode,
       active:
         session?.status === "in_progress" &&
         (view === "assessment" ||
@@ -599,6 +628,8 @@ export default function CandidateAssessmentPage() {
       const cameraPublication = room.localParticipant.getTrackPublication(
         Track.Source.Camera,
       );
+      candidateCameraPublicationRef.current = cameraPublication ?? null;
+      setCandidateCameraMuted(cameraPublication?.isMuted ?? false);
       (cameraPublication?.track as LocalVideoTrack | undefined)?.setPublishingQuality(
         candidateLowBandwidthModeRef.current ? VideoQuality.LOW : VideoQuality.HIGH,
       );
@@ -678,7 +709,7 @@ export default function CandidateAssessmentPage() {
             token: string;
             url: string;
           }>(
-            `/sessions/access/${encodeURIComponent(accessCode)}/livekit-token`,
+            `/sessions/access/${encodeURIComponent(effectiveAccessCode)}/livekit-token`,
           );
 
           if (cancelled) return false;
@@ -732,6 +763,11 @@ export default function CandidateAssessmentPage() {
           room,
           session?.candidateName || "Candidate",
         );
+        if (!candidateCaptionControllerRef.current.supported) {
+          setCaptionUnsupported(candidateCaptionControllerRef.current.unsupportedReason ?? "");
+        } else {
+          setCaptionUnsupported("");
+        }
         candidateCaptionControllerRef.current.start();
 
         console.log("[CandidateLiveKit] Published camera and microphone in room", actualSessionId);
@@ -2278,7 +2314,7 @@ export default function CandidateAssessmentPage() {
   if (view === "camera") {
     return (
       <CameraPreflight
-        accessCode={accessCode}
+        accessCode={effectiveAccessCode}
         onCancel={() =>
           setView("welcome")
         }
@@ -2343,16 +2379,19 @@ export default function CandidateAssessmentPage() {
 
       <FloatingCandidateCamera
         candidateName={session?.candidateName || "Candidate"}
+        cameraMuted={candidateCameraMuted}
         connectionState={candidateMediaConnection}
         connectionQuality={candidateConnectionQuality}
         lowBandwidthMode={candidateLowBandwidthMode}
         interviewerMicrophoneState={interviewerMicrophoneState}
         microphoneMuted={candidateMicrophoneMuted}
         screenShareState={candidateScreenShareState}
+        captionNotice={captionUnsupported}
         onToggleLowBandwidth={() => {
           setCandidateLowBandwidthOverride(!candidateLowBandwidthMode);
         }}
         onToggleMicrophone={() => void toggleCandidateMicrophone()}
+        onToggleCamera={() => void toggleCandidateCamera()}
         onToggleScreenShare={() => void toggleCandidateScreenShare()}
         stream={
           candidateCameraStream

@@ -118,7 +118,7 @@ export default function CandidateDetailPage() {
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
                 <div className="space-y-4">
                   <section className="grid gap-4 lg:grid-cols-2">
-                    <SessionDetailsCard onMonitor={() => setShowInterview(true)} session={session} template={template} />
+                    <SessionDetailsCard onMonitor={() => setShowInterview(true)} session={withInterviewerLabel(session)} template={template} />
                     <SkillsCard report={report} template={template} />
                   </section>
                   <RecentActivityCard notes={notes} responses={responses} session={session} />
@@ -149,6 +149,7 @@ export default function CandidateDetailPage() {
 }
 
 function ProfileHero({ session, template }: { session: InterviewSession; template: AssessmentTemplate }) {
+  const interviewers = sessionInterviewerNames(session);
   return (
     <section className="card grid gap-3 rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)] p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
       <div className="flex flex-wrap items-center gap-3">
@@ -169,11 +170,21 @@ function ProfileHero({ session, template }: { session: InterviewSession; templat
       </div>
       <dl className="grid content-center gap-2 border-[var(--theme-border)] text-xs lg:border-l lg:pl-5">
         <Meta label="Template" value={template.title} />
-        <Meta label="Interviewer" value={session.interviewerName ?? "Workspace team"} />
+        <Meta label={interviewers.length > 1 ? "Interviewers" : "Interviewer"} value={interviewers.join(", ") || "Workspace team"} />
         <Meta label="Modules" value={tagList(template)} />
       </dl>
     </section>
   );
+}
+
+function sessionInterviewerNames(session: InterviewSession): string[] {
+  const assigned = (session.interviewers ?? []).map((name) => name.trim()).filter(Boolean);
+  return assigned.length ? assigned : session.interviewerName?.trim() ? [session.interviewerName.trim()] : [];
+}
+
+function withInterviewerLabel(session: InterviewSession): InterviewSession {
+  const names = sessionInterviewerNames(session);
+  return names.length ? { ...session, interviewerName: names.join(", ") } : session;
 }
 
 type TabId = "overview" | "report";

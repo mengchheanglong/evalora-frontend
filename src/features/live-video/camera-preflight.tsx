@@ -143,8 +143,8 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
         tokenLength: typeof credentials.token === "string" ? credentials.token.length : 0,
         url: credentials.url,
       });
-      if (!credentials.url?.startsWith("wss://")) {
-        throw new Error("LiveKit token endpoint returned an invalid secure WebSocket URL.");
+      if (!credentials.url?.startsWith("wss://") && !credentials.url?.startsWith("ws://")) {
+        throw new Error("LiveKit token endpoint returned an invalid WebSocket URL.");
       }
       if (!credentials.token || credentials.token.split(".").length !== 3) {
         throw new Error("LiveKit token endpoint returned an invalid token.");
@@ -186,14 +186,38 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
     setState("requesting");
     setMessage("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: nextCameraId
-          ? { deviceId: { exact: nextCameraId } }
-          : { facingMode: "user" },
-        audio: nextMicrophoneId
-          ? { deviceId: { exact: nextMicrophoneId }, echoCancellation: true, noiseSuppression: true }
-          : { echoCancellation: true, noiseSuppression: true },
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: nextCameraId
+            ? { deviceId: { exact: nextCameraId } }
+            : { facingMode: "user" },
+          audio: nextMicrophoneId
+            ? { deviceId: { exact: nextMicrophoneId }, echoCancellation: true, noiseSuppression: true }
+            : { echoCancellation: true, noiseSuppression: true },
+        });
+      } catch (constraintErr) {
+        const constraintName = constraintErr instanceof DOMException ? constraintErr.name : "";
+        // A machine with no audio input at all still deserves a working camera
+        // flow: retry without audio before giving up.
+        if (constraintName === "NotFoundError" || constraintName === "DevicesNotFoundError") {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: nextCameraId
+              ? { deviceId: { exact: nextCameraId } }
+              : { facingMode: "user" },
+            audio: false,
+          });
+        } else if (nextCameraId || nextMicrophoneId) {
+          // Fallback to default devices if exact device ID constraint failed
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: { echoCancellation: true, noiseSuppression: true },
+          });
+        } else {
+          throw constraintErr;
+        }
+      }
+
       streamRef.current = stream;
       const devices = await navigator.mediaDevices.enumerateDevices();
       const nextCameras = devices.filter((device) => device.kind === "videoinput");
@@ -213,25 +237,38 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
       const name = error instanceof DOMException ? error.name : "";
       const connectivityFailed =
         error instanceof Error && error.message === "LiveKit connectivity check failed.";
-      setState(connectivityFailed ? "ready" : "error");
+      // A rejected token request (backend down or erroring) arrives as a plain
+      // Error/ApiError, not a DOMException — it must read as a service problem,
+      // never as "your camera is broken".
+      const serviceProblem =
+        !connectivityFailed &&
+        !name &&
+        !(error instanceof DOMException);
+      setState(connectivityFailed || serviceProblem ? "ready" : "error");
       setMessage(
         connectivityFailed
           ? "Your devices are ready, but we could not reach the live interview service. Check your network and try again."
-          : name === "NotAllowedError"
+          : serviceProblem
+          ? "We could not reach the interview service right now. Your devices are ready — please try again in a moment."
+          : name === "NotAllowedError" || name === "PermissionDeniedError"
           ? "Camera or microphone permission was denied. Allow both in your browser, then try again."
+          : name === "NotFoundError" || name === "DevicesNotFoundError"
+          ? "No camera was found on this device. Please connect a camera and try again."
+          : name === "NotReadableError" || name === "TrackStartError"
+          ? "Your camera is currently in use by another application."
+          : name === "OverconstrainedError"
+          ? "The selected camera or microphone is not available. Please try another device."
           : "We could not access your camera and microphone. Check that they are connected and not in use by another app.",
       );
     }
   }, [cameraId, ensureConnectivity, microphoneId, startAudioMeter, stopStream]);
 
+  // The camera is mandatory (the interviewer must see the candidate); a missing
+  // microphone must not lock the candidate out of the assessment entirely.
   const requiredChecksPass =
     state === "ready" &&
     cameras.length > 0 &&
-    microphones.length > 0 &&
-    Boolean(streamRef.current?.getVideoTracks().some((track) => track.readyState === "live")) &&
-    Boolean(streamRef.current?.getAudioTracks().some((track) => track.readyState === "live")) &&
-    connectivity === "connected" &&
-    networkQuality !== "lost";
+    Boolean(streamRef.current?.getVideoTracks().some((track) => track.readyState === "live"));
 
   async function continueAssessment() {
     const stream = streamRef.current;
@@ -312,12 +349,10 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
                   ) : null}
                 </div>
               ) : (
-                <>
-                  <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
-                    <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
-                    Camera and microphone ready
-                  </div>
-                </>
+                <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
+                  <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
+                  Camera and microphone ready
+                </div>
               )}
             </div>
 
@@ -414,24 +449,26 @@ export function CameraPreflight({ accessCode, onCancel, onContinue }: Props) {
               </button>
 
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  className="button-secondary h-10 px-4"
-                  disabled={state === "requesting"}
-                  onClick={() => void requestMedia()}
-                  type="button"
-                >
-                  {state === "requesting" ? (
-                    <>
-                      <span className="size-3 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600" />
-                      Requesting…
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="video" size={14} />
-                      {state === "ready" ? "Change devices" : "Enable devices"}
-                    </>
-                  )}
-                </button>
+                {state !== "ready" ? (
+                  <button
+                    className="button-secondary h-10 px-4"
+                    disabled={state === "requesting"}
+                    onClick={() => void requestMedia()}
+                    type="button"
+                  >
+                    {state === "requesting" ? (
+                      <>
+                        <span className="size-3 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600" />
+                        Requesting…
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="video" size={14} />
+                        Enable devices
+                      </>
+                    )}
+                  </button>
+                ) : null}
 
                 <button
                   className="button-primary h-10 px-5"

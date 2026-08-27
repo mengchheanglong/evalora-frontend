@@ -6,10 +6,13 @@
     "dev": "next dev --webpack --hostname 0.0.0.0 --port 3010",
     "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0 --port 3010",
+    "test": "tsx --test test/*.test.mjs",
     "test:errors": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/api-errors.test.mjs",
     "test:navigation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/candidate-interview-navigation.test.mjs",
     "test:responses": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/candidate-response-storage.test.mjs",
     "test:integrity": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/integrity-signals.test.mjs",
+    "test:drafts": "tsx --test test/template-drafts.test.mjs",
+    "test:captions": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test test/live-captions.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
@@ -34,6 +37,7 @@
     "eslint": "^9.17.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.2"
   }

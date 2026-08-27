@@ -168,6 +168,23 @@ Clone request:
 
 The backend derives `createdById` and organization ownership from the JWT. A template contains title, description, target role, time limit, scoring rules, ordered modules, weights, settings, and questions.
 
+## AI-assisted template drafts
+
+All draft routes require workspace authentication and are scoped to the JWT organization.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/templates/drafts` | Generate a draft from an uploaded job description or a written idea. Rate limited per user (default 10/hour → `429`). |
+| GET | `/templates/drafts` | List draft summaries for the workspace. |
+| GET | `/templates/drafts/:id` | Read one draft plus the original AI proposal. |
+| PATCH | `/templates/drafts/:id` | Replace the editable draft. Re-validated and re-weighted server-side. |
+| POST | `/templates/drafts/:id/confirm` | Create the real template from the stored draft. Returns the template. `409` if already published/discarded. |
+| DELETE | `/templates/drafts/:id` | Discard a draft. |
+
+`POST /templates/drafts` accepts `multipart/form-data` with a `document` file (PDF, DOCX, or plain text, max 5 MB) plus optional `idea` and `roleType` fields, or a JSON body `{ "idea", "roleType" }`. The response is the draft DTO: `{ id, status, source, sourceFileName?, provider, draft, aiProposal, publishedTemplateId?, ... }` where `draft.modules[]` carry integer `weight` percentages that always total exactly 100, plus `weightRationale` and 1-5 `weightSignals` explaining each suggestion. `provider` is `"deepseek"` or `"fallback"` (blueprint-derived draft when the model is unavailable).
+
+A draft is not an assessment: nothing is published until the confirm endpoint is called, and the backend re-validates and re-balances everything a client sends — weights in a PATCH are treated as relative intent. The PATCH body is strictly whitelisted; send only `title`, `description`, `roleType`, `timeLimitMin`, and `modules[{ key, type, title, description, weight, weightRationale, weightSignals, questions[{ key, questionText, questionType, options, rubric }] }]`.
+
 ## Sessions
 
 | Method | Endpoint | Access | Description |
