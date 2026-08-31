@@ -199,7 +199,7 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
             {/* Right: Interview Answers */}
             <div className="flex min-w-[300px] flex-1 flex-col overflow-hidden bg-white border-l border-gray-200">
               <aside className="live-interview-transcript min-h-0 flex-1 overflow-y-auto p-4 text-gray-900">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Interview answers</p>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Interview answers</p>
                 <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
               </aside>
             </div>
@@ -207,8 +207,8 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         ) : (
           /* Normal mode: Interview Answers fills the workspace */
           <div className="min-h-0 flex-1 overflow-hidden p-4">
-            <div className="live-interview-transcript h-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 text-gray-900 shadow-lg">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Interview answers</p>
+            <div className="live-interview-transcript h-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 sm:p-6 text-gray-900 shadow-lg">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Interview answers</p>
               <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
             </div>
           </div>

@@ -1480,31 +1480,30 @@ textarea.control {
   color: var(--alert-info-text) !important;
 }
 
-/* The live interview is a focused, low-glare media workspace. Keep this
-   surface dark even when the surrounding application uses Light or Ocean. */
+/* The live interview workspace uses a light theme for better readability */
 .live-interview-workspace,
 .live-interview-workspace main {
-  background: #080c12 !important;
-  color: #f8fafc !important;
+  background: #f9fafb !important;
+  color: #111827 !important;
 }
 
 .live-interview-workspace header {
-  background: rgba(16, 22, 31, 0.96) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  color: #f8fafc !important;
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
 }
 
 .live-interview-workspace aside,
 .live-interview-transcript,
 .live-interview-panel {
-  background-color: #111827 !important;
-  border-color: #273244 !important;
-  color: #f1f5f9 !important;
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
 }
 
 .live-interview-transcript [class~="bg-white"],
 .live-interview-panel [class~="bg-white"] {
-  background-color: #151e2b !important;
+  background-color: #ffffff !important;
 }
 
 .live-interview-transcript [class*="bg-neutral-50"],
@@ -1515,14 +1514,14 @@ textarea.control {
 .live-interview-panel [class*="bg-gray-50"],
 .live-interview-panel [class*="bg-neutral-100"],
 .live-interview-panel [class*="bg-gray-100"] {
-  background-color: #1b2635 !important;
+  background-color: #f9fafb !important;
 }
 
 .live-interview-transcript [class*="border-neutral"],
 .live-interview-transcript [class*="border-gray"],
 .live-interview-panel [class*="border-neutral"],
 .live-interview-panel [class*="border-gray"] {
-  border-color: #334155 !important;
+  border-color: #e5e7eb !important;
 }
 
 .live-interview-transcript [class*="text-neutral-900"],
@@ -1533,7 +1532,7 @@ textarea.control {
 .live-interview-panel [class*="text-neutral-800"],
 .live-interview-panel [class*="text-gray-900"],
 .live-interview-panel [class*="text-gray-800"] {
-  color: #f1f5f9 !important;
+  color: #111827 !important;
 }
 
 .live-interview-transcript [class*="text-neutral-700"],
@@ -1544,7 +1543,7 @@ textarea.control {
 .live-interview-panel [class*="text-neutral-600"],
 .live-interview-panel [class*="text-gray-700"],
 .live-interview-panel [class*="text-gray-600"] {
-  color: #cbd5e1 !important;
+  color: #374151 !important;
 }
 
 .live-interview-transcript [class*="text-neutral-500"],
@@ -1555,12 +1554,12 @@ textarea.control {
 .live-interview-panel [class*="text-neutral-400"],
 .live-interview-panel [class*="text-gray-500"],
 .live-interview-panel [class*="text-gray-400"] {
-  color: #94a3b8 !important;
+  color: #6b7280 !important;
 }
 
 .live-interview-panel input,
 .live-interview-panel textarea {
-  background-color: #0f1722 !important;
-  border-color: #334155 !important;
-  color: #f1f5f9 !important;
+  background-color: #ffffff !important;
+  border-color: #d1d5db !important;
+  color: #111827 !important;
 }
