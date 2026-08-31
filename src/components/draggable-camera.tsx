@@ -31,6 +31,7 @@ export function DraggableCamera({
   });
   const [dragging, setDragging] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const dragStart = useRef({ x: 0, y: 0, posx: 0, posy: 0 });
 
   const handlePointerDown = useCallback(
@@ -62,6 +63,32 @@ export function DraggableCamera({
     setDragging(false);
   }, []);
 
+  // Zoom handlers
+  const handleZoomIn = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoom((z) => Math.min(z + 0.25, 3));
+  }, []);
+
+  const handleZoomOut = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoom((z) => Math.max(z - 0.25, 0.5));
+  }, []);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoom((z) => z === 1 ? 2 : 1);
+  }, []);
+
+  // Scroll wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom((z) => Math.max(0.5, Math.min(3, z + delta)));
+    }
+  }, []);
+
   return (
     <div
       className="fixed z-[99999] select-none"
@@ -74,7 +101,7 @@ export function DraggableCamera({
         onPointerUp={handlePointerUp}
       >
         {/* Video */}
-        <div className="relative aspect-video bg-neutral-900">
+        <div className="relative aspect-video overflow-hidden bg-neutral-900" onDoubleClick={handleDoubleClick} onWheel={handleWheel}>
           <video
             ref={videoRef}
             autoPlay
@@ -83,7 +110,8 @@ export function DraggableCamera({
             onPlaying={() => setPlaying(true)}
             onWaiting={() => setPlaying(false)}
             playsInline
-            className="block h-full w-full object-cover"
+            className="block h-full w-full object-cover transition-transform duration-150"
+            style={{ transform: `scale(${zoom})` }}
           />
 
           {connectionState === "reconnecting" ? (
@@ -130,6 +158,32 @@ export function DraggableCamera({
             </p>
           </div>
           <div className="flex items-center gap-1">
+            {/* Zoom controls */}
+            <div className="flex items-center gap-0.5 rounded-full bg-neutral-100 px-1 py-0.5">
+              <button
+                className="flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-neutral-600 hover:bg-neutral-200 disabled:opacity-40"
+                disabled={zoom <= 0.5}
+                onClick={handleZoomOut}
+                onPointerDown={(e) => e.stopPropagation()}
+                title="Zoom out"
+                type="button"
+              >
+                −
+              </button>
+              <span className="min-w-[24px] text-center text-[8px] font-semibold text-neutral-500">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                className="flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-neutral-600 hover:bg-neutral-200 disabled:opacity-40"
+                disabled={zoom >= 3}
+                onClick={handleZoomIn}
+                onPointerDown={(e) => e.stopPropagation()}
+                title="Zoom in"
+                type="button"
+              >
+                +
+              </button>
+            </div>
             <button
               className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
                 lowBandwidthMode
