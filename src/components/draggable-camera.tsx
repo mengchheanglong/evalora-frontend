@@ -100,22 +100,6 @@ export function DraggableCamera({
     };
   }, [resizing]);
 
-  // Size presets
-  const handleSizeSmall = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSize(160);
-  }, []);
-
-  const handleSizeMedium = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSize(240);
-  }, []);
-
-  const handleSizeLarge = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSize(360);
-  }, []);
-
   return (
     <div
       className="fixed z-[99999] select-none"
@@ -184,36 +168,6 @@ export function DraggableCamera({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            {/* Size controls */}
-            <div className="flex items-center gap-0.5 rounded-full bg-neutral-100 px-1 py-0.5">
-              <button
-                className="flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-neutral-600 hover:bg-neutral-200"
-                onClick={handleSizeSmall}
-                onPointerDown={(e) => e.stopPropagation()}
-                title="Small (160px)"
-                type="button"
-              >
-                S
-              </button>
-              <button
-                className="flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-neutral-600 hover:bg-neutral-200"
-                onClick={handleSizeMedium}
-                onPointerDown={(e) => e.stopPropagation()}
-                title="Medium (240px)"
-                type="button"
-              >
-                M
-              </button>
-              <button
-                className="flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-neutral-600 hover:bg-neutral-200"
-                onClick={handleSizeLarge}
-                onPointerDown={(e) => e.stopPropagation()}
-                title="Large (360px)"
-                type="button"
-              >
-                L
-              </button>
-            </div>
             <button
               className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
                 lowBandwidthMode
