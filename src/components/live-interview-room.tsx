@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/icons";
+import { DraggableCamera } from "@/components/draggable-camera";
 import { CandidateLiveCamera, type CameraStatus, type MediaConnectionQuality } from "@/components/livekit/candidate-live-camera";
 import { SessionTranscriptView } from "@/components/session-transcript";
 import { useInterviewSocket } from "@/components/use-interview-socket";
@@ -27,12 +28,7 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
   const idempotencyKey = useRef(crypto.randomUUID());
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const screenShareVideoRef = useRef<HTMLVideoElement | null>(null);
-  const stageRef = useRef<HTMLElement | null>(null);
-  const cameraTileRef = useRef<HTMLDivElement | null>(null);
-  const cameraDragRef = useRef({ pointerX: 0, pointerY: 0, startX: 0, startY: 0 });
-  const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [candidateScreenSharing, setCandidateScreenSharing] = useState(false);
-  const [candidateSpeaking, setCandidateSpeaking] = useState(false);
   const [candidateMicrophoneState, setCandidateMicrophoneState] = useState<"waiting" | "live" | "muted">("waiting");
   const [candidateConnectionQuality, setCandidateConnectionQuality] = useState<MediaConnectionQuality>("lost");
   const [candidateCameraStatus, setCandidateCameraStatus] = useState<CameraStatus>("connecting");
@@ -45,8 +41,6 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [notes, setNotes] = useState("");
   const [showSettings, setShowSettings] = useState(false);
-  const [cameraPosition, setCameraPosition] = useState<{ x: number; y: number } | null>(null);
-  const [cameraDragging, setCameraDragging] = useState(false);
 
   const { connection, participants } = useInterviewSocket({ sessionId, enabled: true });
   const candidateName = participants.filter((item) => item.role === "candidate").map((item) => item.name).join(", ") || "Candidate";
@@ -64,14 +58,9 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
 
   const handleCaption = useCallback((caption: LiveCaption) => {
     setLiveCaptions((current) => [...current.filter((item) => item.id !== caption.id), caption].sort((a, b) => a.timestamp - b.timestamp).slice(-20));
-    setCandidateSpeaking(true);
-    if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
-    speakingTimerRef.current = setTimeout(() => setCandidateSpeaking(false), 1_800);
   }, []);
 
-  useEffect(() => () => {
-    if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
-  }, []);
+
 
   useEffect(() => {
     let active = true;
@@ -103,43 +92,12 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); void sendQuestion(); }
   }
 
-  function handleCameraPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (!candidateScreenSharing || !stageRef.current || !cameraTileRef.current) return;
-    const stageBounds = stageRef.current.getBoundingClientRect();
-    const tileBounds = cameraTileRef.current.getBoundingClientRect();
-    if (event.clientX >= tileBounds.right - 22 && event.clientY >= tileBounds.bottom - 22) {
-      return;
-    }
-    const startX = tileBounds.left - stageBounds.left;
-    const startY = tileBounds.top - stageBounds.top;
-    cameraDragRef.current = {
-      pointerX: event.clientX,
-      pointerY: event.clientY,
-      startX,
-      startY,
-    };
-    setCameraPosition({ x: startX, y: startY });
-    setCameraDragging(true);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function handleCameraPointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!cameraDragging || !stageRef.current || !cameraTileRef.current) return;
-    const stageBounds = stageRef.current.getBoundingClientRect();
-    const tileBounds = cameraTileRef.current.getBoundingClientRect();
-    const nextX = cameraDragRef.current.startX + event.clientX - cameraDragRef.current.pointerX;
-    const nextY = cameraDragRef.current.startY + event.clientY - cameraDragRef.current.pointerY;
-    setCameraPosition({
-      x: Math.max(0, Math.min(stageBounds.width - tileBounds.width, nextX)),
-      y: Math.max(0, Math.min(stageBounds.height - tileBounds.height, nextY)),
-    });
-  }
-
   const qualityDot = candidateConnectionQuality === "excellent" ? "bg-emerald-400" : candidateConnectionQuality === "good" ? "bg-sky-400" : candidateConnectionQuality === "poor" ? "bg-amber-400" : "bg-rose-400";
   const tabs: Array<[WorkspaceTab, string, IconName]> = [["questions", "Questions", "question"], ["captions", "Captions", "waves"], ["notes", "Notes", "pencil"], ["chat", "Chat", "message"]];
 
   return (
     <div className="live-interview-workspace fixed inset-0 z-50 flex min-h-0 flex-col bg-[#080c12] text-white">
+      {/* Header - compact dark header */}
       <header className="relative z-40 flex h-16 shrink-0 items-center border-b border-white/10 bg-[#10161f] px-4 sm:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <button aria-label="Back to candidate" className="grid size-9 shrink-0 place-items-center rounded-lg text-white/65 hover:bg-white/10 hover:text-white" onClick={onClose} type="button"><Icon className="rotate-90" name="chevron" size={17} /></button>
@@ -159,39 +117,68 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         </div>
       </header>
 
-      <main className="relative grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden p-3 pb-24 lg:grid-cols-2 lg:gap-4 lg:p-4 lg:pb-24">
-        <section ref={stageRef} className="relative min-h-0 overflow-hidden rounded-xl border border-white/10 bg-[#05080d] shadow-2xl">
-          <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${candidateScreenSharing ? "opacity-100" : "pointer-events-none opacity-0"}`}><video ref={screenShareVideoRef} autoPlay className="size-full object-contain" playsInline /></div>
-          <div
-            ref={cameraTileRef}
-            className={`${candidateScreenSharing ? `absolute z-20 h-[180px] min-h-[120px] w-[240px] min-w-[180px] resize touch-none ${cameraDragging ? "cursor-grabbing" : "cursor-grab"}` : "absolute inset-0"} max-h-full max-w-full overflow-hidden rounded-xl bg-[#111827] shadow-2xl transition-[width,height] duration-300`}
-            onPointerDown={handleCameraPointerDown}
-            onPointerMove={handleCameraPointerMove}
-            onPointerUp={() => setCameraDragging(false)}
-            onPointerCancel={() => setCameraDragging(false)}
-            style={candidateScreenSharing
-              ? cameraPosition
-                ? { left: cameraPosition.x, top: cameraPosition.y }
-                : { bottom: 20, right: 20 }
-              : undefined}
-          >
-            <video ref={cameraVideoRef} autoPlay muted className="size-full object-cover" playsInline />
-            {candidateCameraStatus !== "connected" ? <div className="absolute inset-0 grid place-items-center bg-[#111827] text-center"><div><span className="mx-auto block size-5 animate-spin rounded-full border-2 border-white/20 border-t-white/80" /><p className="mt-3 text-xs text-white/60">{candidateCameraStatus === "reconnecting" ? "Reconnecting camera…" : "Waiting for candidate video…"}</p></div></div> : null}
-            <div className={`absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/90 via-black/45 to-transparent ${candidateScreenSharing ? "p-3" : "p-5 sm:p-7"}`}>
-              <div><p className={`${candidateScreenSharing ? "text-sm" : "text-lg"} font-semibold`}>{candidateName}</p><p className={`mt-1 inline-flex items-center gap-1.5 ${candidateScreenSharing ? "text-[10px]" : "text-xs"} ${candidateSpeaking ? "text-emerald-300" : "text-white/60"}`}><span className={`size-1.5 rounded-full ${candidateSpeaking ? "animate-pulse bg-emerald-400" : candidateMicrophoneState === "muted" ? "bg-rose-400" : "bg-white/40"}`} />{candidateMicrophoneState === "muted" ? "Microphone muted" : candidateSpeaking ? "Speaking" : "Mic live"}</p></div>
-              <span className={`inline-flex items-center gap-1.5 rounded-full bg-black/50 px-2 py-1 ${candidateScreenSharing ? "text-[9px]" : "text-[11px]"} font-semibold text-white/80 backdrop-blur`}><span className={`size-1.5 rounded-full ${qualityDot}`} /><span className="capitalize">{candidateConnectionQuality}</span></span>
+      {/* Main content area */}
+      <main className="relative flex min-h-0 flex-1 overflow-hidden">
+        {/* Screen sharing mode: 50/50 split */}
+        {candidateScreenSharing ? (
+          <>
+            {/* Left: Candidate's shared screen */}
+            <div className="relative flex-1 overflow-hidden border-r border-white/10 bg-[#05080d]">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <video ref={screenShareVideoRef} autoPlay className="size-full object-contain" playsInline />
+              </div>
+              <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-lg bg-black/65 px-3 py-2 text-xs font-semibold text-white/85 backdrop-blur">
+                <Icon name="code" size={15} />
+                Candidate screen · Live workspace
+              </div>
+              {/* Floating camera PiP over the shared screen */}
+              <div className="absolute bottom-4 right-4 z-20">
+                <DraggableCamera
+                  videoRef={cameraVideoRef}
+                  connectionState={candidateCameraStatus}
+                  connectionQuality={candidateConnectionQuality}
+                  label={candidateName}
+                  lowBandwidthMode={lowBandwidthMode}
+                  microphoneState={candidateMicrophoneState}
+                />
+              </div>
+            </div>
+
+            {/* Right: Interview Answers */}
+            <div className="flex w-[45%] min-w-[400px] flex-col overflow-hidden bg-[#111827]">
+              <aside className="live-interview-transcript min-h-0 flex-1 overflow-y-auto p-4 text-white">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
+                <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
+              </aside>
+            </div>
+          </>
+        ) : (
+          /* Normal mode: Interview Answers fills the workspace */
+          <div className="min-h-0 flex-1 overflow-hidden p-4">
+            <div className="live-interview-transcript h-full overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-6 text-white shadow-2xl">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
+              <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
             </div>
           </div>
-          {candidateScreenSharing ? <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-lg bg-black/65 px-3 py-2 text-xs font-semibold text-white/85 backdrop-blur"><Icon name="code" size={15} />Candidate screen · Live workspace</div> : null}
-        </section>
+        )}
 
-        <aside className="live-interview-transcript min-h-0 overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-4 text-white shadow-2xl">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
-          <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
-        </aside>
+        {/* Floating candidate camera PiP - only in normal mode */}
+        {!candidateScreenSharing && (
+          <div className="absolute bottom-24 right-6 z-30">
+            <DraggableCamera
+              videoRef={cameraVideoRef}
+              connectionState={candidateCameraStatus}
+              connectionQuality={candidateConnectionQuality}
+              label={candidateName}
+              lowBandwidthMode={lowBandwidthMode}
+              microphoneState={candidateMicrophoneState}
+            />
+          </div>
+        )}
 
+        {/* Tool panel drawer - right side */}
         {workspaceTab ? (
-          <aside className="absolute bottom-24 right-4 top-4 z-30 flex w-[min(390px,calc(100%-32px))] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#111827] shadow-2xl">
+          <div className="absolute bottom-0 right-0 top-0 z-30 flex w-[min(380px,calc(100%-32px))] flex-col overflow-hidden border-l border-white/10 bg-[#111827] shadow-2xl">
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 px-4">
               <p className="text-sm font-semibold capitalize text-white">{workspaceTab}</p>
               <button aria-label="Close panel" className="grid size-7 place-items-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white" onClick={() => setWorkspaceTab(null)} type="button"><Icon name="x" size={15} /></button>
@@ -202,14 +189,16 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
               {workspaceTab === "notes" ? <NotesPanel notes={notes} updateNotes={updateNotes} /> : null}
               {workspaceTab === "chat" ? <EmptyChat /> : null}
             </div>
-          </aside>
+          </div>
         ) : null}
 
+        {/* Bottom toolbar */}
         <nav className="absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-[#111827]/90 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Interview tools">
           {tabs.map(([tab, label, icon]) => <button className={`relative flex min-w-[72px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium transition ${workspaceTab === tab ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/[0.06] hover:text-white"}`} key={tab} onClick={() => setWorkspaceTab((current) => current === tab ? null : tab)} type="button"><Icon name={icon} size={17} /><span>{label}</span>{tab === "captions" && liveCaptions.length ? <span className="absolute right-2 top-1.5 size-1.5 rounded-full bg-emerald-400" /> : null}</button>)}
         </nav>
       </main>
 
+      {/* Hidden CandidateLiveCamera for LiveKit signaling */}
       <div className="sr-only" aria-hidden><CandidateLiveCamera compact externalVideoRef={cameraVideoRef} externalScreenShareRef={screenShareVideoRef} lowBandwidthMode={lowBandwidthMode} interviewerMicrophoneMuted={interviewerMicrophoneMuted} onConnectionQualityChange={setCandidateConnectionQuality} onCaption={handleCaption} onInterviewerMicrophoneStateChange={setInterviewerMicrophoneState} onMicrophoneStateChange={setCandidateMicrophoneState} onScreenShareChange={setCandidateScreenSharing} onStatusChange={setCandidateCameraStatus} sessionId={sessionId} /></div>
     </div>
   );
