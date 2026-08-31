@@ -131,28 +131,27 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
     };
   }, [isDraggingSplitter]);
 
-  const qualityDot = candidateConnectionQuality === "excellent" ? "bg-emerald-400" : candidateConnectionQuality === "good" ? "bg-sky-400" : candidateConnectionQuality === "poor" ? "bg-amber-400" : "bg-rose-400";
   const tabs: Array<[WorkspaceTab, string, IconName]> = [["questions", "Questions", "question"], ["captions", "Captions", "waves"], ["notes", "Notes", "pencil"], ["chat", "Chat", "message"]];
 
   return (
-    <div className="live-interview-workspace fixed inset-0 z-50 flex min-h-0 flex-col bg-slate-900 text-white">
+    <div className="live-interview-workspace fixed inset-0 z-50 flex min-h-0 flex-col bg-gray-50 text-gray-900">
       {/* Header - compact dark header */}
-      <header className="relative z-40 flex h-16 shrink-0 items-center border-b border-white/10 bg-slate-800 px-4 sm:px-5">
+      <header className="relative z-40 flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-4 sm:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <button aria-label="Back to candidate" className="grid size-9 shrink-0 place-items-center rounded-lg text-white/65 hover:bg-white/10 hover:text-white" onClick={onClose} type="button"><Icon className="rotate-90" name="chevron" size={17} /></button>
-          <div className="min-w-0"><p className="truncate text-sm font-semibold">{candidateName} Interview</p><p className="truncate text-[11px] text-white/40">Live assessment workspace</p></div>
+          <button aria-label="Back to candidate" className="grid size-9 shrink-0 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900" onClick={onClose} type="button"><Icon className="rotate-90" name="chevron" size={17} /></button>
+          <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-900">{candidateName} Interview</p><p className="truncate text-[11px] text-gray-500">Live assessment workspace</p></div>
         </div>
-        <div className="hidden items-center gap-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 md:flex">
-          <span className={`inline-flex items-center gap-2 text-xs font-bold ${connection === "live" ? "text-emerald-400" : "text-amber-300"}`}><span className={`size-2 rounded-full ${connection === "live" ? "animate-pulse bg-emerald-400" : "bg-amber-300"}`} />{connection === "live" ? "LIVE" : "CONNECTING"}</span>
-          <span className="h-4 w-px bg-white/10" /><span className="inline-flex items-center gap-2 font-mono text-xs text-white/75"><Icon name="clock" size={14} />{formatDuration(elapsedSeconds)}</span>
-          <span className="h-4 w-px bg-white/10" /><span className="inline-flex items-center gap-2 text-xs text-white/65"><span className={`size-2 rounded-full ${qualityDot}`} /><span className="capitalize">{candidateConnectionQuality}</span> network</span>
+        <div className="hidden items-center gap-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 md:flex">
+          <span className={`inline-flex items-center gap-2 text-xs font-bold ${connection === "live" ? "text-emerald-600" : "text-amber-600"}`}><span className={`size-2 rounded-full ${connection === "live" ? "animate-pulse bg-emerald-500" : "bg-amber-500"}`} />{connection === "live" ? "LIVE" : "CONNECTING"}</span>
+          <span className="h-4 w-px bg-gray-300" /><span className="inline-flex items-center gap-2 font-mono text-xs text-gray-600"><Icon name="clock" size={14} />{formatDuration(elapsedSeconds)}</span>
+          <span className="h-4 w-px bg-gray-300" /><span className="inline-flex items-center gap-2 text-xs text-gray-600"><span className={`size-2 rounded-full ${candidateConnectionQuality === "excellent" ? "bg-emerald-500" : candidateConnectionQuality === "good" ? "bg-sky-500" : candidateConnectionQuality === "poor" ? "bg-amber-500" : "bg-rose-500"}`} /><span className="capitalize">{candidateConnectionQuality}</span> network</span>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
-          <button className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${interviewerMicrophoneMuted ? "border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/10" : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"}`} onClick={() => setInterviewerMicrophoneMuted((value) => !value)} type="button"><Icon name="microphone" size={15} /><span className="hidden lg:inline">{interviewerMicrophoneState === "error" ? "Mic unavailable" : interviewerMicrophoneMuted ? "Mic off" : "Mic on"}</span></button>
-          <div className="relative"><button aria-label="Interview settings" className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/10" onClick={() => setShowSettings((value) => !value)} type="button"><Icon name="settings" size={16} /></button>
-            {showSettings ?            <div className="absolute right-0 top-11 w-64 rounded-xl border border-white/10 bg-slate-700 p-3 shadow-2xl"><p className="text-xs font-semibold">Video quality</p><p className="mt-1 text-[11px] leading-4 text-white/45">Reduce candidate video quality on unstable networks.</p><button className={`mt-3 w-full rounded-lg px-3 py-2 text-xs font-semibold ${lowBandwidthMode ? "bg-amber-400/15 text-amber-200" : "bg-white/[0.06] text-white/70"}`} onClick={() => setLowBandwidthOverride(!lowBandwidthMode)} type="button">{lowBandwidthMode ? "Low bandwidth enabled" : "Enable low bandwidth"}</button></div> : null}
+          <button className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${interviewerMicrophoneMuted ? "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100" : "border-emerald-300 bg-emerald-50 text-emerald-700"}`} onClick={() => setInterviewerMicrophoneMuted((value) => !value)} type="button"><Icon name="microphone" size={15} /><span className="hidden lg:inline">{interviewerMicrophoneState === "error" ? "Mic unavailable" : interviewerMicrophoneMuted ? "Mic off" : "Mic on"}</span></button>
+          <div className="relative"><button aria-label="Interview settings" className="grid size-9 place-items-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100" onClick={() => setShowSettings((value) => !value)} type="button"><Icon name="settings" size={16} /></button>
+            {showSettings ?            <div className="absolute right-0 top-11 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-2xl"><p className="text-xs font-semibold text-gray-900">Video quality</p><p className="mt-1 text-[11px] leading-4 text-gray-500">Reduce candidate video quality on unstable networks.</p><button className={`mt-3 w-full rounded-lg px-3 py-2 text-xs font-semibold ${lowBandwidthMode ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`} onClick={() => setLowBandwidthOverride(!lowBandwidthMode)} type="button">{lowBandwidthMode ? "Low bandwidth enabled" : "Enable low bandwidth"}</button></div> : null}
           </div>
-          <button className="ml-1 hidden h-9 rounded-lg border border-rose-400/30 px-3 text-xs font-semibold text-rose-300 hover:bg-rose-400/10 sm:block" onClick={onClose} type="button">Leave interview</button>
+          <button className="ml-1 hidden h-9 rounded-lg border border-rose-300 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 sm:block" onClick={onClose} type="button">Leave interview</button>
         </div>
       </header>
 
@@ -162,11 +161,11 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         {candidateScreenSharing ? (
           <>
             {/* Left: Candidate's shared screen */}
-            <div className="relative overflow-hidden bg-slate-950" style={{ width: `${splitPosition}%` }}>
+            <div className="relative overflow-hidden bg-gray-100" style={{ width: `${splitPosition}%` }}>
               <div className="absolute inset-0 flex items-center justify-center">
                 <video ref={screenShareVideoRef} autoPlay className="size-full object-contain" playsInline />
               </div>
-              <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-lg bg-slate-900/80 px-3 py-2 text-xs font-semibold text-white/85 backdrop-blur">
+              <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm backdrop-blur">
                 <Icon name="code" size={15} />
                 Candidate screen · Live workspace
               </div>
@@ -186,21 +185,21 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
             {/* Resizable splitter */}
             <div
               ref={splitterRef}
-              className={`relative z-20 flex w-1 shrink-0 cursor-col-resize items-center justify-center bg-white/10 transition-colors hover:bg-white/20 ${isDraggingSplitter ? 'bg-white/30' : ''}`}
+              className={`relative z-20 flex w-1 shrink-0 cursor-col-resize items-center justify-center bg-gray-200 transition-colors hover:bg-gray-300 ${isDraggingSplitter ? 'bg-gray-400' : ''}`}
               onMouseDown={handleSplitterMouseDown}
             >
               <div className="absolute inset-y-0 -left-1 -right-1" /> {/* Wider hit area */}
               <div className="flex flex-col gap-1">
-                <div className="size-1 rounded-full bg-white/40" />
-                <div className="size-1 rounded-full bg-white/40" />
-                <div className="size-1 rounded-full bg-white/40" />
+                <div className="size-1 rounded-full bg-gray-400" />
+                <div className="size-1 rounded-full bg-gray-400" />
+                <div className="size-1 rounded-full bg-gray-400" />
               </div>
             </div>
 
             {/* Right: Interview Answers */}
-            <div className="flex min-w-[300px] flex-1 flex-col overflow-hidden bg-slate-800">
-              <aside className="live-interview-transcript min-h-0 flex-1 overflow-y-auto p-4 text-white">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
+            <div className="flex min-w-[300px] flex-1 flex-col overflow-hidden bg-white border-l border-gray-200">
+              <aside className="live-interview-transcript min-h-0 flex-1 overflow-y-auto p-4 text-gray-900">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Interview answers</p>
                 <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
               </aside>
             </div>
@@ -208,8 +207,8 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         ) : (
           /* Normal mode: Interview Answers fills the workspace */
           <div className="min-h-0 flex-1 overflow-hidden p-4">
-            <div className="live-interview-transcript h-full overflow-y-auto rounded-xl border border-white/10 bg-slate-800 p-6 text-white shadow-2xl">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
+            <div className="live-interview-transcript h-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 text-gray-900 shadow-lg">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Interview answers</p>
               <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
             </div>
           </div>
@@ -231,12 +230,12 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
 
         {/* Tool panel drawer - right side */}
         {workspaceTab ? (
-          <div className="absolute bottom-0 right-0 top-0 z-30 flex w-[min(380px,calc(100%-32px))] flex-col overflow-hidden border-l border-white/10 bg-slate-800 shadow-2xl">
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 px-4">
-              <p className="text-sm font-semibold capitalize text-white">{workspaceTab}</p>
-              <button aria-label="Close panel" className="grid size-7 place-items-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white" onClick={() => setWorkspaceTab(null)} type="button"><Icon name="x" size={15} /></button>
+          <div className="absolute bottom-0 right-0 top-0 z-30 flex w-[min(380px,calc(100%-32px))] flex-col overflow-hidden border-l border-gray-200 bg-white shadow-xl">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4">
+              <p className="text-sm font-semibold capitalize text-gray-900">{workspaceTab}</p>
+              <button aria-label="Close panel" className="grid size-7 place-items-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900" onClick={() => setWorkspaceTab(null)} type="button"><Icon name="x" size={15} /></button>
             </div>
-            <div className="live-interview-panel min-h-0 flex-1 overflow-y-auto bg-slate-800 text-white">
+            <div className="live-interview-panel min-h-0 flex-1 overflow-y-auto bg-white text-gray-900">
               {workspaceTab === "questions" ? <QuestionsPanel error={error} followUps={followUps} handleKeyDown={handleKeyDown} question={question} required={required} sending={sending} setQuestion={setQuestion} setRequired={setRequired} sendQuestion={sendQuestion} /> : null}
               {workspaceTab === "captions" ? <CaptionsPanel cameraStatus={candidateCameraStatus} captions={liveCaptions} microphoneState={candidateMicrophoneState} /> : null}
               {workspaceTab === "notes" ? <NotesPanel notes={notes} updateNotes={updateNotes} /> : null}
@@ -246,8 +245,8 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         ) : null}
 
         {/* Bottom toolbar */}
-        <nav className="absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-slate-800/95 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Interview tools">
-          {tabs.map(([tab, label, icon]) => <button className={`relative flex min-w-[72px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium transition ${workspaceTab === tab ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/[0.06] hover:text-white"}`} key={tab} onClick={() => setWorkspaceTab((current) => current === tab ? null : tab)} type="button"><Icon name={icon} size={17} /><span>{label}</span>{tab === "captions" && liveCaptions.length ? <span className="absolute right-2 top-1.5 size-1.5 rounded-full bg-emerald-400" /> : null}</button>)}
+        <nav className="absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-gray-200 bg-white/95 p-1.5 shadow-xl backdrop-blur-xl" aria-label="Interview tools">
+          {tabs.map(([tab, label, icon]) => <button className={`relative flex min-w-[72px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium transition ${workspaceTab === tab ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`} key={tab} onClick={() => setWorkspaceTab((current) => current === tab ? null : tab)} type="button"><Icon name={icon} size={17} /><span>{label}</span>{tab === "captions" && liveCaptions.length ? <span className="absolute right-2 top-1.5 size-1.5 rounded-full bg-emerald-500" /> : null}</button>)}
         </nav>
       </main>
 
