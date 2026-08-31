@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type DraggableCameraProps = {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -31,8 +31,10 @@ export function DraggableCamera({
   });
   const [dragging, setDragging] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [size, setSize] = useState(200); // width in pixels
+  const [resizing, setResizing] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posx: 0, posy: 0 });
+  const resizeStart = useRef({ x: 0, y: 0, startSize: 0 });
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -61,38 +63,63 @@ export function DraggableCamera({
 
   const handlePointerUp = useCallback(() => {
     setDragging(false);
+    setResizing(false);
   }, []);
 
-  // Zoom handlers
-  const handleZoomIn = useCallback((e: React.MouseEvent) => {
+  // Resize handlers
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    setZoom((z) => Math.min(z + 0.25, 3));
-  }, []);
+    setResizing(true);
+    resizeStart.current = { x: e.clientX, y: e.clientY, startSize: size };
+  }, [size]);
 
-  const handleZoomOut = useCallback((e: React.MouseEvent) => {
+  useEffect(() => {
+    if (!resizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - resizeStart.current.x;
+      const newSize = resizeStart.current.startSize + dx;
+      setSize(Math.max(120, Math.min(500, newSize)));
+    };
+
+    const handleMouseUp = () => {
+      setResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [resizing]);
+
+  // Size presets
+  const handleSizeSmall = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setZoom((z) => Math.max(z - 0.25, 0.5));
+    setSize(160);
   }, []);
 
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+  const handleSizeMedium = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setZoom((z) => z === 1 ? 2 : 1);
+    setSize(240);
   }, []);
 
-  // Scroll wheel zoom
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom((z) => Math.max(0.5, Math.min(3, z + delta)));
-    }
+  const handleSizeLarge = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSize(360);
   }, []);
 
   return (
     <div
       className="fixed z-[99999] select-none"
-      style={{ left: pos.x, top: pos.y, width: 200, touchAction: "none" }}
+      style={{ left: pos.x, top: pos.y, width: size, touchAction: "none" }}
     >
       <div
         className={`overflow-hidden rounded-xl border-2 border-white/80 bg-black shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${dragging ? "cursor-grabbing shadow-[0_12px_48px_rgba(0,0,0,0.6)]" : "cursor-grab"}`}
@@ -101,7 +128,7 @@ export function DraggableCamera({
         onPointerUp={handlePointerUp}
       >
         {/* Video */}
-        <div className="relative aspect-video overflow-hidden bg-neutral-900" onDoubleClick={handleDoubleClick} onWheel={handleWheel}>
+        <div className="relative aspect-video overflow-hidden bg-neutral-900">
           <video
             ref={videoRef}
             autoPlay
@@ -110,8 +137,7 @@ export function DraggableCamera({
             onPlaying={() => setPlaying(true)}
             onWaiting={() => setPlaying(false)}
             playsInline
-            className="block h-full w-full object-cover transition-transform duration-150"
-            style={{ transform: `scale(${zoom})` }}
+            className="block h-full w-full object-cover"
           />
 
           {connectionState === "reconnecting" ? (
@@ -158,30 +184,34 @@ export function DraggableCamera({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            {/* Zoom controls */}
+            {/* Size controls */}
             <div className="flex items-center gap-0.5 rounded-full bg-neutral-100 px-1 py-0.5">
               <button
-                className="flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-neutral-600 hover:bg-neutral-200 disabled:opacity-40"
-                disabled={zoom <= 0.5}
-                onClick={handleZoomOut}
+                className="flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-neutral-600 hover:bg-neutral-200"
+                onClick={handleSizeSmall}
                 onPointerDown={(e) => e.stopPropagation()}
-                title="Zoom out"
+                title="Small (160px)"
                 type="button"
               >
-                −
+                S
               </button>
-              <span className="min-w-[24px] text-center text-[8px] font-semibold text-neutral-500">
-                {Math.round(zoom * 100)}%
-              </span>
               <button
-                className="flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-neutral-600 hover:bg-neutral-200 disabled:opacity-40"
-                disabled={zoom >= 3}
-                onClick={handleZoomIn}
+                className="flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-neutral-600 hover:bg-neutral-200"
+                onClick={handleSizeMedium}
                 onPointerDown={(e) => e.stopPropagation()}
-                title="Zoom in"
+                title="Medium (240px)"
                 type="button"
               >
-                +
+                M
+              </button>
+              <button
+                className="flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-neutral-600 hover:bg-neutral-200"
+                onClick={handleSizeLarge}
+                onPointerDown={(e) => e.stopPropagation()}
+                title="Large (360px)"
+                type="button"
+              >
+                L
               </button>
             </div>
             <button
@@ -211,6 +241,16 @@ export function DraggableCamera({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Resize handle */}
+      <div
+        className="absolute bottom-0 right-0 z-10 flex size-5 cursor-nwse-resize items-center justify-center rounded-tl-lg bg-white/80 shadow-[inset_1px_1px_0_rgba(0,0,0,0.1)] hover:bg-white"
+        onMouseDown={handleResizeMouseDown}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" className="text-neutral-400">
+          <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
       </div>
     </div>
   );
