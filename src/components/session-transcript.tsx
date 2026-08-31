@@ -354,13 +354,13 @@ return (
           INTERVIEW HEADER
           ===================================================== */}
       <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold text-[var(--theme-heading)]">
+            <h2 className="text-lg font-bold text-[var(--theme-heading)]">
               Interview
             </h2>
 
-            <p className="mt-1 text-xs text-[var(--theme-muted)]">
+            <p className="mt-1 text-sm leading-relaxed text-[var(--theme-muted)]">
               {isLive
                 ? `Saved turns from ${transcript.candidate.name} appear here as the interview progresses. Live typing is never exposed.`
                 : truncation.truncated
@@ -370,7 +370,7 @@ return (
             </p>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {isLive ? (
               <PresenceChips
                 participants={participants}
@@ -386,7 +386,7 @@ return (
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--theme-border)] pt-3 text-xs sm:grid-cols-4">
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--theme-border)] pt-3 text-sm sm:grid-cols-4">
           <TranscriptMeta
             label="Template"
             value={transcript.templateTitle ?? "—"}
@@ -489,7 +489,7 @@ return (
           </div>
         ) : null}
 
-        <p className="mt-3 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2 text-xs leading-5 text-[var(--theme-muted)]">
+        <p className="mt-3 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2 text-sm leading-relaxed text-[var(--theme-muted)]">
           <Icon
             className="mr-1.5 inline align-[-2px] text-[var(--theme-faint)]"
             name="shield"
@@ -1553,11 +1553,11 @@ function TranscriptMeta({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[var(--theme-muted)]">
+      <dt className="text-xs font-medium uppercase tracking-wide text-[var(--theme-muted)]">
         {label}
       </dt>
 
-      <dd className="mt-0.5 break-words font-semibold leading-5 text-[var(--theme-heading)]">
+      <dd className="mt-1 break-words text-sm font-semibold leading-5 text-[var(--theme-heading)]">
         {value}
       </dd>
     </div>

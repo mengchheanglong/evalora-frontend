@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type DraggableCameraProps = {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -31,7 +31,10 @@ export function DraggableCamera({
   });
   const [dragging, setDragging] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [size, setSize] = useState(200); // width in pixels
+  const [resizing, setResizing] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posx: 0, posy: 0 });
+  const resizeStart = useRef({ x: 0, y: 0, startSize: 0 });
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -60,12 +63,47 @@ export function DraggableCamera({
 
   const handlePointerUp = useCallback(() => {
     setDragging(false);
+    setResizing(false);
   }, []);
+
+  // Resize handlers
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing(true);
+    resizeStart.current = { x: e.clientX, y: e.clientY, startSize: size };
+  }, [size]);
+
+  useEffect(() => {
+    if (!resizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - resizeStart.current.x;
+      const newSize = resizeStart.current.startSize + dx;
+      setSize(Math.max(120, Math.min(500, newSize)));
+    };
+
+    const handleMouseUp = () => {
+      setResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [resizing]);
 
   return (
     <div
       className="fixed z-[99999] select-none"
-      style={{ left: pos.x, top: pos.y, width: 200, touchAction: "none" }}
+      style={{ left: pos.x, top: pos.y, width: size, touchAction: "none" }}
     >
       <div
         className={`overflow-hidden rounded-xl border-2 border-white/80 bg-black shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${dragging ? "cursor-grabbing shadow-[0_12px_48px_rgba(0,0,0,0.6)]" : "cursor-grab"}`}
@@ -74,7 +112,7 @@ export function DraggableCamera({
         onPointerUp={handlePointerUp}
       >
         {/* Video */}
-        <div className="relative aspect-video bg-neutral-900">
+        <div className="relative aspect-video overflow-hidden bg-neutral-900">
           <video
             ref={videoRef}
             autoPlay
@@ -157,6 +195,16 @@ export function DraggableCamera({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Resize handle */}
+      <div
+        className="absolute bottom-0 right-0 z-10 flex size-5 cursor-nwse-resize items-center justify-center rounded-tl-lg bg-white/80 shadow-[inset_1px_1px_0_rgba(0,0,0,0.1)] hover:bg-white"
+        onMouseDown={handleResizeMouseDown}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" className="text-neutral-400">
+          <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
       </div>
     </div>
   );
