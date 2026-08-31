@@ -526,7 +526,7 @@ return (
           warningLimit={
             transcript.warningLimit ?? 2
           }
-          pointerDetectionEnabled={transcript.pointerDetectionEnabled ?? true}
+          detectionEnabled={transcript.detectionEnabled ?? true}
         />
       ) : null}
 
@@ -1406,33 +1406,33 @@ function IntegrityTimeline({
   events,
   warningCount,
   warningLimit,
-  pointerDetectionEnabled = true,
+  detectionEnabled = true,
 }: {
   sessionId: string;
   events: IntegrityEvent[];
   warningCount: number;
   warningLimit: number;
-  pointerDetectionEnabled?: boolean;
+  detectionEnabled?: boolean;
 }) {
   const ended = warningCount >= warningLimit;
   const [toggleBusy, setToggleBusy] = useState(false);
-  const [localPointerEnabled, setLocalPointerEnabled] = useState(pointerDetectionEnabled);
+  const [localDetectionEnabled, setLocalDetectionEnabled] = useState(detectionEnabled);
 
   // Keep local state in sync with server-provided value.
-  useEffect(() => { setLocalPointerEnabled(pointerDetectionEnabled); }, [pointerDetectionEnabled]);
+  useEffect(() => { setLocalDetectionEnabled(detectionEnabled); }, [detectionEnabled]);
 
   const handleTogglePointer = useCallback(async () => {
-    const next = !localPointerEnabled;
+    const next = !localDetectionEnabled;
     setToggleBusy(true);
     try {
       const result = await updateIntegrityPolicy(sessionId, next);
-      setLocalPointerEnabled(result.pointerDetectionEnabled);
+      setLocalDetectionEnabled(result.detectionEnabled);
     } catch {
       // Revert on failure — server is source of truth.
     } finally {
       setToggleBusy(false);
     }
-  }, [sessionId, localPointerEnabled]);
+  }, [sessionId, localDetectionEnabled]);
 
   return (
     <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]">
@@ -1453,7 +1453,7 @@ function IntegrityTimeline({
         </span>
       </div>
 
-      {/* Pointer detection toggle — only while the session is in progress. */}
+      {/* Integrity detection toggle — only while the session is in progress. */}
       {!ended ? (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 py-2.5">
           <button
@@ -1461,22 +1461,22 @@ function IntegrityTimeline({
             disabled={toggleBusy}
             onClick={handleTogglePointer}
             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-              localPointerEnabled ? "bg-emerald-500" : "bg-neutral-300"
+              localDetectionEnabled ? "bg-emerald-500" : "bg-neutral-300"
             } ${toggleBusy ? "opacity-50" : ""}`}
-            aria-label={localPointerEnabled ? "Pause pointer detection" : "Resume pointer detection"}
+            aria-label={localDetectionEnabled ? "Pause integrity detection" : "Resume integrity detection"}
           >
             <span
               className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-                localPointerEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
+                localDetectionEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
               }`}
             />
           </button>
           <div className="flex flex-col">
             <span className="text-xs font-bold text-[var(--theme-heading)]">
-              Pointer detection: {localPointerEnabled ? "ON" : "OFF"}
+              Detection: {localDetectionEnabled ? "ON" : "OFF"}
             </span>
             <span className="text-[11px] text-[var(--theme-muted)]">
-              {localPointerEnabled ? "Pause while the candidate is sharing their screen." : "Resume pointer detection for this session."}
+              {localDetectionEnabled ? "Pause while asking the candidate to switch tabs or move the pointer outside the screen." : "Resume integrity detection for this session."}
             </span>
           </div>
         </div>

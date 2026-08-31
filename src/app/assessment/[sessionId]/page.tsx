@@ -169,11 +169,11 @@ export default function CandidateAssessmentPage() {
    * session response and synced whenever the session data changes (reload,
    * reconnect, or re-fetch). The candidate cannot change this setting.
    */
-  const [pointerDetectionEnabled, setPointerDetectionEnabled] = useState(true);
+  const [detectionEnabled, setDetectionEnabled] = useState(true);
 
   // Keep pointer toggle in sync with the session data the backend returns.
   useEffect(() => {
-    if (session) setPointerDetectionEnabled(session.pointerDetectionEnabled ?? true);
+    if (session) setDetectionEnabled(session.detectionEnabled ?? true);
   }, [session]);
 
   const [view, setView] =
@@ -463,7 +463,7 @@ export default function CandidateAssessmentPage() {
         (view === "assessment" ||
           view === "review" ||
           view === "interviewer"),
-      pointerDetectionEnabled,
+      detectionEnabled,
     });
 
   /* ============================================================
