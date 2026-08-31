@@ -41,6 +41,10 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [notes, setNotes] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [splitPosition, setSplitPosition] = useState(50); // percentage for left panel
+  const [isDraggingSplitter, setIsDraggingSplitter] = useState(false);
+  const splitterRef = useRef<HTMLDivElement | null>(null);
+  const mainContainerRef = useRef<HTMLElement | null>(null);
 
   const { connection, participants } = useInterviewSocket({ sessionId, enabled: true });
   const candidateName = participants.filter((item) => item.role === "candidate").map((item) => item.name).join(", ") || "Candidate";
@@ -92,6 +96,41 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); void sendQuestion(); }
   }
 
+  // Splitter drag handlers for resizing panels
+  const handleSplitterMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSplitter(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDraggingSplitter) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!mainContainerRef.current) return;
+      const rect = mainContainerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = (x / rect.width) * 100;
+      // Clamp between 25% and 75%
+      setSplitPosition(Math.max(25, Math.min(75, percentage)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingSplitter(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDraggingSplitter]);
+
   const qualityDot = candidateConnectionQuality === "excellent" ? "bg-emerald-400" : candidateConnectionQuality === "good" ? "bg-sky-400" : candidateConnectionQuality === "poor" ? "bg-amber-400" : "bg-rose-400";
   const tabs: Array<[WorkspaceTab, string, IconName]> = [["questions", "Questions", "question"], ["captions", "Captions", "waves"], ["notes", "Notes", "pencil"], ["chat", "Chat", "message"]];
 
@@ -118,12 +157,12 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
       </header>
 
       {/* Main content area */}
-      <main className="relative flex min-h-0 flex-1 overflow-hidden">
-        {/* Screen sharing mode: 50/50 split */}
+      <main ref={mainContainerRef} className="relative flex min-h-0 flex-1 overflow-hidden">
+        {/* Screen sharing mode: resizable split */}
         {candidateScreenSharing ? (
           <>
             {/* Left: Candidate's shared screen */}
-            <div className="relative flex-1 overflow-hidden border-r border-white/10 bg-[#05080d]">
+            <div className="relative overflow-hidden bg-[#05080d]" style={{ width: `${splitPosition}%` }}>
               <div className="absolute inset-0 flex items-center justify-center">
                 <video ref={screenShareVideoRef} autoPlay className="size-full object-contain" playsInline />
               </div>
@@ -144,8 +183,22 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
               </div>
             </div>
 
+            {/* Resizable splitter */}
+            <div
+              ref={splitterRef}
+              className={`relative z-20 flex w-1 shrink-0 cursor-col-resize items-center justify-center bg-white/10 transition-colors hover:bg-white/20 ${isDraggingSplitter ? 'bg-white/30' : ''}`}
+              onMouseDown={handleSplitterMouseDown}
+            >
+              <div className="absolute inset-y-0 -left-1 -right-1" /> {/* Wider hit area */}
+              <div className="flex flex-col gap-1">
+                <div className="size-1 rounded-full bg-white/40" />
+                <div className="size-1 rounded-full bg-white/40" />
+                <div className="size-1 rounded-full bg-white/40" />
+              </div>
+            </div>
+
             {/* Right: Interview Answers */}
-            <div className="flex w-[45%] min-w-[400px] flex-col overflow-hidden bg-[#111827]">
+            <div className="flex min-w-[300px] flex-1 flex-col overflow-hidden bg-[#111827]">
               <aside className="live-interview-transcript min-h-0 flex-1 overflow-y-auto p-4 text-white">
                 <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
                 <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
