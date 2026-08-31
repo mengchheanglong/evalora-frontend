@@ -40,8 +40,8 @@ type Options = {
   accessCode: string;
   /** Only monitor while the assessment is running and before completion. */
   active: boolean;
-  /** Interviewer-controlled toggle for pointer-exit detection. */
-  pointerDetectionEnabled?: boolean;
+  /** Interviewer-controlled toggle for all integrity detection (tab switching, pointer exit, etc.). */
+  detectionEnabled?: boolean;
 };
 
 /**
@@ -52,7 +52,7 @@ type Options = {
  * returns. It never stores or increments a local warning count, so refreshing
  * the page can never reset enforcement.
  */
-export function useAssessmentIntegrity({ accessCode, active, pointerDetectionEnabled = true }: Options) {
+export function useAssessmentIntegrity({ accessCode, active, detectionEnabled = true }: Options) {
   const [state, setState] = useState<IntegrityState>({
     warningCount: 0,
     warningLimit: 2,
@@ -251,6 +251,20 @@ export function useAssessmentIntegrity({ accessCode, active, pointerDetectionEna
     const onPagehide = () => onPageExit("pagehide");
     const onBeforeunload = () => onPageExit("beforeunload");
 
+    // When detection is paused by the interviewer, do NOT attach any integrity listeners.
+    // This prevents ALL events (visibilitychange, pointer_exit, blur, etc.) from being tracked.
+    if (!detectionEnabled) {
+      return () => {
+        disposed = true;
+        if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+        if (pointerTimerRef.current !== null) window.clearTimeout(pointerTimerRef.current);
+        pointerTimerRef.current = null;
+        pointerOutAtRef.current = null;
+        pendingRef.current = null;
+      };
+    }
+
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("blur", onBlur);
     document.addEventListener("pagehide", onPagehide);
@@ -260,7 +274,7 @@ export function useAssessmentIntegrity({ accessCode, active, pointerDetectionEna
     // Pointer-exit listeners: only active when the interviewer toggle is ON.
     // When paused, any pending outside-timer is cancelled immediately.
     // ----------------------------------------------------------------
-    let pointerActive = pointerDetectionEnabled;
+    let pointerActive = detectionEnabled;
     const attachPointer = () => {
       if (!pointerActive) return;
       document.documentElement.addEventListener("mouseleave", onPointerLeave);
@@ -295,19 +309,25 @@ export function useAssessmentIntegrity({ accessCode, active, pointerDetectionEna
       window.removeEventListener("beforeunload", onBeforeunload);
       detachPointer(false);
     };
-  }, [active, pointerDetectionEnabled, beaconDetection, queueSignal]);
+  }, [active, detectionEnabled, beaconDetection, queueSignal]);
 
-  // When the interviewer pauses pointer detection at runtime, cancel any
-  // pending outside-timer and clear the out-at state so the hook is clean
-  // before the next pointer re-entry.
+  // When the interviewer pauses detection at runtime, cancel any
+  // pending timers and clear state so no stale events are sent.
   useEffect(() => {
-    if (pointerDetectionEnabled) return;
+    if (detectionEnabled) return;
+    // Cancel the main debounce timer (visibilitychange, etc.)
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+      pendingRef.current = null;
+    }
+    // Cancel the pointer-outside timer
     if (pointerTimerRef.current !== null) {
       window.clearTimeout(pointerTimerRef.current);
       pointerTimerRef.current = null;
     }
     pointerOutAtRef.current = null;
-  }, [pointerDetectionEnabled]);
+  }, [detectionEnabled]);
 
   const dismiss = useCallback(() => {
     // Only the first-strike warning is dismissable; the forced exit is not.
