@@ -153,9 +153,10 @@ function FloatingConnectionStatus({
 export default function CandidateAssessmentPage() {
   const params = useParams<{ sessionId: string }>();
 
+  // Strip any query parameters that may have been appended by email tracking services (e.g., Gmail)
   const accessCode = decodeURIComponent(
     params.sessionId,
-  );
+  ).split("&")[0];
 
   /* ----------------------------------------------------------
      SESSION
