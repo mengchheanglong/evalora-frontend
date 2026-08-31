@@ -153,6 +153,10 @@ export function apiPut<T>(path: string, body?: unknown, options: Omit<ApiRequest
   return apiRequest<T>(path, { ...options, body, method: "PUT" });
 }
 
+export function apiPatch<T>(path: string, body?: unknown, options: Omit<ApiRequestOptions, "body" | "method"> = {}) {
+  return apiRequest<T>(path, { ...options, body, method: "PATCH" });
+}
+
 export function apiDelete<T>(path: string, body?: unknown, options: Omit<ApiRequestOptions, "body" | "method"> = {}) {
   return apiRequest<T>(path, { ...options, body, method: "DELETE" });
 }
@@ -168,6 +172,14 @@ export function reportIntegrityEvent(accessCode: string, input: IntegrityEventRe
 /** Reviewer-facing integrity timeline + official warning summary for a session. */
 export function getIntegritySummary(sessionId: string) {
   return apiGet<IntegritySummary>(`/sessions/${encodeURIComponent(sessionId)}/integrity-events`);
+}
+
+/** Staff endpoint to toggle pointer-exit detection for a session. */
+export function updateIntegrityPolicy(sessionId: string, pointerDetectionEnabled: boolean) {
+  return apiPatch<{ sessionId: string; pointerDetectionEnabled: boolean }>(
+    `/sessions/${encodeURIComponent(sessionId)}/integrity-policy`,
+    { pointerDetectionEnabled },
+  );
 }
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {

@@ -164,6 +164,18 @@ export default function CandidateAssessmentPage() {
   const [session, setSession] =
     useState<CandidateAccessSession | null>(null);
 
+  /**
+   * Interviewer-controlled pointer detection toggle. Initialized from the
+   * session response and synced whenever the session data changes (reload,
+   * reconnect, or re-fetch). The candidate cannot change this setting.
+   */
+  const [pointerDetectionEnabled, setPointerDetectionEnabled] = useState(true);
+
+  // Keep pointer toggle in sync with the session data the backend returns.
+  useEffect(() => {
+    if (session) setPointerDetectionEnabled(session.pointerDetectionEnabled ?? true);
+  }, [session]);
+
   const [view, setView] =
     useState<View>("loading");
 
@@ -451,6 +463,7 @@ export default function CandidateAssessmentPage() {
         (view === "assessment" ||
           view === "review" ||
           view === "interviewer"),
+      pointerDetectionEnabled,
     });
 
   /* ============================================================
@@ -474,9 +487,10 @@ export default function CandidateAssessmentPage() {
   /* ============================================================
      INTEGRITY FORCED EXIT
 
-     When the backend counts an event (warningLimit = 1), the session is
-     already EXPIRED server-side. Follow that official state: drop the camera
-     and mirror the status so every control stops accepting input.
+     When the backend counts an event and warningCount >= warningLimit,
+     the session is EXPIRED server-side. Follow that official state:
+     drop the camera and mirror the status so every control stops
+     accepting input.
      ============================================================ */
 
   useEffect(() => {
