@@ -1499,6 +1499,8 @@ textarea.control {
   background-color: #ffffff !important;
   border-color: #e5e7eb !important;
   color: #111827 !important;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .live-interview-transcript [class~="bg-white"],
