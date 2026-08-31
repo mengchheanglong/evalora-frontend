@@ -135,9 +135,9 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
   const tabs: Array<[WorkspaceTab, string, IconName]> = [["questions", "Questions", "question"], ["captions", "Captions", "waves"], ["notes", "Notes", "pencil"], ["chat", "Chat", "message"]];
 
   return (
-    <div className="live-interview-workspace fixed inset-0 z-50 flex min-h-0 flex-col bg-[#080c12] text-white">
+    <div className="live-interview-workspace fixed inset-0 z-50 flex min-h-0 flex-col bg-slate-900 text-white">
       {/* Header - compact dark header */}
-      <header className="relative z-40 flex h-16 shrink-0 items-center border-b border-white/10 bg-[#10161f] px-4 sm:px-5">
+      <header className="relative z-40 flex h-16 shrink-0 items-center border-b border-white/10 bg-slate-800 px-4 sm:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <button aria-label="Back to candidate" className="grid size-9 shrink-0 place-items-center rounded-lg text-white/65 hover:bg-white/10 hover:text-white" onClick={onClose} type="button"><Icon className="rotate-90" name="chevron" size={17} /></button>
           <div className="min-w-0"><p className="truncate text-sm font-semibold">{candidateName} Interview</p><p className="truncate text-[11px] text-white/40">Live assessment workspace</p></div>
@@ -150,7 +150,7 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         <div className="flex flex-1 items-center justify-end gap-2">
           <button className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${interviewerMicrophoneMuted ? "border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/10" : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"}`} onClick={() => setInterviewerMicrophoneMuted((value) => !value)} type="button"><Icon name="microphone" size={15} /><span className="hidden lg:inline">{interviewerMicrophoneState === "error" ? "Mic unavailable" : interviewerMicrophoneMuted ? "Mic off" : "Mic on"}</span></button>
           <div className="relative"><button aria-label="Interview settings" className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/10" onClick={() => setShowSettings((value) => !value)} type="button"><Icon name="settings" size={16} /></button>
-            {showSettings ? <div className="absolute right-0 top-11 w-64 rounded-xl border border-white/10 bg-[#18202b] p-3 shadow-2xl"><p className="text-xs font-semibold">Video quality</p><p className="mt-1 text-[11px] leading-4 text-white/45">Reduce candidate video quality on unstable networks.</p><button className={`mt-3 w-full rounded-lg px-3 py-2 text-xs font-semibold ${lowBandwidthMode ? "bg-amber-400/15 text-amber-200" : "bg-white/[0.06] text-white/70"}`} onClick={() => setLowBandwidthOverride(!lowBandwidthMode)} type="button">{lowBandwidthMode ? "Low bandwidth enabled" : "Enable low bandwidth"}</button></div> : null}
+            {showSettings ?            <div className="absolute right-0 top-11 w-64 rounded-xl border border-white/10 bg-slate-700 p-3 shadow-2xl"><p className="text-xs font-semibold">Video quality</p><p className="mt-1 text-[11px] leading-4 text-white/45">Reduce candidate video quality on unstable networks.</p><button className={`mt-3 w-full rounded-lg px-3 py-2 text-xs font-semibold ${lowBandwidthMode ? "bg-amber-400/15 text-amber-200" : "bg-white/[0.06] text-white/70"}`} onClick={() => setLowBandwidthOverride(!lowBandwidthMode)} type="button">{lowBandwidthMode ? "Low bandwidth enabled" : "Enable low bandwidth"}</button></div> : null}
           </div>
           <button className="ml-1 hidden h-9 rounded-lg border border-rose-400/30 px-3 text-xs font-semibold text-rose-300 hover:bg-rose-400/10 sm:block" onClick={onClose} type="button">Leave interview</button>
         </div>
@@ -162,11 +162,11 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         {candidateScreenSharing ? (
           <>
             {/* Left: Candidate's shared screen */}
-            <div className="relative overflow-hidden bg-[#05080d]" style={{ width: `${splitPosition}%` }}>
+            <div className="relative overflow-hidden bg-slate-950" style={{ width: `${splitPosition}%` }}>
               <div className="absolute inset-0 flex items-center justify-center">
                 <video ref={screenShareVideoRef} autoPlay className="size-full object-contain" playsInline />
               </div>
-              <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-lg bg-black/65 px-3 py-2 text-xs font-semibold text-white/85 backdrop-blur">
+              <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-lg bg-slate-900/80 px-3 py-2 text-xs font-semibold text-white/85 backdrop-blur">
                 <Icon name="code" size={15} />
                 Candidate screen · Live workspace
               </div>
@@ -198,7 +198,7 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
             </div>
 
             {/* Right: Interview Answers */}
-            <div className="flex min-w-[300px] flex-1 flex-col overflow-hidden bg-[#111827]">
+            <div className="flex min-w-[300px] flex-1 flex-col overflow-hidden bg-slate-800">
               <aside className="live-interview-transcript min-h-0 flex-1 overflow-y-auto p-4 text-white">
                 <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
                 <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
@@ -208,7 +208,7 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         ) : (
           /* Normal mode: Interview Answers fills the workspace */
           <div className="min-h-0 flex-1 overflow-hidden p-4">
-            <div className="live-interview-transcript h-full overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-6 text-white shadow-2xl">
+            <div className="live-interview-transcript h-full overflow-y-auto rounded-xl border border-white/10 bg-slate-800 p-6 text-white shadow-2xl">
               <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">Interview answers</p>
               <SessionTranscriptView onStatusChange={() => {}} sessionId={sessionId} />
             </div>
@@ -231,12 +231,12 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
 
         {/* Tool panel drawer - right side */}
         {workspaceTab ? (
-          <div className="absolute bottom-0 right-0 top-0 z-30 flex w-[min(380px,calc(100%-32px))] flex-col overflow-hidden border-l border-white/10 bg-[#111827] shadow-2xl">
+          <div className="absolute bottom-0 right-0 top-0 z-30 flex w-[min(380px,calc(100%-32px))] flex-col overflow-hidden border-l border-white/10 bg-slate-800 shadow-2xl">
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 px-4">
               <p className="text-sm font-semibold capitalize text-white">{workspaceTab}</p>
               <button aria-label="Close panel" className="grid size-7 place-items-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white" onClick={() => setWorkspaceTab(null)} type="button"><Icon name="x" size={15} /></button>
             </div>
-            <div className="live-interview-panel min-h-0 flex-1 overflow-y-auto bg-[#111827] text-white">
+            <div className="live-interview-panel min-h-0 flex-1 overflow-y-auto bg-slate-800 text-white">
               {workspaceTab === "questions" ? <QuestionsPanel error={error} followUps={followUps} handleKeyDown={handleKeyDown} question={question} required={required} sending={sending} setQuestion={setQuestion} setRequired={setRequired} sendQuestion={sendQuestion} /> : null}
               {workspaceTab === "captions" ? <CaptionsPanel cameraStatus={candidateCameraStatus} captions={liveCaptions} microphoneState={candidateMicrophoneState} /> : null}
               {workspaceTab === "notes" ? <NotesPanel notes={notes} updateNotes={updateNotes} /> : null}
@@ -246,7 +246,7 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
         ) : null}
 
         {/* Bottom toolbar */}
-        <nav className="absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-[#111827]/90 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Interview tools">
+        <nav className="absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-slate-800/95 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Interview tools">
           {tabs.map(([tab, label, icon]) => <button className={`relative flex min-w-[72px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium transition ${workspaceTab === tab ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/[0.06] hover:text-white"}`} key={tab} onClick={() => setWorkspaceTab((current) => current === tab ? null : tab)} type="button"><Icon name={icon} size={17} /><span>{label}</span>{tab === "captions" && liveCaptions.length ? <span className="absolute right-2 top-1.5 size-1.5 rounded-full bg-emerald-400" /> : null}</button>)}
         </nav>
       </main>
