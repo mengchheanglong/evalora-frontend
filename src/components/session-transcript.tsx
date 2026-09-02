@@ -354,13 +354,13 @@ return (
           INTERVIEW HEADER
           ===================================================== */}
       <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold text-[var(--theme-heading)]">
+            <h2 className="text-lg font-bold text-[var(--theme-heading)]">
               Interview
             </h2>
 
-            <p className="mt-1 text-xs text-[var(--theme-muted)]">
+            <p className="mt-1 text-sm leading-relaxed text-[var(--theme-muted)]">
               {isLive
                 ? `Saved turns from ${transcript.candidate.name} appear here as the interview progresses. Live typing is never exposed.`
                 : truncation.truncated
@@ -370,7 +370,7 @@ return (
             </p>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {isLive ? (
               <PresenceChips
                 participants={participants}
@@ -386,7 +386,7 @@ return (
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--theme-border)] pt-3 text-xs sm:grid-cols-4">
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--theme-border)] pt-3 text-sm sm:grid-cols-4">
           <TranscriptMeta
             label="Template"
             value={transcript.templateTitle ?? "—"}
@@ -489,7 +489,7 @@ return (
           </div>
         ) : null}
 
-        <p className="mt-3 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2 text-xs leading-5 text-[var(--theme-muted)]">
+        <p className="mt-3 rounded-lg bg-[var(--theme-panel-soft)] px-3 py-2 text-sm leading-relaxed text-[var(--theme-muted)]">
           <Icon
             className="mr-1.5 inline align-[-2px] text-[var(--theme-faint)]"
             name="shield"
@@ -526,7 +526,7 @@ return (
           warningLimit={
             transcript.warningLimit ?? 2
           }
-          pointerDetectionEnabled={transcript.pointerDetectionEnabled ?? true}
+          detectionEnabled={transcript.detectionEnabled ?? true}
         />
       ) : null}
 
@@ -1406,33 +1406,33 @@ function IntegrityTimeline({
   events,
   warningCount,
   warningLimit,
-  pointerDetectionEnabled = true,
+  detectionEnabled = true,
 }: {
   sessionId: string;
   events: IntegrityEvent[];
   warningCount: number;
   warningLimit: number;
-  pointerDetectionEnabled?: boolean;
+  detectionEnabled?: boolean;
 }) {
   const ended = warningCount >= warningLimit;
   const [toggleBusy, setToggleBusy] = useState(false);
-  const [localPointerEnabled, setLocalPointerEnabled] = useState(pointerDetectionEnabled);
+  const [localDetectionEnabled, setLocalDetectionEnabled] = useState(detectionEnabled);
 
   // Keep local state in sync with server-provided value.
-  useEffect(() => { setLocalPointerEnabled(pointerDetectionEnabled); }, [pointerDetectionEnabled]);
+  useEffect(() => { setLocalDetectionEnabled(detectionEnabled); }, [detectionEnabled]);
 
   const handleTogglePointer = useCallback(async () => {
-    const next = !localPointerEnabled;
+    const next = !localDetectionEnabled;
     setToggleBusy(true);
     try {
       const result = await updateIntegrityPolicy(sessionId, next);
-      setLocalPointerEnabled(result.pointerDetectionEnabled);
+      setLocalDetectionEnabled(result.detectionEnabled);
     } catch {
       // Revert on failure — server is source of truth.
     } finally {
       setToggleBusy(false);
     }
-  }, [sessionId, localPointerEnabled]);
+  }, [sessionId, localDetectionEnabled]);
 
   return (
     <section className="card rounded-xl border-[var(--theme-border)] p-4 shadow-[var(--shadow-card)]">
@@ -1453,7 +1453,7 @@ function IntegrityTimeline({
         </span>
       </div>
 
-      {/* Pointer detection toggle — only while the session is in progress. */}
+      {/* Integrity detection toggle — only while the session is in progress. */}
       {!ended ? (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 py-2.5">
           <button
@@ -1461,22 +1461,22 @@ function IntegrityTimeline({
             disabled={toggleBusy}
             onClick={handleTogglePointer}
             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-              localPointerEnabled ? "bg-emerald-500" : "bg-neutral-300"
+              localDetectionEnabled ? "bg-emerald-500" : "bg-neutral-300"
             } ${toggleBusy ? "opacity-50" : ""}`}
-            aria-label={localPointerEnabled ? "Pause pointer detection" : "Resume pointer detection"}
+            aria-label={localDetectionEnabled ? "Pause integrity detection" : "Resume integrity detection"}
           >
             <span
               className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-                localPointerEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
+                localDetectionEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
               }`}
             />
           </button>
           <div className="flex flex-col">
             <span className="text-xs font-bold text-[var(--theme-heading)]">
-              Pointer detection: {localPointerEnabled ? "ON" : "OFF"}
+              Detection: {localDetectionEnabled ? "ON" : "OFF"}
             </span>
             <span className="text-[11px] text-[var(--theme-muted)]">
-              {localPointerEnabled ? "Pause while the candidate is sharing their screen." : "Resume pointer detection for this session."}
+              {localDetectionEnabled ? "Pause while asking the candidate to switch tabs or move the pointer outside the screen." : "Resume integrity detection for this session."}
             </span>
           </div>
         </div>
@@ -1553,11 +1553,11 @@ function TranscriptMeta({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[var(--theme-muted)]">
+      <dt className="text-xs font-medium uppercase tracking-wide text-[var(--theme-muted)]">
         {label}
       </dt>
 
-      <dd className="mt-0.5 break-words font-semibold leading-5 text-[var(--theme-heading)]">
+      <dd className="mt-1 break-words text-sm font-semibold leading-5 text-[var(--theme-heading)]">
         {value}
       </dd>
     </div>

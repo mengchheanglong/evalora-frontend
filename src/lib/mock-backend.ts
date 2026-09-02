@@ -436,7 +436,7 @@ const sessions: InterviewSession[] = [
     status: "in_progress",
     accessCode: "DEMO-EMMA",
     reportReady: false,
-    pointerDetectionEnabled: true,
+    detectionEnabled: true,
     startedAt: iso(-2),
     expiresAt: iso(72),
     createdAt: iso(-20),
@@ -1287,7 +1287,7 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
       sessionId: session.id,
       warningCount: warned,
       warningLimit: 2,
-      pointerDetectionEnabled: (session as InterviewSession & { pointerDetectionEnabled?: boolean }).pointerDetectionEnabled ?? true,
+      detectionEnabled: (session as InterviewSession & { detectionEnabled?: boolean }).detectionEnabled ?? true,
       status: session.status,
       events,
     });
@@ -1296,9 +1296,9 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   if (segments[0] === "sessions" && segments[1] && segments[2] === "integrity-policy" && method === "PATCH") {
     const session = sessions.find((item) => item.id === decodeURIComponent(segments[1]));
     if (!session) return json({ message: "Session not found." }, 404);
-    const enabled = Boolean(asRecord(body).pointerDetectionEnabled);
-    (session as InterviewSession & { pointerDetectionEnabled?: boolean }).pointerDetectionEnabled = enabled;
-    return json({ sessionId: session.id, pointerDetectionEnabled: enabled });
+    const enabled = Boolean(asRecord(body).detectionEnabled);
+    (session as InterviewSession & { detectionEnabled?: boolean }).detectionEnabled = enabled;
+    return json({ sessionId: session.id, detectionEnabled: enabled });
   }
   if (segments[0] === "sessions" && segments[1] && segments[2] === "transcript" && method === "GET") {
     const session = sessions.find((item) => item.id === decodeURIComponent(segments[1]));
@@ -1467,10 +1467,10 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
         event: existing,
       });
     }
-    const pointerEnabled = (session as InterviewSession & { pointerDetectionEnabled?: boolean }).pointerDetectionEnabled ?? true;
-    // pointer_exit events are only counted when the interviewer toggle is ON;
-    // visibilitychange is always counted regardless of the toggle.
-    const counted = type === "visibilitychange" || (type === "pointer_exit" && pointerEnabled);
+    const detectionEnabled = (session as InterviewSession & { detectionEnabled?: boolean }).detectionEnabled ?? true;
+    // All counted events are paused when the interviewer toggles detection OFF.
+    const countedTypes = ["visibilitychange", "pointer_exit"];
+    const counted = detectionEnabled && countedTypes.includes(type);
     const event: IntegrityEvent = {
       id: `iev-${Date.now()}`,
       sessionId: session.id,
@@ -1480,11 +1480,13 @@ function handleCandidateSession(method: string, accessCode: string, action?: str
       returnedAt: input.returnedAt ? String(input.returnedAt) : undefined,
       durationMs: input.durationMs != null ? Number(input.durationMs) : undefined,
       counted,
-      reason: counted
-        ? type === "pointer_exit"
-          ? "Pointer left the assessment window."
-          : "Possible tab switching detected."
-        : "Supporting signal: the browser window lost focus.",
+      reason: !detectionEnabled
+        ? "Detection paused by interviewer."
+        : counted
+          ? type === "pointer_exit"
+            ? "Pointer left the assessment window."
+            : "Possible tab switching detected."
+          : "Supporting signal: the browser window lost focus.",
     };
     events.push(event);
     integrityEventsBySession.set(session.id, events);
@@ -2080,7 +2082,7 @@ function buildTranscript(session: InterviewSession): SessionTranscript {
     },
     warningCount: (session as InterviewSession & { warningCount?: number }).warningCount ?? 0,
     warningLimit: 2,
-    pointerDetectionEnabled: (session as InterviewSession & { pointerDetectionEnabled?: boolean }).pointerDetectionEnabled ?? true,
+    detectionEnabled: (session as InterviewSession & { detectionEnabled?: boolean }).detectionEnabled ?? true,
     integrityEvents: integrityEventsBySession.get(session.id) ?? [],
   };
 }

@@ -178,10 +178,10 @@ export function getIntegritySummary(sessionId: string) {
 }
 
 /** Staff endpoint to toggle pointer-exit detection for a session. */
-export function updateIntegrityPolicy(sessionId: string, pointerDetectionEnabled: boolean) {
-  return apiPatch<{ sessionId: string; pointerDetectionEnabled: boolean }>(
+export function updateIntegrityPolicy(sessionId: string, detectionEnabled: boolean) {
+  return apiPatch<{ sessionId: string; detectionEnabled: boolean }>(
     `/sessions/${encodeURIComponent(sessionId)}/integrity-policy`,
-    { pointerDetectionEnabled },
+    { detectionEnabled },
   );
 }
 

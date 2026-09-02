@@ -30,6 +30,7 @@ export type IconName =
   | "question"
   | "report"
   | "search"
+  | "screenShare"
   | "settings"
   | "shield"
   | "sparkle"
@@ -261,6 +262,15 @@ const icons: Record<IconName, ReactNode> = {
     <>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  screenShare: (
+    <>
+      <rect height="13" rx="2" width="18" x="3" y="3" />
+      <path d="M8 21h8" />
+      <path d="M12 16v5" />
+      <path d="m9 10 3-3 3 3" />
+      <path d="M12 7v6" />
     </>
   ),
   settings: (

@@ -36,8 +36,6 @@ export function FloatingCandidateCamera({
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({
     x: typeof window !== "undefined" ? Math.max(16, window.innerWidth - 316) : 20,
     y: typeof window !== "undefined" ? Math.max(16, window.innerHeight - 340) : 500,
@@ -111,24 +109,6 @@ export function FloatingCandidateCamera({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    const closeOutside = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-
-    document.addEventListener("pointerdown", closeOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [menuOpen]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -228,55 +208,56 @@ export function FloatingCandidateCamera({
 
         </div>
 
-        <div className="flex h-11 items-center gap-1 bg-white px-2">
+        <div className="flex h-11 items-center gap-1.5 bg-white px-2">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[11px] font-semibold text-neutral-900">{candidateName}</p>
             <p className="mt-0.5 text-[8px] text-neutral-400">Candidate</p>
           </div>
 
-          <div className="relative shrink-0" ref={menuRef}>
+          <div className="flex shrink-0 items-center gap-1">
             <button
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              aria-label="Open media controls"
-              className="grid size-8 place-items-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-600 shadow-sm transition hover:bg-neutral-100 hover:text-neutral-900"
+              aria-label={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
+              aria-pressed={microphoneMuted}
+              className={`grid size-7 place-items-center rounded-full transition ${microphoneMuted ? "bg-sky-100 text-sky-700" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"}`}
               onClick={(event) => {
                 event.stopPropagation();
-                setMenuOpen((open) => !open);
+                onToggleMicrophone();
               }}
               onPointerDown={(event) => event.stopPropagation()}
-              title="Media controls"
+              title={microphoneMuted ? "Unmute microphone" : "Mute microphone"}
               type="button"
             >
-              <Icon name="more" size={16} />
+              <Icon name="microphone" size={15} />
             </button>
-
-            {menuOpen ? (
-              <div className="absolute bottom-10 right-0 z-30 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-xl" role="menu">
-                {[
-                  { label: microphoneMuted ? "Unmute microphone" : "Mute microphone", icon: "microphone" as const, action: onToggleMicrophone, active: microphoneMuted },
-                  { label: cameraMuted ? "Turn on camera" : "Turn off camera", icon: "video" as const, action: onToggleCamera, active: cameraMuted },
-                  { label: screenShareState === "sharing" ? "Stop sharing" : "Share screen", icon: "eye" as const, action: onToggleScreenShare, active: screenShareState === "sharing" },
-                ].map((item) => (
-                  <button
-                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold transition disabled:cursor-wait disabled:opacity-50 ${item.active ? "bg-sky-50 text-sky-700" : "text-neutral-700 hover:bg-neutral-50"}`}
-                    disabled={item.icon === "eye" && screenShareState === "starting"}
-                    key={item.label}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      item.action();
-                      setMenuOpen(false);
-                    }}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    role="menuitem"
-                    type="button"
-                  >
-                    <Icon name={item.icon} size={15} />
-                    {item.icon === "eye" && screenShareState === "starting" ? "Starting share…" : item.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            <button
+              aria-label={cameraMuted ? "Turn on camera" : "Turn off camera"}
+              aria-pressed={cameraMuted}
+              className={`grid size-7 place-items-center rounded-full transition ${cameraMuted ? "bg-sky-100 text-sky-700" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleCamera();
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              title={cameraMuted ? "Turn on camera" : "Turn off camera"}
+              type="button"
+            >
+              <Icon name="video" size={15} />
+            </button>
+            <button
+              aria-label={screenShareState === "sharing" ? "Stop sharing screen" : "Share screen"}
+              aria-pressed={screenShareState === "sharing"}
+              className={`grid size-7 place-items-center rounded-full transition disabled:cursor-wait disabled:opacity-50 ${screenShareState === "sharing" ? "bg-sky-100 text-sky-700" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"}`}
+              disabled={screenShareState === "starting"}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleScreenShare();
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              title={screenShareState === "starting" ? "Starting screen share…" : screenShareState === "sharing" ? "Stop sharing screen" : "Share screen"}
+              type="button"
+            >
+              <Icon name="screenShare" size={15} />
+            </button>
           </div>
 
         </div>

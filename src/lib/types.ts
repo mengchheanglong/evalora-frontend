@@ -236,7 +236,7 @@ export interface InterviewSession {
   /** Official integrity warning counters, always server-authored. */
   warningCount?: number;
   warningLimit?: number;
-  pointerDetectionEnabled?: boolean;
+  detectionEnabled?: boolean;
   startedAt?: string;
   completedAt?: string;
   expiresAt?: string;
@@ -288,7 +288,7 @@ export interface IntegrityEventResult {
   action: IntegrityAction;
   reason: string;
   event: IntegrityEvent;
-  pointerDetectionEnabled?: boolean;
+  detectionEnabled?: boolean;
 }
 
 /** Reviewer-facing integrity summary from GET /sessions/:id/integrity-events. */
@@ -296,20 +296,20 @@ export interface IntegritySummary {
   sessionId: string;
   warningCount: number;
   warningLimit: number;
-  pointerDetectionEnabled: boolean;
+  detectionEnabled: boolean;
   status: SessionStatus;
   events: IntegrityEvent[];
 }
 
 /** Staff request body for PATCH /sessions/:id/integrity-policy. */
 export interface IntegrityPolicyUpdate {
-  pointerDetectionEnabled: boolean;
+  detectionEnabled: boolean;
 }
 
 /** Realtime payload for integrity.policy.updated. */
 export interface IntegrityPolicyUpdatedEvent {
   sessionId: string;
-  pointerDetectionEnabled: boolean;
+  detectionEnabled: boolean;
   updatedAt: string;
 }
 
@@ -592,6 +592,6 @@ export interface SessionTranscript {
   /** Official integrity warning summary + timeline for the reviewer UI. */
   warningCount?: number;
   warningLimit?: number;
-  pointerDetectionEnabled?: boolean;
+  detectionEnabled?: boolean;
   integrityEvents?: IntegrityEvent[];
 }
