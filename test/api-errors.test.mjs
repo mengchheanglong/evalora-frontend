@@ -61,6 +61,25 @@ test("short JSON validation messages remain actionable", async () => {
   );
 });
 
+test("workspace invite conflict messages remain actionable", async () => {
+  const conflictMessages = [
+    "This person is already a member of your workspace.",
+    "An account with this email already exists. Ask them to use a different work email.",
+  ];
+
+  for (const conflictMessage of conflictMessages) {
+    globalThis.fetch = async () => Response.json({ message: conflictMessage }, { status: 409 });
+    await assert.rejects(
+      apiPost("/organization/invites", { email: "someone@example.com" }),
+      (error) => {
+        assert.ok(error instanceof ApiError);
+        assert.equal(getErrorMessage(error, "Unable to create invitation."), conflictMessage);
+        return true;
+      },
+    );
+  }
+});
+
 test("arbitrary HTML Error objects use the caller fallback", () => {
   const message = getErrorMessage(
     new Error("<!DOCTYPE html><html><body>Internal stack trace</body></html>"),
