@@ -247,6 +247,7 @@ export default function CreateSessionPage() {
           const delivery = session.emailDelivery;
           return { email, ok: true, reason: "", emailQueued: delivery?.status === "sent" || delivery?.status === "queued" };
         } catch (requestError) {
+          console.error(`[create-session] Failed for ${email}:`, requestError);
           return { email, ok: false, reason: getErrorMessage(requestError, "Unable to create the session."), emailQueued: false };
         }
       }),

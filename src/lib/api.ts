@@ -137,6 +137,13 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     const payload = await readPayload(response);
 
     if (!response.ok) {
+      // Surface the raw backend error so the developer can see the exact
+      // reason a request was rejected — the filtered errorMessage() may
+      // replace it with a generic fallback.
+      console.error(
+        `[api] ${method} ${normalizedPath} → ${response.status}`,
+        payload,
+      );
       throw new ApiError(errorMessage(payload, response.status), response.status, payload);
     }
 
