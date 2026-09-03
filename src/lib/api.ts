@@ -140,9 +140,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       // Surface the raw backend error so the developer can see the exact
       // reason a request was rejected — the filtered errorMessage() may
       // replace it with a generic fallback.
+      const raw = payload && typeof payload === "object" ? (payload as { _raw?: string })._raw : undefined;
       console.error(
         `[api] ${method} ${normalizedPath} → ${response.status}`,
-        payload,
+        "Filtered:", errorMessage(payload, response.status),
+        "Raw backend:", raw ?? "(see Next.js terminal for full response)",
+        "Full payload:", payload,
       );
       throw new ApiError(errorMessage(payload, response.status), response.status, payload);
     }
@@ -249,8 +252,15 @@ export async function safeUpstreamErrorResponse(response: Response, contentType:
     return serviceUnavailableResponse();
   }
 
+  const safeMessage = errorMessage(payload, response.status);
   return Response.json(
-    { message: errorMessage(payload, response.status) },
+    {
+      message: safeMessage,
+      // Include the original backend error so the browser console can show the
+      // real rejection reason even when the PUBLIC_API_MESSAGES allowlist filters
+      // it for the UI. This field is for development diagnostics only.
+      _raw: extractRawMessage(payload),
+    },
     {
       status: response.status,
       headers: { "X-Evalora-Data-Source": "live" },
@@ -260,6 +270,22 @@ export async function safeUpstreamErrorResponse(response: Response, contentType:
 
 function normalizePath(path: string): string {
   return path.startsWith("/") ? path : `/${path}`;
+}
+
+/** Extract the raw backend error message from a payload for diagnostic logging. */
+function extractRawMessage(payload: unknown): string | undefined {
+  if (payload && typeof payload === "object") {
+    const message = (payload as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+    if (Array.isArray(message)) {
+      const combined = message.filter((item): item is string => typeof item === "string").join(" ");
+      if (combined) return combined;
+    }
+    const error = (payload as { error?: unknown }).error;
+    if (typeof error === "string") return error;
+  }
+  if (typeof payload === "string") return payload;
+  return undefined;
 }
 
 async function readPayload(response: Response): Promise<unknown> {
