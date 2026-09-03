@@ -247,14 +247,7 @@ export default function CreateSessionPage() {
           const delivery = session.emailDelivery;
           return { email, ok: true, reason: "", emailQueued: delivery?.status === "sent" || delivery?.status === "queued" };
         } catch (requestError) {
-          const raw = requestError instanceof Error && "details" in requestError
-            ? (requestError as { details?: { _raw?: string } }).details?._raw
-            : undefined;
-          console.error(
-            `[create-session] Failed for ${email}:`,
-            requestError,
-            raw ? `\n  ↳ Raw backend error: ${raw}` : "",
-          );
+          console.error(`[create-session] Failed for ${email}:`, requestError);
           return { email, ok: false, reason: getErrorMessage(requestError, "Unable to create the session."), emailQueued: false };
         }
       }),

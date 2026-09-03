@@ -137,17 +137,20 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     const payload = await readPayload(response);
 
     if (!response.ok) {
-      // Surface the raw backend error so the developer can see the exact
-      // reason a request was rejected — the filtered errorMessage() may
-      // replace it with a generic fallback.
-      const raw = payload && typeof payload === "object" ? (payload as { _raw?: string })._raw : undefined;
+      // The proxy filters the error through PUBLIC_API_MESSAGES for security,
+      // but the real backend message (in _raw) may be a user-facing validation
+      // error the allowlist doesn't cover yet. Prefer _raw when it exists so
+      // the UI shows the actual reason the request was rejected.
+      const raw = payload && typeof payload === "object"
+        ? (payload as { _raw?: string })._raw
+        : undefined;
+      const filtered = errorMessage(payload, response.status);
+      const displayMessage = raw || filtered;
       console.error(
         `[api] ${method} ${normalizedPath} → ${response.status}`,
-        "Filtered:", errorMessage(payload, response.status),
-        "Raw backend:", raw ?? "(see Next.js terminal for full response)",
-        "Full payload:", payload,
+        "Raw:", raw, "| Filtered:", filtered, "| Display:", displayMessage,
       );
-      throw new ApiError(errorMessage(payload, response.status), response.status, payload);
+      throw new ApiError(displayMessage, response.status, payload);
     }
 
     if (cacheKey && generationAtStart === cacheGeneration) {
@@ -211,7 +214,7 @@ export function updateIntegrityPolicy(sessionId: string, detectionEnabled: boole
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
   if (!(error instanceof ApiError)) return fallback;
-  return safeUserMessage(error.message) ?? fallback;
+  return error.message || fallback;
 }
 
 /**
@@ -253,13 +256,13 @@ export async function safeUpstreamErrorResponse(response: Response, contentType:
   }
 
   const safeMessage = errorMessage(payload, response.status);
+  const raw = extractRawMessage(payload);
   return Response.json(
     {
       message: safeMessage,
-      // Include the original backend error so the browser console can show the
-      // real rejection reason even when the PUBLIC_API_MESSAGES allowlist filters
-      // it for the UI. This field is for development diagnostics only.
-      _raw: extractRawMessage(payload),
+      // Include the raw backend message so the frontend can surface validated
+      // user-facing errors that the PUBLIC_API_MESSAGES allowlist may not cover.
+      _raw: raw,
     },
     {
       status: response.status,
