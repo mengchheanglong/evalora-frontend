@@ -7,8 +7,8 @@ import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
-import { ApiError, apiGet, apiPost, getErrorMessage } from "@/lib/api";
-import type { CandidateReport, InterviewSession, ReviewerNote } from "@/lib/types";
+import { ApiError, apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api";
+import type { CandidateReport, InterviewSession, RecruiterVerdict, ReviewerNote, VerdictUpdatePayload, VerdictUpdateResponse } from "@/lib/types";
 
 export default function ReportPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -18,6 +18,7 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [savingVerdict, setSavingVerdict] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -77,6 +78,34 @@ export default function ReportPage() {
     }
   }
 
+  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }): Promise<boolean> {
+    setSavingVerdict(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await apiPatch<VerdictUpdateResponse>(`/reports/${encodeURIComponent(sessionId)}/verdict`, payload as VerdictUpdatePayload);
+      if (report) {
+        setReport({
+          ...report,
+          recruiterVerdict: result.recruiterVerdict,
+          recruiterTags: result.recruiterTags,
+          recruiterScore: result.recruiterScore,
+          decidedAt: result.decidedAt,
+        });
+      }
+      if (result.notes?.length) {
+        setNotes((current) => [...result.notes!, ...current]);
+      }
+      setNotice("Recruiter decision recorded.");
+      return true;
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to save decision."));
+      return false;
+    } finally {
+      setSavingVerdict(false);
+    }
+  }
+
   return (
     <AppShell active="candidates" description="AI-supported assessment summary and extracted candidate insights." showPageHeader={false} title="Candidate Report">
       {loading ? <PageLoader label="Loading private report" /> : null}
@@ -104,7 +133,7 @@ export default function ReportPage() {
           {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
           {report
-            ? <ReportView notes={notes} onAddNote={addNote} report={report} role={session.targetRole} savingNote={savingNote} />
+            ?            <ReportView notes={notes} onAddNote={addNote} onSaveVerdict={saveVerdict} report={report} role={session.targetRole} savingNote={savingNote} savingVerdict={savingVerdict} />
             : <ReportGeneratePrompt completed={session.status === "completed"} generating={generating} onGenerate={() => void generateReport()} />}
         </div>
       ) : null}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/icons";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { CandidateReport, ReviewerNote } from "@/lib/types";
+import type { CandidateReport, RecruiterVerdict, ReviewerNote } from "@/lib/types";
 
 type ReportViewProps = {
   report: CandidateReport;
@@ -15,9 +15,11 @@ type ReportViewProps = {
   /** When false, the identity block (avatar/name) is hidden — used where a
    *  profile header already shows the candidate (e.g. the candidate detail tab). */
   showIdentity?: boolean;
+  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }) => Promise<boolean>;
+  savingVerdict?: boolean;
 };
 
-export function ReportView({ report, role, notes, onAddNote, savingNote, onViewInterview, showIdentity = true }: ReportViewProps) {
+export function ReportView({ report, role, notes, onAddNote, savingNote, onViewInterview, showIdentity = true, onSaveVerdict, savingVerdict }: ReportViewProps) {
   const score = Math.round(report.overallScore * 20);
   const meta = scoreMeta(score);
   const moduleEntries = Object.entries(report.moduleScores);
@@ -60,6 +62,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
               </span>
               <p className="mt-1.5 max-w-[210px] text-xs text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
             </div>
+            <VerdictBadge verdict={report.recruiterVerdict} />
           </div>
         </div>
       </section>
@@ -101,7 +104,15 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
             ) : <Empty>No development areas flagged.</Empty>}
           </SectionCard>
 
-          <ReviewerCard notes={notes} onAddNote={onAddNote} reviewerSummary={report.reviewerSummary} savingNote={savingNote} />
+          <ReviewerCard
+            notes={notes}
+            onAddNote={onAddNote}
+            reviewerSummary={report.reviewerSummary}
+            savingNote={savingNote}
+            report={report}
+            onSaveVerdict={onSaveVerdict}
+            savingVerdict={savingVerdict}
+          />
         </div>
       </div>
 
@@ -133,12 +144,101 @@ export function ReportGeneratePrompt({ completed, generating, onGenerate }: { co
   );
 }
 
-function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary }: { notes: ReviewerNote[]; onAddNote: (note: string) => Promise<boolean>; savingNote: boolean; reviewerSummary?: string }) {
-  const [text, setText] = useState("");
+const VERDICT_CONFIG: Record<RecruiterVerdict, { label: string; badge: string; dot: string }> = {
+  STRONG_HIRE: { label: "Strong Hire", badge: "bg-emerald-50 text-emerald-700 ring-emerald-300", dot: "bg-emerald-500" },
+  HIRE: { label: "Hire", badge: "bg-sky-50 text-sky-700 ring-sky-300", dot: "bg-sky-500" },
+  NEUTRAL: { label: "Hold / Neutral", badge: "bg-amber-50 text-amber-700 ring-amber-300", dot: "bg-amber-500" },
+  NO_HIRE: { label: "No Hire", badge: "bg-rose-50 text-rose-700 ring-rose-300", dot: "bg-rose-500" },
+};
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+const VERDICT_OPTIONS: Array<{ value: RecruiterVerdict; label: string; icon: IconName }> = [
+  { value: "STRONG_HIRE", label: "Strong Hire", icon: "sparkle" },
+  { value: "HIRE", label: "Hire", icon: "check" },
+  { value: "NEUTRAL", label: "Hold", icon: "clock" },
+  { value: "NO_HIRE", label: "No Hire", icon: "chevron" },
+];
+
+const DEFAULT_TAGS = ["Strong Problem Solving", "Great Communication", "Needs System Design Depth", "Culture Add"];
+
+function VerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
+  if (!verdict) {
+    return (
+      <div className="text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Decision</p>
+        <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--theme-muted)] ring-1 ring-[var(--theme-border)]">
+          Pending Review
+        </span>
+      </div>
+    );
+  }
+  const config = VERDICT_CONFIG[verdict];
+  return (
+    <div className="text-center">
+      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Decision</p>
+      <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${config.badge}`}>
+        <span className={`size-2 rounded-full ${config.dot}`} /> {config.label}
+      </span>
+    </div>
+  );
+}
+
+function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, onSaveVerdict, savingVerdict }: {
+  notes: ReviewerNote[];
+  onAddNote: (note: string) => Promise<boolean>;
+  savingNote: boolean;
+  reviewerSummary?: string;
+  report: CandidateReport;
+  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }) => Promise<boolean>;
+  savingVerdict?: boolean;
+}) {
+  const [noteText, setNoteText] = useState("");
+  const [verdict, setVerdict] = useState<RecruiterVerdict | undefined>(report.recruiterVerdict);
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => report.recruiterTags ?? []);
+  const [customTagInput, setCustomTagInput] = useState("");
+  const [humanScore, setHumanScore] = useState<number | undefined>(report.recruiterScore);
+  const [verdictNotice, setVerdictNotice] = useState("");
+  const [verdictError, setVerdictError] = useState("");
+
+  function toggleTag(tag: string) {
+    setSelectedTags((current) => current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]);
+  }
+
+  function addCustomTag() {
+    const trimmed = customTagInput.trim();
+    if (trimmed && !selectedTags.includes(trimmed)) {
+      setSelectedTags((current) => [...current, trimmed]);
+    }
+    setCustomTagInput("");
+  }
+
+  function handleCustomTagKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      addCustomTag();
+    }
+  }
+
+  async function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (await onAddNote(text)) setText("");
+    if (await onAddNote(noteText)) setNoteText("");
+  }
+
+  async function submitVerdict() {
+    if (!verdict || !onSaveVerdict) return;
+    setVerdictError("");
+    setVerdictNotice("");
+    const ok = await onSaveVerdict({
+      verdict,
+      tags: selectedTags.length ? selectedTags : undefined,
+      score: humanScore,
+      notes: noteText.trim() || undefined,
+    });
+    if (ok) {
+      setVerdictNotice("Recruiter decision recorded.");
+      if (noteText.trim()) setNoteText("");
+    } else {
+      setVerdictError("Unable to save decision. Please try again.");
+    }
   }
 
   return (
@@ -147,23 +247,128 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary }: { notes
         <p className="mb-3 rounded-[8px] bg-[var(--color-primary-50)] px-3 py-2.5 text-sm text-[var(--color-primary-700)]">{reviewerSummary}</p>
       ) : null}
 
-      <form onSubmit={submit}>
+      {verdictNotice ? <p className="mb-3 rounded-[8px] bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">{verdictNotice}</p> : null}
+      {verdictError ? <p className="mb-3 rounded-[8px] bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{verdictError}</p> : null}
+
+      {/* Decision selector */}
+      {onSaveVerdict ? (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-bold text-[var(--theme-heading)]">Hiring Decision</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {VERDICT_OPTIONS.map((option) => (
+              <button
+                aria-pressed={verdict === option.value}
+                className={`flex items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
+                  verdict === option.value
+                    ? `${VERDICT_CONFIG[option.value].badge} ring-1`
+                    : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
+                }`}
+                key={option.value}
+                onClick={() => setVerdict(option.value)}
+                type="button"
+              >
+                <Icon name={option.icon} size={12} /> {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Quick tags */}
+      {onSaveVerdict ? (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-bold text-[var(--theme-heading)]">Tags</p>
+          <div className="flex flex-wrap gap-1.5">
+            {DEFAULT_TAGS.map((tag) => (
+              <button
+                aria-pressed={selectedTags.includes(tag)}
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                  selectedTags.includes(tag)
+                    ? "border-[var(--color-primary-500)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)]"
+                    : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)]"
+                }`}
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                type="button"
+              >
+                {selectedTags.includes(tag) ? tag : `+ ${tag}`}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            <input
+              className="control h-8 min-w-0 flex-1 rounded-[6px] px-2 text-xs"
+              onChange={(event) => setCustomTagInput(event.target.value)}
+              onKeyDown={handleCustomTagKeyDown}
+              placeholder="Add custom tag…"
+              value={customTagInput}
+            />
+            <button className="h-8 rounded-[6px] border border-[var(--theme-border)] px-2 text-xs font-semibold text-[var(--theme-muted)] transition hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]" onClick={addCustomTag} type="button">Add</button>
+          </div>
+          {selectedTags.length ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {selectedTags.map((tag) => (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-50)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary-700)]" key={tag}>
+                  {tag}
+                  <button aria-label={`Remove ${tag}`} className="ml-0.5 rounded-full p-0.5 text-[var(--color-primary-400)] hover:text-[var(--color-primary-700)]" onClick={() => toggleTag(tag)} type="button">×</button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Human rating */}
+      {onSaveVerdict ? (
+        <div className="mb-4">
+          <label className="mb-1.5 block text-xs font-bold text-[var(--theme-heading)]" htmlFor="verdict-score">Human Rating</label>
+          <div className="flex items-center gap-3">
+            <input
+              aria-label="Human rating from 1.0 to 5.0"
+              className="control h-8 w-20 rounded-[6px] px-2 text-xs"
+              id="verdict-score"
+              max={5}
+              min={1}
+              onChange={(event) => { const v = parseFloat(event.target.value); setHumanScore(Number.isFinite(v) && v >= 1 && v <= 5 ? v : undefined); }}
+              placeholder="1.0–5.0"
+              step={0.1}
+              type="number"
+              value={humanScore ?? ""}
+            />
+            <span className="text-xs text-[var(--theme-faint)]">out of 5.0</span>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Private note textarea */}
+      <form onSubmit={submitNote}>
         <textarea
           className="control min-h-[84px] rounded-[8px] text-sm"
           maxLength={1000}
           name="note"
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => setNoteText(event.target.value)}
           placeholder="Add a private note about this candidate…"
-          required
-          value={text}
+          value={noteText}
         />
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-[var(--text-micro)] text-[var(--theme-faint)]">{text.length} / 1000</span>
-          <button className="button-primary h-9 rounded-[7px] px-4 !bg-primary-600 text-xs hover:!bg-primary-700 disabled:opacity-60" disabled={savingNote || !text.trim()} type="submit">
+          <span className="text-[var(--text-micro)] text-[var(--theme-faint)]">{noteText.length} / 1000</span>
+          <button className="button-primary h-9 rounded-[7px] px-4 !bg-primary-600 text-xs hover:!bg-primary-700 disabled:opacity-60" disabled={savingNote || !noteText.trim()} type="submit">
             {savingNote ? "Saving…" : "Save note"}
           </button>
         </div>
       </form>
+
+      {/* Submit decision button */}
+      {onSaveVerdict ? (
+        <button
+          className="mt-3 w-full rounded-[7px] bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+          disabled={savingVerdict || !verdict}
+          onClick={() => void submitVerdict()}
+          type="button"
+        >
+          {savingVerdict ? "Saving decision…" : "Submit Decision & Notes"}
+        </button>
+      ) : null}
 
       {notes.length ? (
         <ul className="mt-3 space-y-2.5 border-t border-[var(--theme-border)] pt-3">

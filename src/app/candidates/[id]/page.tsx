@@ -7,9 +7,9 @@ import { Icon } from "@/components/icons";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { LiveInterviewRoom } from "@/components/live-interview-room";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
-import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, ReviewerNote, SessionStatus } from "@/lib/types";
+import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, RecruiterVerdict, ReviewerNote, SessionStatus, VerdictUpdatePayload, VerdictUpdateResponse } from "@/lib/types";
 
 export default function CandidateDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +21,7 @@ export default function CandidateDetailPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [savingVerdict, setSavingVerdict] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -82,6 +83,32 @@ export default function CandidateDetailPage() {
     }
   }
 
+  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }): Promise<boolean> {
+    setSavingVerdict(true);
+    setError("");
+    try {
+      const result = await apiPatch<VerdictUpdateResponse>(`/reports/${encodeURIComponent(id)}/verdict`, payload as VerdictUpdatePayload);
+      if (report) {
+        setReport({
+          ...report,
+          recruiterVerdict: result.recruiterVerdict,
+          recruiterTags: result.recruiterTags,
+          recruiterScore: result.recruiterScore,
+          decidedAt: result.decidedAt,
+        });
+      }
+      if (result.notes?.length) {
+        setNotes((current) => [...result.notes!, ...current]);
+      }
+      return true;
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to save decision."));
+      return false;
+    } finally {
+      setSavingVerdict(false);
+    }
+  }
+
   async function copyInvite() {
     if (!session) return;
     await navigator.clipboard.writeText(`${window.location.origin}/assessment/${encodeURIComponent(session.accessCode)}`);
@@ -133,10 +160,12 @@ export default function CandidateDetailPage() {
             <ReportView
               notes={notes}
               onAddNote={addNote}
+              onSaveVerdict={saveVerdict}
               onViewInterview={() => { setActiveTab("overview"); setShowInterview(true); }}
               report={report}
               role={session.targetRole ?? template.roleType}
               savingNote={savingNote}
+              savingVerdict={savingVerdict}
               showIdentity={false}
             />
           ) : (

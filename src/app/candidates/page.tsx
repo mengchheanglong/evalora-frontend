@@ -10,7 +10,7 @@ import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
+import type { AnalyticsSummary, InterviewSession, RecruiterVerdict, SessionStatus } from "@/lib/types";
 
 const CANDIDATES_PER_PAGE = 8;
 
@@ -205,7 +205,7 @@ export default function CandidatesPage() {
                             </td>
                             <td className="px-3 py-2.5 font-medium text-[var(--theme-text)]">{session.targetRole ?? "Not specified"}</td>
                             <td className="px-3 py-2.5"><p className="font-medium text-[var(--theme-text)]">{session.templateTitle ?? "Assessment"}</p><p className="mt-0.5 text-xs text-[var(--theme-faint)]">{formatDate(session.updatedAt ?? session.createdAt)}</p></td>
-                            <td className="px-3 py-2.5"><StatusBadge status={session.status} /></td>
+                            <td className="px-3 py-2.5"><div className="flex flex-wrap items-center gap-1.5"><StatusBadge status={session.status} /><VerdictBadge verdict={session.recruiterVerdict} /></div></td>
                             <td className="px-3 py-2.5"><ScoreCircle score={session.overallScore} /></td>
                             <td className="px-3 py-2.5 text-xs font-medium text-[var(--theme-muted)]">{formatDate(session.createdAt)}</td>
                             <td className="px-3 py-2.5">
@@ -353,6 +353,22 @@ function StatusBadge({ status }: { status: SessionStatus }) {
   const style = { not_started: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]", in_progress: "bg-[var(--theme-active)] text-[var(--theme-active-text)]", completed: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)]", expired: "bg-[var(--theme-panel-soft)] text-[var(--theme-faint)]" }[status];
   const label = { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];
   return <span className={`rounded-[5px] px-2 py-1 text-xs font-semibold ${style}`}>{label}</span>;
+}
+const VERDICT_BADGE_STYLES: Record<RecruiterVerdict, string> = {
+  STRONG_HIRE: "bg-emerald-50 text-emerald-700",
+  HIRE: "bg-sky-50 text-sky-700",
+  NEUTRAL: "bg-amber-50 text-amber-700",
+  NO_HIRE: "bg-rose-50 text-rose-700",
+};
+const VERDICT_BADGE_LABELS: Record<RecruiterVerdict, string> = {
+  STRONG_HIRE: "Strong Hire",
+  HIRE: "Hire",
+  NEUTRAL: "Hold",
+  NO_HIRE: "No Hire",
+};
+function VerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
+  if (!verdict) return null;
+  return <span className={`rounded-[5px] px-2 py-1 text-xs font-semibold ${VERDICT_BADGE_STYLES[verdict]}`}>{VERDICT_BADGE_LABELS[verdict]}</span>;
 }
 function ScoreCircle({ score }: { score?: number }) {
   if (score === undefined) return <span className="text-[var(--text-caption)] font-semibold text-[var(--theme-faint)]">-</span>;

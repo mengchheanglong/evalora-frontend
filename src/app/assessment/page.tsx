@@ -9,7 +9,7 @@ import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
-import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
+import type { AnalyticsSummary, InterviewSession, RecruiterVerdict, SessionStatus } from "@/lib/types";
 
 // --- UI Types (Matches Figma Design) ---
 type SessionStatusUI = "Completed" | "In Progress" | "Scheduled" | "Expired";
@@ -27,6 +27,7 @@ interface SessionRow {
   time: string;
   timestamp: number;
   status: SessionStatusUI;
+  recruiterVerdict?: RecruiterVerdict;
 }
 
 // --- Helper: Map Backend Data to UI Structure ---
@@ -75,6 +76,7 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
     time,
     timestamp: dateObj.getTime(),
     status: statusMap[session.status],
+    recruiterVerdict: session.recruiterVerdict,
   };
 }
 
@@ -317,7 +319,10 @@ export default function SessionsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <StatusBadge status={session.status} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge status={session.status} />
+                          <VerdictBadge verdict={session.recruiterVerdict} />
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -374,6 +379,26 @@ function StatusBadge({ status }: { status: SessionStatusUI }) {
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${styles[status]}`}>
       {status}
+    </span>
+  );
+}
+const VERDICT_BADGE_STYLES: Record<RecruiterVerdict, string> = {
+  STRONG_HIRE: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  HIRE: "bg-sky-50 text-sky-700 border-sky-100",
+  NEUTRAL: "bg-amber-50 text-amber-700 border-amber-100",
+  NO_HIRE: "bg-rose-50 text-rose-700 border-rose-100",
+};
+const VERDICT_BADGE_LABELS: Record<RecruiterVerdict, string> = {
+  STRONG_HIRE: "Strong Hire",
+  HIRE: "Hire",
+  NEUTRAL: "Hold",
+  NO_HIRE: "No Hire",
+};
+function VerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
+  if (!verdict) return null;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${VERDICT_BADGE_STYLES[verdict]}`}>
+      {VERDICT_BADGE_LABELS[verdict]}
     </span>
   );
 }
