@@ -274,7 +274,7 @@ export function useAssessmentIntegrity({ accessCode, active, detectionEnabled = 
     // Pointer-exit listeners: only active when the interviewer toggle is ON.
     // When paused, any pending outside-timer is cancelled immediately.
     // ----------------------------------------------------------------
-    let pointerActive = detectionEnabled;
+    const pointerActive = detectionEnabled;
     const attachPointer = () => {
       if (!pointerActive) return;
       document.documentElement.addEventListener("mouseleave", onPointerLeave);

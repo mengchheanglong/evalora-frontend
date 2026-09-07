@@ -228,13 +228,23 @@ export async function safeUpstreamErrorResponse(response: Response, contentType:
     return serviceUnavailableResponse();
   }
 
-  return Response.json(
-    { message: errorMessage(payload, response.status) },
-    {
-      status: response.status,
-      headers: { "X-Evalora-Data-Source": "live" },
-    },
-  );
+  const headers: Record<string, string> = { "X-Evalora-Data-Source": "live" };
+  for (const header of ["retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset"]) {
+    const val = response.headers.get(header);
+    if (val) headers[header] = val;
+  }
+
+  const sanitizedBody: { message: string; retryAfter?: number } = {
+    message: errorMessage(payload, response.status),
+  };
+  if (response.status === 429 && typeof (payload as { retryAfter?: unknown })?.retryAfter === "number") {
+    sanitizedBody.retryAfter = (payload as { retryAfter: number }).retryAfter;
+  }
+
+  return Response.json(sanitizedBody, {
+    status: response.status,
+    headers,
+  });
 }
 
 function normalizePath(path: string): string {
@@ -277,11 +287,19 @@ function errorMessage(payload: unknown, status: number): string {
   }
   if (status === 401) return "Your session has expired. Please sign in again.";
   if (status === 403) return "You do not have permission to access this workspace.";
+  if (status === 429) return "Too many requests. Please wait a moment and try again.";
   return `Request failed (${status}).`;
 }
 
 function safeUserMessage(value: string): string | null {
   const message = value.trim();
   if (PUBLIC_API_MESSAGES.has(message)) return message;
+  if (
+    /^Too many\b.*Please retry in \d+ seconds?\./i.test(message) ||
+    /(?:generated a lot of drafts|sent the assistant a lot of requests).*Please retry in \d+ seconds?\./i.test(message) ||
+    /^Please retry in \d+ seconds?\./i.test(message)
+  ) {
+    return message;
+  }
   return /^Request failed \([1-5]\d{2}\)\.$/.test(message) ? message : null;
 }
