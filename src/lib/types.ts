@@ -595,3 +595,130 @@ export interface SessionTranscript {
   detectionEnabled?: boolean;
   integrityEvents?: IntegrityEvent[];
 }
+
+/* ------------------------------------------------------------------------ */
+/* Platform administration (`/admin/*`). Admin role only.                    */
+/* ------------------------------------------------------------------------ */
+
+export type SubscriptionPlan = "free" | "pro" | "enterprise";
+export type AdminAccountStatus = "active" | "suspended";
+
+export interface AdminPage<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  plan: SubscriptionPlan;
+  isSuspended: boolean;
+  suspendedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Earliest owner-role member; absent when the owner account was removed. */
+  owner?: { id: string; name: string; email: string };
+  /** Owners + interviewers; candidates never count. */
+  memberCount: number;
+  sessionCount: number;
+  templateCount: number;
+  /** The acting admin belongs to this workspace, so suspending it is disabled. */
+  isCurrentWorkspace: boolean;
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  roleLabel: string;
+  emailVerified: boolean;
+  isSuspended: boolean;
+  suspendedAt?: string;
+  createdAt: string;
+  organization?: { id: string; name: string; isSuspended: boolean };
+  isCurrentUser: boolean;
+}
+
+export type ServiceStatus = "operational" | "degraded" | "unavailable";
+
+export interface ServiceHealth {
+  key: string;
+  name: string;
+  detail: string;
+  status: ServiceStatus;
+  latencyMs?: number;
+  note?: string;
+}
+
+/** Mirrors the backend SystemHealthDto; embedded in the admin overview. */
+export interface SystemHealth {
+  capturedAt: string;
+  realtime: {
+    connectedSockets: number;
+    activeSessionRooms: number;
+    connections: number;
+    disconnects: number;
+    joins: number;
+    rejectedJoins: number;
+    eventsEmitted: number;
+    uptimeSeconds: number;
+    joinSuccessRate: number;
+  };
+  workload: {
+    liveSessions: number;
+    sessionsToday: number;
+    completedToday: number;
+    codeSubmissionsToday: number;
+    interviewerQuestionsToday: number;
+  };
+  services: ServiceHealth[];
+  process: { uptimeSeconds: number; heapUsedMb: number; rssMb: number; nodeVersion: string };
+}
+
+export interface UsageWindow {
+  allTime: number;
+  thisMonth: number;
+}
+
+export interface AdminOverview {
+  asOf: string;
+  /** Start of the UTC calendar month every `thisMonth` figure counts from. */
+  monthStart: string;
+  organizations: {
+    total: number;
+    active: number;
+    suspended: number;
+    newThisMonth: number;
+    byPlan: Record<SubscriptionPlan, number>;
+    /** Non-suspended workspaces on a paid plan. */
+    paidSubscriptions: number;
+  };
+  users: {
+    total: number;
+    suspended: number;
+    newThisMonth: number;
+    byRole: Record<UserRole, number>;
+  };
+  sessions: {
+    total: number;
+    thisMonth: number;
+    completedThisMonth: number;
+    live: number;
+    byStatus: Record<SessionStatus, number>;
+  };
+  ai: {
+    provider: "deepseek" | "fallback";
+    model?: string;
+    costPerTurnUsd: number;
+    interviewTurns: UsageWindow;
+    billableTurns: UsageWindow;
+    draftGenerations: UsageWindow;
+    estimatedCostUsd: UsageWindow;
+    methodology: string;
+  };
+  systemHealth: SystemHealth;
+}

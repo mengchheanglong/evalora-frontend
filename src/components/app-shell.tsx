@@ -44,6 +44,11 @@ const workspaceNavigation: NavigationItem[] = [
   { label: "Team", href: "/users", key: "users", icon: "users" },
 ];
 
+/** Rendered only for the platform `admin` role; the backend enforces the same rule on every `/admin/*` call. */
+const platformNavigation: NavigationItem[] = [
+  { label: "Admin Hub", href: "/admin", key: "admin", icon: "shield" },
+];
+
 const sharedSecondaryNavigation: NavigationItem[] = [
   { label: "Settings", href: "/settings", key: "settings", icon: "settings" },
 ];
@@ -165,13 +170,13 @@ export function AppShell({
       {!hideSidebar ? (
         <>
           <aside className="sticky top-0 hidden h-screen border-r border-[var(--theme-border)] bg-[var(--theme-panel)] lg:flex lg:flex-col">
-            <Sidebar active={active} />
+            <Sidebar active={active} isAdmin={user.role === "admin"} />
           </aside>
           {mobileOpen ? (
             <div className="fixed inset-0 z-50 lg:hidden">
               <button aria-label="Close navigation" className="absolute inset-0 bg-[var(--theme-heading)]/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} type="button" />
               <aside className="relative h-full w-[284px] border-r border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-2xl">
-                <Sidebar active={active} onNavigate={() => setMobileOpen(false)} />
+                <Sidebar active={active} isAdmin={user.role === "admin"} onNavigate={() => setMobileOpen(false)} />
               </aside>
             </div>
           ) : null}
@@ -281,7 +286,7 @@ export function AppShell({
   );
 }
 
-function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => void }) {
+function Sidebar({ active, isAdmin = false, onNavigate }: { active: string; isAdmin?: boolean; onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-[82px] items-center px-5">
@@ -295,6 +300,14 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => vo
         <div className="mt-3 space-y-2">
           {workspaceNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
+        {isAdmin ? (
+          <>
+            <p className="mt-7 px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">Platform</p>
+            <div className="mt-3 space-y-2">
+              {platformNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
+            </div>
+          </>
+        ) : null}
         <p className="mt-7 px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">Account</p>
         <div className="mt-3 space-y-2">
           {sharedSecondaryNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
@@ -327,4 +340,5 @@ const WORKSPACE_PREFETCH_PATHS: Record<string, string[]> = {
   "/analytics": ["/analytics/summary", "/analytics/template-usage"],
   "/users": ["/organization/members"],
   "/settings": ["/organization", "/organization/privacy"],
+  "/admin": ["/admin/overview"],
 };

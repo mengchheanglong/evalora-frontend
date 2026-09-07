@@ -38,6 +38,7 @@ import type {
   TemplateDraftDto,
   TemplateDraftSummary,
 } from "@/lib/template-drafts";
+import { handleMockAdminRequest } from "@/lib/mock-admin";
 
 const mockUser: AuthUser = {
   id: "user-demo-owner",
@@ -660,6 +661,9 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
         message: "Google sign-in successful (mock).",
       });
     }
+    // Signing in as "admin@<anything>" makes the mock account a platform admin so
+    // the Admin Hub is reachable without a live backend; any other email is the owner.
+    mockUser.role = String(input.email ?? "").trim().toLowerCase().startsWith("admin@") ? "admin" : "organization";
     return json<AuthResponse>({ user: mockUser, message: "Signed in to mock workspace." });
   }
   if (relativePath === "auth/register" && method === "POST") {
@@ -712,6 +716,10 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     return json({ message: "Password updated. You can sign in with your new password." });
   }
   if (relativePath === "auth/logout" && method === "POST") return json({ message: "Signed out." });
+
+  if (segments[0] === "admin") {
+    return handleMockAdminRequest({ method, segments, body, searchParams: request.nextUrl.searchParams, currentUser: mockUser });
+  }
 
   if (relativePath === "organization" && method === "GET") {
     const owner = mockMembers.find((member) => member.role === "organization") ?? mockMembers[0];
