@@ -4,8 +4,12 @@ const API_PROXY_BASE = "/api/backend";
 const GET_CACHE_TTL_MS = 15_000;
 const MAX_CACHED_GETS = 100;
 const SERVICE_UNAVAILABLE_MESSAGE = "Evalora could not reach the service. Please try again shortly.";
+const BACKEND_UNREACHABLE_MESSAGE = "Could not connect to the backend server. Make sure it is running on port 4000.";
+const SESSION_EXPIRED_MESSAGE = "Your session has expired. Please sign in again.";
 const PUBLIC_API_MESSAGES = new Set([
   SERVICE_UNAVAILABLE_MESSAGE,
+  BACKEND_UNREACHABLE_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
   "Your session has expired. Please sign in again.",
   "You do not have permission to access this workspace.",
   "Email must be a valid address.",
@@ -303,6 +307,9 @@ async function readPayload(response: Response): Promise<unknown> {
 }
 
 function errorMessage(payload: unknown, status: number): string {
+  // 502 specifically means the proxy could not connect to the backend at all
+  // (connection refused, timeout, DNS failure).
+  if (status === 502) return BACKEND_UNREACHABLE_MESSAGE;
   if (status >= 500) return SERVICE_UNAVAILABLE_MESSAGE;
   if (payload && typeof payload === "object") {
     const message = (payload as { message?: unknown }).message;
@@ -325,7 +332,7 @@ function errorMessage(payload: unknown, status: number): string {
     const safeMessage = safeUserMessage(payload);
     if (safeMessage) return safeMessage;
   }
-  if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status === 401) return SESSION_EXPIRED_MESSAGE;
   if (status === 403) return "You do not have permission to access this workspace.";
   return `Request failed (${status}).`;
 }
