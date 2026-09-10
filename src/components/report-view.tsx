@@ -55,9 +55,14 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
             <ScoreRing score={score} />
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Recommendation</p>
-              <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
-                <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
-              </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
+                  <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${recruiterVerdictMeta(report.recruiterVerdict).badge}`}>
+                  <span className={`size-2 rounded-full ${recruiterVerdictMeta(report.recruiterVerdict).dot}`} /> {recruiterVerdictMeta(report.recruiterVerdict).label}
+                </span>
+              </div>
               <p className="mt-1.5 max-w-[210px] text-xs text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
             </div>
           </div>
@@ -262,6 +267,14 @@ function scoreMeta(score: number) {
   if (score >= 80) return { label: "Strong Potential", ring: "text-[var(--color-primary-500)]", bar: "bg-[var(--color-primary-500)]", badge: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-[var(--color-primary-300)]", dot: "bg-[var(--color-primary-500)]" };
   if (score >= 60) return { label: "Promising", ring: "text-[var(--color-primary-400)]", bar: "bg-[var(--color-primary-400)]", badge: "bg-[var(--color-primary-50)] text-[var(--color-primary-600)] ring-[var(--color-primary-100)]", dot: "bg-[var(--color-primary-400)]" };
   return { label: "Needs Review", ring: "text-[var(--theme-muted)]", bar: "bg-[var(--theme-muted)]", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
+}
+
+function recruiterVerdictMeta(verdict?: CandidateReport["recruiterVerdict"]) {
+  if (verdict === "STRONG_HIRE") return { label: "Recruiter Verdict: Strong Hire", badge: "bg-emerald-100 text-emerald-800 ring-emerald-200", dot: "bg-emerald-600" };
+  if (verdict === "HIRE") return { label: "Recruiter Verdict: Hire", badge: "bg-sky-100 text-sky-800 ring-sky-200", dot: "bg-sky-600" };
+  if (verdict === "NEUTRAL") return { label: "Recruiter Verdict: Hold / Neutral", badge: "bg-amber-100 text-amber-800 ring-amber-200", dot: "bg-amber-600" };
+  if (verdict === "NO_HIRE") return { label: "Recruiter Verdict: No Hire", badge: "bg-rose-100 text-rose-800 ring-rose-200", dot: "bg-rose-600" };
+  return { label: "Decision: Pending Review", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
 }
 
 function formatDate(value?: string) {
