@@ -7,7 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
-import { ApiError, apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import { ApiError, apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api";
 import type { CandidateReport, InterviewSession, ReviewerNote } from "@/lib/types";
 
 export default function ReportPage() {
@@ -77,6 +77,19 @@ export default function ReportPage() {
     }
   }
 
+  async function saveVerdict(payload: { verdict?: CandidateReport["recruiterVerdict"]; tags: string[]; score?: number; notes: string }): Promise<boolean> {
+    setError("");
+    try {
+      await apiPatch(`/reports/${encodeURIComponent(sessionId)}/verdict`, payload);
+      setNotice("Recruiter decision recorded.");
+      await loadReport();
+      return true;
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to save the recruiter decision."));
+      return false;
+    }
+  }
+
   return (
     <AppShell active="candidates" description="AI-supported assessment summary and extracted candidate insights." showPageHeader={false} title="Candidate Report">
       {loading ? <PageLoader label="Loading private report" /> : null}
@@ -104,7 +117,7 @@ export default function ReportPage() {
           {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
           {report
-            ? <ReportView notes={notes} onAddNote={addNote} report={report} role={session.targetRole} savingNote={savingNote} />
+            ? <ReportView notes={notes} onAddNote={addNote} onSaveVerdict={saveVerdict} report={report} role={session.targetRole} savingNote={savingNote} />
             : <ReportGeneratePrompt completed={session.status === "completed"} generating={generating} onGenerate={() => void generateReport()} />}
         </div>
       ) : null}

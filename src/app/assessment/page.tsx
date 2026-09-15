@@ -9,7 +9,7 @@ import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
-import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
+import type { AnalyticsSummary, CandidateReport, InterviewSession, RecruiterVerdict, SessionStatus } from "@/lib/types";
 
 // --- UI Types (Matches Figma Design) ---
 type SessionStatusUI = "Completed" | "In Progress" | "Scheduled" | "Expired";
@@ -80,6 +80,7 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [reportsBySessionId, setReportsBySessionId] = useState<Record<string, CandidateReport>>({});
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -102,7 +103,16 @@ export default function SessionsPage() {
         apiGet<InterviewSession[]>("/sessions"),
         apiGet<AnalyticsSummary>("/analytics/summary"),
       ]);
+      const reports: Record<string, CandidateReport> = {};
+      await Promise.all(data.filter((session) => session.reportReady).map(async (session) => {
+        try {
+          reports[session.id] = await apiGet<CandidateReport>(`/reports/${encodeURIComponent(session.id)}`);
+        } catch {
+          // A report can be marked ready while its persistence is still settling.
+        }
+      }));
       setSessions(data.map(mapSessionToRow));
+      setReportsBySessionId(reports);
       setSummary(nextSummary);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -284,6 +294,7 @@ export default function SessionsPage() {
                           <div>
                             <p className="font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</p>
                             <p className="text-xs text-[var(--theme-muted)]">{session.candidateEmail}</p>
+                            {reportsBySessionId[session.id]?.recruiterVerdict ? <RecruiterVerdictBadge verdict={reportsBySessionId[session.id].recruiterVerdict} /> : null}
                           </div>
                         </Link>
                       </td>
@@ -376,6 +387,17 @@ function StatusBadge({ status }: { status: SessionStatusUI }) {
       {status}
     </span>
   );
+}
+
+function RecruiterVerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
+  if (!verdict) return null;
+  const meta =
+    verdict === "STRONG_HIRE" || verdict === "HIRE"
+      ? { label: "APPROVE", className: "bg-emerald-100 text-emerald-800 ring-emerald-200" }
+      : verdict === "NO_HIRE"
+        ? { label: "REJECT", className: "bg-rose-100 text-rose-800 ring-rose-200" }
+        : { label: "PENDING", className: "bg-amber-100 text-amber-800 ring-amber-200" };
+  return <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ${meta.className}`}>{meta.label}</span>;
 }
 
 function getCategoryColor(category: string) {

@@ -3,7 +3,13 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/icons";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { CandidateReport, ReviewerNote } from "@/lib/types";
+import type { CandidateReport, RecruiterVerdict, ReviewerNote } from "@/lib/types";
+
+type VerdictPayload = {
+  verdict?: RecruiterVerdict;
+  tags: string[];
+  notes: string;
+};
 
 type ReportViewProps = {
   report: CandidateReport;
@@ -11,13 +17,14 @@ type ReportViewProps = {
   notes: ReviewerNote[];
   onAddNote: (note: string) => Promise<boolean>;
   savingNote: boolean;
+  onSaveVerdict?: (payload: VerdictPayload) => Promise<boolean> | boolean | void;
   onViewInterview?: () => void;
   /** When false, the identity block (avatar/name) is hidden — used where a
    *  profile header already shows the candidate (e.g. the candidate detail tab). */
   showIdentity?: boolean;
 };
 
-export function ReportView({ report, role, notes, onAddNote, savingNote, onViewInterview, showIdentity = true }: ReportViewProps) {
+export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveVerdict, onViewInterview, showIdentity = true }: ReportViewProps) {
   const score = Math.round(report.overallScore * 20);
   const meta = scoreMeta(score);
   const moduleEntries = Object.entries(report.moduleScores);
@@ -55,9 +62,14 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
             <ScoreRing score={score} />
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Recommendation</p>
-              <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
-                <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
-              </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
+                  <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${recruiterVerdictMeta(report.recruiterVerdict).badge}`}>
+                  <span className={`size-2 rounded-full ${recruiterVerdictMeta(report.recruiterVerdict).dot}`} /> {recruiterVerdictMeta(report.recruiterVerdict).label}
+                </span>
+              </div>
               <p className="mt-1.5 max-w-[210px] text-xs text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
             </div>
           </div>
@@ -101,7 +113,15 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
             ) : <Empty>No development areas flagged.</Empty>}
           </SectionCard>
 
-          <ReviewerCard notes={notes} onAddNote={onAddNote} reviewerSummary={report.reviewerSummary} savingNote={savingNote} />
+          <ReviewerCard
+            initialTags={report.recruiterTags}
+            initialVerdict={report.recruiterVerdict}
+            notes={notes}
+            onAddNote={onAddNote}
+            onSaveVerdict={onSaveVerdict}
+            reviewerSummary={report.reviewerSummary}
+            savingNote={savingNote}
+          />
         </div>
       </div>
 
@@ -133,12 +153,44 @@ export function ReportGeneratePrompt({ completed, generating, onGenerate }: { co
   );
 }
 
-function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary }: { notes: ReviewerNote[]; onAddNote: (note: string) => Promise<boolean>; savingNote: boolean; reviewerSummary?: string }) {
+function ReviewerCard({ initialTags, initialVerdict, notes, onAddNote, onSaveVerdict, savingNote, reviewerSummary }: {
+  initialTags?: string[];
+  initialVerdict?: RecruiterVerdict;
+  notes: ReviewerNote[];
+  onAddNote: (note: string) => Promise<boolean>;
+  onSaveVerdict?: (payload: VerdictPayload) => Promise<boolean> | boolean | void;
+  savingNote: boolean;
+  reviewerSummary?: string;
+}) {
+  const [verdict, setVerdict] = useState<RecruiterVerdict | undefined>(initialVerdict);
+  const [tags, setTags] = useState<string[]>(initialTags ?? []);
   const [text, setText] = useState("");
+  const [customTag, setCustomTag] = useState("");
+  const [savingVerdict, setSavingVerdict] = useState(false);
+
+  const quickTags = ["Strong Problem Solving", "Great Communication", "Needs System Design Depth", "Culture Add"];
+
+  function toggleTag(tag: string) {
+    setTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
+  }
+
+  function addCustomTag() {
+    const tag = customTag.trim();
+    if (tag && !tags.includes(tag)) setTags((current) => [...current, tag]);
+    setCustomTag("");
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (await onAddNote(text)) setText("");
+    setSavingVerdict(true);
+    try {
+      const saved = onSaveVerdict
+        ? await onSaveVerdict({ verdict, tags, notes: text })
+        : await onAddNote(text);
+      if (saved !== false) setText("");
+    } finally {
+      setSavingVerdict(false);
+    }
   }
 
   return (
@@ -148,21 +200,79 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary }: { notes
       ) : null}
 
       <form onSubmit={submit}>
+        <div className="space-y-3 border-b border-[var(--theme-border)] pb-3">
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-[var(--theme-heading)]">Hiring Decision</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: "HIRE" as const, label: "Approve", activeStyle: "bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-300" },
+                { value: "NO_HIRE" as const, label: "Reject", activeStyle: "bg-rose-50 text-rose-700 border-rose-300 ring-1 ring-rose-300" },
+                { value: "NEUTRAL" as const, label: "Pending", activeStyle: "bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-300" },
+              ]).map((option) => {
+                const selected = option.value === verdict || (option.value === "HIRE" && verdict === "STRONG_HIRE");
+                return (
+                  <button
+                    aria-pressed={selected}
+                    className={`flex items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
+                      selected
+                        ? option.activeStyle
+                        : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
+                    }`}
+                    key={option.value}
+                    onClick={() => setVerdict(option.value)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-[var(--theme-heading)]">Quick tags</p>
+            <div className="flex flex-wrap gap-1.5">
+              {quickTags.map((tag) => (
+                <button
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition ${tags.includes(tag) ? "bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-[var(--color-primary-300)]" : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)] hover:text-[var(--theme-heading)]"}`}
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  type="button"
+                >
+                  + {tag}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                className="control h-8 min-w-0 flex-1 rounded-[7px] text-xs"
+                onChange={(event) => setCustomTag(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomTag(); } }}
+                placeholder="Add custom tag"
+                value={customTag}
+              />
+              <button className="h-8 rounded-[7px] border border-[var(--theme-border)] px-2.5 text-xs font-semibold text-[var(--theme-muted)] hover:text-[var(--theme-heading)]" onClick={addCustomTag} type="button">Add</button>
+            </div>
+          </div>
+
+          
+        </div>
+
+        <label className="mt-3 block text-xs font-semibold text-[var(--theme-heading)]" htmlFor="reviewer-notes">Private notes</label>
         <textarea
           className="control min-h-[84px] rounded-[8px] text-sm"
           maxLength={1000}
-          name="note"
+          id="reviewer-notes"
           onChange={(event) => setText(event.target.value)}
           placeholder="Add a private note about this candidate…"
-          required
           value={text}
         />
         <div className="mt-2 flex items-center justify-between">
           <span className="text-[var(--text-micro)] text-[var(--theme-faint)]">{text.length} / 1000</span>
-          <button className="button-primary h-9 rounded-[7px] px-4 !bg-primary-600 text-xs hover:!bg-primary-700 disabled:opacity-60" disabled={savingNote || !text.trim()} type="submit">
-            {savingNote ? "Saving…" : "Save note"}
-          </button>
         </div>
+        <button className="button-primary mt-3 h-9 w-full rounded-[7px] px-4 !bg-primary-600 text-xs hover:!bg-primary-700 disabled:opacity-60" disabled={savingNote || savingVerdict} type="submit">
+          {savingVerdict ? "Saving…" : "Submit Decision & Notes"}
+        </button>
       </form>
 
       {notes.length ? (
@@ -262,6 +372,13 @@ function scoreMeta(score: number) {
   if (score >= 80) return { label: "Strong Potential", ring: "text-[var(--color-primary-500)]", bar: "bg-[var(--color-primary-500)]", badge: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-[var(--color-primary-300)]", dot: "bg-[var(--color-primary-500)]" };
   if (score >= 60) return { label: "Promising", ring: "text-[var(--color-primary-400)]", bar: "bg-[var(--color-primary-400)]", badge: "bg-[var(--color-primary-50)] text-[var(--color-primary-600)] ring-[var(--color-primary-100)]", dot: "bg-[var(--color-primary-400)]" };
   return { label: "Needs Review", ring: "text-[var(--theme-muted)]", bar: "bg-[var(--theme-muted)]", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
+}
+
+function recruiterVerdictMeta(verdict?: CandidateReport["recruiterVerdict"]) {
+  if (verdict === "STRONG_HIRE" || verdict === "HIRE") return { label: "Approved", badge: "bg-emerald-100 text-emerald-800 ring-emerald-200", dot: "bg-emerald-600" };
+  if (verdict === "NO_HIRE") return { label: "Rejected", badge: "bg-rose-100 text-rose-800 ring-rose-200", dot: "bg-rose-600" };
+  if (verdict === "NEUTRAL") return { label: "Pending", badge: "bg-amber-100 text-amber-800 ring-amber-200", dot: "bg-amber-600" };
+  return { label: "Decision: Pending Review", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
 }
 
 function formatDate(value?: string) {

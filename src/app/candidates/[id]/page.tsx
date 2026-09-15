@@ -7,7 +7,7 @@ import { Icon } from "@/components/icons";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { LiveInterviewRoom } from "@/components/live-interview-room";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
-import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, ReviewerNote, SessionStatus } from "@/lib/types";
 
@@ -22,6 +22,7 @@ export default function CandidateDetailPage() {
   const [generating, setGenerating] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showInterview, setShowInterview] = useState(false);
@@ -82,6 +83,19 @@ export default function CandidateDetailPage() {
     }
   }
 
+  async function saveVerdict(payload: { verdict?: CandidateReport["recruiterVerdict"]; tags: string[]; score?: number; notes: string }): Promise<boolean> {
+    setError("");
+    try {
+      await apiPatch(`/reports/${encodeURIComponent(id)}/verdict`, payload);
+      setNotice("Recruiter decision recorded.");
+      await loadCandidate();
+      return true;
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to save the recruiter decision."));
+      return false;
+    }
+  }
+
   async function copyInvite() {
     if (!session) return;
     await navigator.clipboard.writeText(`${window.location.origin}/assessment/${encodeURIComponent(session.accessCode)}`);
@@ -96,6 +110,7 @@ export default function CandidateDetailPage() {
       {!loading && session && template ? (
         <div className="space-y-4">
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+          {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
           {copied ? <InlineAlert tone="success">Private invitation link copied.</InlineAlert> : null}
           <ProfileHero session={session} template={template} />
           <Tabs active={activeTab} onChange={setActiveTab} reportReady={Boolean(report)} />
@@ -133,6 +148,7 @@ export default function CandidateDetailPage() {
             <ReportView
               notes={notes}
               onAddNote={addNote}
+              onSaveVerdict={saveVerdict}
               onViewInterview={() => { setActiveTab("overview"); setShowInterview(true); }}
               report={report}
               role={session.targetRole ?? template.roleType}

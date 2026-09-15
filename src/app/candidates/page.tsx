@@ -10,12 +10,13 @@ import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
+import type { AnalyticsSummary, CandidateReport, InterviewSession, RecruiterVerdict, SessionStatus } from "@/lib/types";
 
 const CANDIDATES_PER_PAGE = 8;
 
 export default function CandidatesPage() {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [reportsBySessionId, setReportsBySessionId] = useState<Record<string, CandidateReport>>({});
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | SessionStatus>("all");
@@ -40,7 +41,16 @@ export default function CandidatesPage() {
         apiGet<InterviewSession[]>("/sessions"),
         apiGet<AnalyticsSummary>("/analytics/summary"),
       ]);
+      const reports: Record<string, CandidateReport> = {};
+      await Promise.all(nextSessions.filter((session) => session.reportReady).map(async (session) => {
+        try {
+          reports[session.id] = await apiGet<CandidateReport>(`/reports/${encodeURIComponent(session.id)}`);
+        } catch {
+          // A report can be marked ready while its persistence is still settling.
+        }
+      }));
       setSessions(nextSessions);
+      setReportsBySessionId(reports);
       setSummary(nextSummary);
       if (syncQueryFromUrl) setQuery(new URLSearchParams(window.location.search).get("q") ?? "");
     } catch (requestError) {
@@ -199,6 +209,7 @@ export default function CandidatesPage() {
                                 <span>
                                   <span className="block text-xs font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</span>
                                   <span className="mt-0.5 block text-xs text-[var(--theme-muted)]">{session.candidateEmail ?? "No email"}</span>
+                                  {reportsBySessionId[session.id]?.recruiterVerdict ? <RecruiterVerdictBadge verdict={reportsBySessionId[session.id].recruiterVerdict} /> : null}
                                 </span>
                                 </Link>
                               </div>
@@ -251,6 +262,17 @@ function CandidateStats({ summary }: { summary: AnalyticsSummary }) {
       <OverviewCard detail="Assessment access ended before completion" emphasis="quiet" icon="shield" label="Expired sessions" tone="text-[var(--theme-muted)]" accent="var(--theme-muted)" value={summary.expiredAssessments.toLocaleString()} />
     </section>
   );
+}
+
+function RecruiterVerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
+  if (!verdict) return null;
+  const meta =
+    verdict === "STRONG_HIRE" || verdict === "HIRE"
+      ? { label: "APPROVE", className: "bg-emerald-100 text-emerald-800 ring-emerald-200" }
+      : verdict === "NO_HIRE"
+        ? { label: "REJECT", className: "bg-rose-100 text-rose-800 ring-rose-200" }
+        : { label: "PENDING", className: "bg-amber-100 text-amber-800 ring-amber-200" };
+  return <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ${meta.className}`}>{meta.label}</span>;
 }
 
 type FiltersPanelProps = {
