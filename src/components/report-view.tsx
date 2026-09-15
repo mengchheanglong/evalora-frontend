@@ -4,6 +4,7 @@ import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "re
 import { Icon, type IconName } from "@/components/icons";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import type { CandidateReport, RecruiterVerdict, ReviewerNote } from "@/lib/types";
+import { RecruiterDecisionHeroBadge } from "@/components/recruiter-decision-badge";
 
 type ReportViewProps = {
   report: CandidateReport;
@@ -15,7 +16,7 @@ type ReportViewProps = {
   /** When false, the identity block (avatar/name) is hidden — used where a
    *  profile header already shows the candidate (e.g. the candidate detail tab). */
   showIdentity?: boolean;
-  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }) => Promise<boolean>;
+  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; notes?: string }) => Promise<boolean>;
   savingVerdict?: boolean;
 };
 
@@ -62,7 +63,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
               </span>
               <p className="mt-1.5 max-w-[210px] text-xs text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
             </div>
-            <VerdictBadge verdict={report.recruiterVerdict} />
+            <RecruiterDecisionHeroBadge verdict={report.recruiterVerdict} />
           </div>
         </div>
       </section>
@@ -144,43 +145,40 @@ export function ReportGeneratePrompt({ completed, generating, onGenerate }: { co
   );
 }
 
-const VERDICT_CONFIG: Record<RecruiterVerdict, { label: string; badge: string; dot: string }> = {
-  STRONG_HIRE: { label: "Strong Hire", badge: "bg-emerald-50 text-emerald-700 ring-emerald-300", dot: "bg-emerald-500" },
-  HIRE: { label: "Hire", badge: "bg-sky-50 text-sky-700 ring-sky-300", dot: "bg-sky-500" },
-  NEUTRAL: { label: "Hold / Neutral", badge: "bg-amber-50 text-amber-700 ring-amber-300", dot: "bg-amber-500" },
-  NO_HIRE: { label: "No Hire", badge: "bg-rose-50 text-rose-700 ring-rose-300", dot: "bg-rose-500" },
-};
-
-const VERDICT_OPTIONS: Array<{ value: RecruiterVerdict; label: string; icon: IconName }> = [
-  { value: "STRONG_HIRE", label: "Strong Hire", icon: "sparkle" },
-  { value: "HIRE", label: "Hire", icon: "check" },
-  { value: "NEUTRAL", label: "Hold", icon: "clock" },
-  { value: "NO_HIRE", label: "No Hire", icon: "chevron" },
+const DECISION_BUTTONS: Array<{
+  value: RecruiterVerdict;
+  label: string;
+  icon: IconName;
+  isSelected: (v?: RecruiterVerdict) => boolean;
+  activeStyle: string;
+}> = [
+  {
+    value: "HIRE",
+    label: "Approve",
+    icon: "check",
+    isSelected: (v) => v === "HIRE" || v === "STRONG_HIRE",
+    activeStyle: "bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-300",
+  },
+  {
+    value: "NO_HIRE",
+    label: "Reject",
+    icon: "chevron",
+    isSelected: (v) => v === "NO_HIRE",
+    activeStyle: "bg-rose-50 text-rose-700 border-rose-300 ring-1 ring-rose-300",
+  },
+  {
+    value: "NEUTRAL",
+    label: "Pending",
+    icon: "clock",
+    isSelected: (v) => v === "NEUTRAL",
+    activeStyle: "bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-300",
+  },
 ];
 
 const DEFAULT_TAGS = ["Strong Problem Solving", "Great Communication", "Needs System Design Depth", "Culture Add"];
 
-function VerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
-  if (!verdict) {
-    return (
-      <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Decision</p>
-        <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[var(--theme-panel-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--theme-muted)] ring-1 ring-[var(--theme-border)]">
-          Pending Review
-        </span>
-      </div>
-    );
-  }
-  const config = VERDICT_CONFIG[verdict];
-  return (
-    <div className="text-center">
-      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Decision</p>
-      <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${config.badge}`}>
-        <span className={`size-2 rounded-full ${config.dot}`} /> {config.label}
-      </span>
-    </div>
-  );
-}
+// Local hero badge wrapper is now handled by RecruiterDecisionHeroBadge
+// (imported above). No local VerdictBadge needed.
 
 function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, onSaveVerdict, savingVerdict }: {
   notes: ReviewerNote[];
@@ -188,14 +186,13 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
   savingNote: boolean;
   reviewerSummary?: string;
   report: CandidateReport;
-  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }) => Promise<boolean>;
+  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; notes?: string }) => Promise<boolean>;
   savingVerdict?: boolean;
 }) {
   const [noteText, setNoteText] = useState("");
   const [verdict, setVerdict] = useState<RecruiterVerdict | undefined>(report.recruiterVerdict);
   const [selectedTags, setSelectedTags] = useState<string[]>(() => report.recruiterTags ?? []);
   const [customTagInput, setCustomTagInput] = useState("");
-  const [humanScore, setHumanScore] = useState<number | undefined>(report.recruiterScore);
   const [verdictNotice, setVerdictNotice] = useState("");
   const [verdictError, setVerdictError] = useState("");
 
@@ -230,7 +227,6 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
     const ok = await onSaveVerdict({
       verdict,
       tags: selectedTags.length ? selectedTags : undefined,
-      score: humanScore,
       notes: noteText.trim() || undefined,
     });
     if (ok) {
@@ -254,22 +250,25 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
       {onSaveVerdict ? (
         <div className="mb-4">
           <p className="mb-2 text-xs font-bold text-[var(--theme-heading)]">Hiring Decision</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {VERDICT_OPTIONS.map((option) => (
-              <button
-                aria-pressed={verdict === option.value}
-                className={`flex items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
-                  verdict === option.value
-                    ? `${VERDICT_CONFIG[option.value].badge} ring-1`
-                    : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
-                }`}
-                key={option.value}
-                onClick={() => setVerdict(option.value)}
-                type="button"
-              >
-                <Icon name={option.icon} size={12} /> {option.label}
-              </button>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            {DECISION_BUTTONS.map((option) => {
+              const selected = option.isSelected(verdict);
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`flex items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
+                    selected
+                      ? option.activeStyle
+                      : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
+                  }`}
+                  key={option.value}
+                  onClick={() => setVerdict(option.value)}
+                  type="button"
+                >
+                  <Icon name={option.icon} size={12} /> {option.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -315,28 +314,6 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
               ))}
             </div>
           ) : null}
-        </div>
-      ) : null}
-
-      {/* Human rating */}
-      {onSaveVerdict ? (
-        <div className="mb-4">
-          <label className="mb-1.5 block text-xs font-bold text-[var(--theme-heading)]" htmlFor="verdict-score">Human Rating</label>
-          <div className="flex items-center gap-3">
-            <input
-              aria-label="Human rating from 1.0 to 5.0"
-              className="control h-8 w-20 rounded-[6px] px-2 text-xs"
-              id="verdict-score"
-              max={5}
-              min={1}
-              onChange={(event) => { const v = parseFloat(event.target.value); setHumanScore(Number.isFinite(v) && v >= 1 && v <= 5 ? v : undefined); }}
-              placeholder="1.0–5.0"
-              step={0.1}
-              type="number"
-              value={humanScore ?? ""}
-            />
-            <span className="text-xs text-[var(--theme-faint)]">out of 5.0</span>
-          </div>
         </div>
       ) : null}
 

@@ -83,7 +83,7 @@ export default function CandidateDetailPage() {
     }
   }
 
-  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }): Promise<boolean> {
+  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; notes?: string }): Promise<boolean> {
     setSavingVerdict(true);
     setError("");
     try {

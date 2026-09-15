@@ -202,7 +202,7 @@ export function GoogleSignInButton({
         />
       </div>
       {busy ? <p className="text-center text-xs text-neutral-500">Signing in with Google…</p> : null}
-      {localError ? <p className="text-center text-xs text-rose-600">{localError}</p> : null}
+      {localError && !onError ? <p className="text-center text-xs text-rose-600">{localError}</p> : null}
     </div>
   );
 }

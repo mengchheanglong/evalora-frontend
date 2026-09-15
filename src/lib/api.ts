@@ -234,8 +234,9 @@ export function invalidateGetCache(): void {
 }
 
 export function serviceUnavailableResponse(status = 502, dataSource = "live"): Response {
+  const message = status === 502 ? BACKEND_UNREACHABLE_MESSAGE : SERVICE_UNAVAILABLE_MESSAGE;
   return Response.json(
-    { message: SERVICE_UNAVAILABLE_MESSAGE },
+    { message },
     {
       status,
       headers: { "X-Evalora-Data-Source": dataSource },

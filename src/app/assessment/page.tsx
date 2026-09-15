@@ -9,6 +9,7 @@ import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
+import { RecruiterDecisionBadge } from "@/components/recruiter-decision-badge";
 import type { AnalyticsSummary, InterviewSession, RecruiterVerdict, SessionStatus } from "@/lib/types";
 
 // --- UI Types (Matches Figma Design) ---
@@ -321,7 +322,7 @@ export default function SessionsPage() {
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <StatusBadge status={session.status} />
-                          <VerdictBadge verdict={session.recruiterVerdict} />
+                          <RecruiterDecisionBadge verdict={session.recruiterVerdict} />
                         </div>
                       </td>
                       <td className="px-5 py-4 text-right">
@@ -382,26 +383,7 @@ function StatusBadge({ status }: { status: SessionStatusUI }) {
     </span>
   );
 }
-const VERDICT_BADGE_STYLES: Record<RecruiterVerdict, string> = {
-  STRONG_HIRE: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  HIRE: "bg-sky-50 text-sky-700 border-sky-100",
-  NEUTRAL: "bg-amber-50 text-amber-700 border-amber-100",
-  NO_HIRE: "bg-rose-50 text-rose-700 border-rose-100",
-};
-const VERDICT_BADGE_LABELS: Record<RecruiterVerdict, string> = {
-  STRONG_HIRE: "Strong Hire",
-  HIRE: "Hire",
-  NEUTRAL: "Hold",
-  NO_HIRE: "No Hire",
-};
-function VerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
-  if (!verdict) return null;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${VERDICT_BADGE_STYLES[verdict]}`}>
-      {VERDICT_BADGE_LABELS[verdict]}
-    </span>
-  );
-}
+// VerdictBadge replaced by shared RecruiterDecisionBadge component.
 
 function getCategoryColor(category: string) {
   const colors: Record<string, string> = {
