@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCurrentSubscription } from "@/components/use-current-subscription";
+import { subscriptionLabel } from "@/lib/current-subscription";
 import { useAuth } from "@/components/auth-provider";
 import { EvaloraLogo } from "@/components/logo";
 import { Icon, type IconName } from "@/components/icons";
@@ -59,6 +61,8 @@ export function AppShell({
   hideSidebar = false,
 }: AppShellProps) {
   const { status, user, logout, updateProfile } = useAuth();
+  const subscription = useCurrentSubscription(user?.id, user?.organizationId, status === "authenticated");
+  const planLabel = subscriptionLabel(subscription);
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -67,6 +71,7 @@ export function AppShell({
   const [orgLogo, setOrgLogo] = useState("");
   const [profilePhoto, setProfilePhoto] = useState("");
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (status === "anonymous") router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
@@ -129,16 +134,28 @@ export function AppShell({
 
   useEffect(() => {
     if (!accountOpen) return;
-    function onPointerDown(event: MouseEvent) {
+    function onPointerDown(event: PointerEvent) {
       if (!accountMenuRef.current?.contains(event.target as Node)) setAccountOpen(false);
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setAccountOpen(false);
+      if (event.key === "Escape") {
+        setAccountOpen(false);
+        accountButtonRef.current?.focus();
+      }
+      const items = Array.from(accountMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+      const index = items.indexOf(document.activeElement as HTMLElement);
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) && items.length) {
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+          : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+        items[next]?.focus();
+      }
     }
-    document.addEventListener("mousedown", onPointerDown);
+    accountMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [accountOpen]);
@@ -158,7 +175,6 @@ export function AppShell({
   const isOwner = user.role === "organization" || user.role === "admin";
   const accountImage = isOwner ? orgLogo : profilePhoto;
   const accountLabel = isOwner ? orgInitials(displayOrgName) : userInitials(user.name);
-  const accountName = isOwner ? displayOrgName : user.name;
 
   return (
     <main className={`min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_1fr]"}`}>
@@ -194,8 +210,12 @@ export function AppShell({
                 <ThemeSwitcher compact />
               </div>
 
-              <div className="relative" ref={accountMenuRef}>
+              <div className="relative" ref={accountMenuRef} onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setAccountOpen(false);
+              }}>
                 <button
+                  ref={accountButtonRef}
+                  aria-controls={accountOpen ? "account-menu" : undefined}
                   aria-expanded={accountOpen}
                   aria-haspopup="menu"
                   aria-label="Account menu"
@@ -214,29 +234,45 @@ export function AppShell({
 
                 {accountOpen ? (
                   <div
-                    className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-[12px] border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+                    id="account-menu"
+                    aria-label="Account"
+                    className="absolute right-0 mt-2 max-h-[calc(100dvh-88px)] w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[12px] border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
                     role="menu"
                   >
                     <div className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-4 py-4">
                       <div className="flex items-center gap-3">
                         <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)]">
-                          {accountImage ? (
-                            <img alt="" className="size-full object-cover" src={accountImage} />
+                          {profilePhoto ? (
+                            <img alt="" className="size-full object-cover" src={profilePhoto} />
                           ) : (
                             <span className="flex size-full items-center justify-center bg-[var(--theme-heading)] text-sm font-black text-white">
-                              {accountLabel}
+                              {userInitials(user.name)}
                             </span>
                           )}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{accountName}</p>
+                          <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{user.name}</p>
                           <p className="mt-0.5 truncate text-xs text-[var(--theme-muted)]">{user.email}</p>
-                          <p className="mt-0.5 text-xs font-semibold capitalize text-[var(--theme-faint)]">{user.role === "organization" ? "Workspace owner" : user.role}</p>
+                          <span className="mt-2 inline-flex rounded-full border border-[var(--theme-border)] px-2 py-0.5 text-[10px] font-semibold text-[var(--theme-muted)]" aria-busy={subscription.status === "loading"} aria-live="polite">{planLabel}</span>
                         </div>
                       </div>
                     </div>
 
+                    <div className="border-b border-[var(--theme-border)] p-1.5">
+                      <Link className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)] focus-visible:outline-2 focus-visible:outline-primary" href="/settings/billing" onClick={() => setAccountOpen(false)} role="menuitem">
+                        <Icon name="crown" size={16} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block">Subscription</span>
+                          <span className="mt-1 block text-[11px] font-normal text-[var(--theme-muted)]" aria-busy={subscription.status === "loading"} aria-live="polite">{planLabel}</span>
+                        </span>
+                        <Icon className="-rotate-90 text-[var(--theme-muted)]" name="chevron" size={13} />
+                      </Link>
+                    </div>
                     <div className="p-1.5">
+                      <Link className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-xs font-semibold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)] focus-visible:outline-2 focus-visible:outline-primary" href="/settings" onClick={() => setAccountOpen(false)} role="menuitem">
+                        <Icon name="settings" size={16} />
+                        Settings
+                      </Link>
                       <button
                         className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
                         onClick={() => void handleLogout()}
