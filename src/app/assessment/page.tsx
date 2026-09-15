@@ -389,15 +389,15 @@ function StatusBadge({ status }: { status: SessionStatusUI }) {
   );
 }
 
-function RecruiterVerdictBadge({ verdict }: { verdict: RecruiterVerdict }) {
-  const styles: Record<RecruiterVerdict, { label: string; className: string }> = {
-    STRONG_HIRE: { label: "Strong Hire", className: "bg-emerald-100 text-emerald-800 ring-emerald-200" },
-    HIRE: { label: "Hire", className: "bg-sky-100 text-sky-800 ring-sky-200" },
-    NEUTRAL: { label: "Hold / Neutral", className: "bg-amber-100 text-amber-800 ring-amber-200" },
-    NO_HIRE: { label: "No Hire", className: "bg-rose-100 text-rose-800 ring-rose-200" },
-  };
-  const meta = styles[verdict];
-  return <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${meta.className}`}>{meta.label}</span>;
+function RecruiterVerdictBadge({ verdict }: { verdict?: RecruiterVerdict }) {
+  if (!verdict) return null;
+  const meta =
+    verdict === "STRONG_HIRE" || verdict === "HIRE"
+      ? { label: "APPROVE", className: "bg-emerald-100 text-emerald-800 ring-emerald-200" }
+      : verdict === "NO_HIRE"
+        ? { label: "REJECT", className: "bg-rose-100 text-rose-800 ring-rose-200" }
+        : { label: "PENDING", className: "bg-amber-100 text-amber-800 ring-amber-200" };
+  return <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ${meta.className}`}>{meta.label}</span>;
 }
 
 function getCategoryColor(category: string) {

@@ -8,7 +8,6 @@ import type { CandidateReport, RecruiterVerdict, ReviewerNote } from "@/lib/type
 type VerdictPayload = {
   verdict?: RecruiterVerdict;
   tags: string[];
-  score?: number;
   notes: string;
 };
 
@@ -115,7 +114,6 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveV
           </SectionCard>
 
           <ReviewerCard
-            initialScore={report.recruiterScore}
             initialTags={report.recruiterTags}
             initialVerdict={report.recruiterVerdict}
             notes={notes}
@@ -155,8 +153,7 @@ export function ReportGeneratePrompt({ completed, generating, onGenerate }: { co
   );
 }
 
-function ReviewerCard({ initialScore, initialTags, initialVerdict, notes, onAddNote, onSaveVerdict, savingNote, reviewerSummary }: {
-  initialScore?: number;
+function ReviewerCard({ initialTags, initialVerdict, notes, onAddNote, onSaveVerdict, savingNote, reviewerSummary }: {
   initialTags?: string[];
   initialVerdict?: RecruiterVerdict;
   notes: ReviewerNote[];
@@ -167,7 +164,6 @@ function ReviewerCard({ initialScore, initialTags, initialVerdict, notes, onAddN
 }) {
   const [verdict, setVerdict] = useState<RecruiterVerdict | undefined>(initialVerdict);
   const [tags, setTags] = useState<string[]>(initialTags ?? []);
-  const [score, setScore] = useState<number | undefined>(initialScore);
   const [text, setText] = useState("");
   const [customTag, setCustomTag] = useState("");
   const [savingVerdict, setSavingVerdict] = useState(false);
@@ -189,7 +185,7 @@ function ReviewerCard({ initialScore, initialTags, initialVerdict, notes, onAddN
     setSavingVerdict(true);
     try {
       const saved = onSaveVerdict
-        ? await onSaveVerdict({ verdict, tags, score, notes: text })
+        ? await onSaveVerdict({ verdict, tags, notes: text })
         : await onAddNote(text);
       if (saved !== false) setText("");
     } finally {
@@ -206,23 +202,30 @@ function ReviewerCard({ initialScore, initialTags, initialVerdict, notes, onAddN
       <form onSubmit={submit}>
         <div className="space-y-3 border-b border-[var(--theme-border)] pb-3">
           <div>
-            <p className="mb-1.5 text-xs font-semibold text-[var(--theme-heading)]">Decision</p>
-            <div className="flex flex-wrap gap-1.5">
+            <p className="mb-1.5 text-xs font-semibold text-[var(--theme-heading)]">Hiring Decision</p>
+            <div className="grid grid-cols-3 gap-2">
               {([
-                ["STRONG_HIRE", "Strong Hire"],
-                ["HIRE", "Hire"],
-                ["NEUTRAL", "Hold"],
-                ["NO_HIRE", "No Hire"],
-              ] as const).map(([value, label]) => (
-                <button
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition ${verdict === value ? "bg-[var(--color-primary-600)] text-white ring-[var(--color-primary-600)]" : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)] hover:text-[var(--theme-heading)]"}`}
-                  key={value}
-                  onClick={() => setVerdict(value)}
-                  type="button"
-                >
-                  {label}
-                </button>
-              ))}
+                { value: "HIRE" as const, label: "Approve", activeStyle: "bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-300" },
+                { value: "NO_HIRE" as const, label: "Reject", activeStyle: "bg-rose-50 text-rose-700 border-rose-300 ring-1 ring-rose-300" },
+                { value: "NEUTRAL" as const, label: "Pending", activeStyle: "bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-300" },
+              ]).map((option) => {
+                const selected = option.value === verdict || (option.value === "HIRE" && verdict === "STRONG_HIRE");
+                return (
+                  <button
+                    aria-pressed={selected}
+                    className={`flex items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
+                      selected
+                        ? option.activeStyle
+                        : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
+                    }`}
+                    key={option.value}
+                    onClick={() => setVerdict(option.value)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -252,11 +255,7 @@ function ReviewerCard({ initialScore, initialTags, initialVerdict, notes, onAddN
             </div>
           </div>
 
-          <label className="block text-xs font-semibold text-[var(--theme-heading)]">
-            Human rating
-            <input className="mt-1.5 w-full accent-[var(--color-primary-600)]" max="5" min="1" onChange={(event) => setScore(event.target.value ? Number(event.target.value) : undefined)} step="0.1" type="range" value={score ?? 3} />
-            <span className="mt-1 block text-[var(--text-micro)] font-normal text-[var(--theme-faint)]">{score == null ? "Not rated" : `${score.toFixed(1)} / 5.0`}</span>
-          </label>
+          
         </div>
 
         <label className="mt-3 block text-xs font-semibold text-[var(--theme-heading)]" htmlFor="reviewer-notes">Private notes</label>
@@ -376,10 +375,9 @@ function scoreMeta(score: number) {
 }
 
 function recruiterVerdictMeta(verdict?: CandidateReport["recruiterVerdict"]) {
-  if (verdict === "STRONG_HIRE") return { label: "Recruiter Verdict: Strong Hire", badge: "bg-emerald-100 text-emerald-800 ring-emerald-200", dot: "bg-emerald-600" };
-  if (verdict === "HIRE") return { label: "Recruiter Verdict: Hire", badge: "bg-sky-100 text-sky-800 ring-sky-200", dot: "bg-sky-600" };
-  if (verdict === "NEUTRAL") return { label: "Recruiter Verdict: Hold / Neutral", badge: "bg-amber-100 text-amber-800 ring-amber-200", dot: "bg-amber-600" };
-  if (verdict === "NO_HIRE") return { label: "Recruiter Verdict: No Hire", badge: "bg-rose-100 text-rose-800 ring-rose-200", dot: "bg-rose-600" };
+  if (verdict === "STRONG_HIRE" || verdict === "HIRE") return { label: "Approved", badge: "bg-emerald-100 text-emerald-800 ring-emerald-200", dot: "bg-emerald-600" };
+  if (verdict === "NO_HIRE") return { label: "Rejected", badge: "bg-rose-100 text-rose-800 ring-rose-200", dot: "bg-rose-600" };
+  if (verdict === "NEUTRAL") return { label: "Pending", badge: "bg-amber-100 text-amber-800 ring-amber-200", dot: "bg-amber-600" };
   return { label: "Decision: Pending Review", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
 }
 
