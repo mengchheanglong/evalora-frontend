@@ -27,3 +27,9 @@ The browser calls backend APIs through `/api/backend/*`; the route handler forwa
 | `/settings` | Workspace | Workspace name, device preferences, notifications, privacy export/retention/delete. | `GET/PUT /api/organization`, `GET /api/organization/privacy`, `GET /api/organization/export`, `DELETE /api/organization/data` |
 
 Password reset is linked from `/login` → `/forgot-password` → email or demo `resetUrl` → `/reset-password?token=...`. Email registration continues from `/register` → verification email → `/verify-email?token=...` → authenticated dashboard.
+
+## Billing & Subscription
+
+`/settings/billing` is an authenticated Settings page opened by the single Subscription item in the account menu. It reuses `useCurrentSubscription` and `src/lib/subscription-plans.ts` for real current-plan details and price comparison. Loading uses a skeleton, errors remain distinct from null, and a null response shows “No active subscription”.
+
+The page runs the prepaid PayWay checkout: the monthly/annual toggle previews prices, a plan button opens a confirmation showing plan, price, paid period and “Manual renewal”, confirming starts `POST /subscriptions/checkout` and submits the signed hosted form, and the return to `?checkout=return&tran_id=…` shows “Confirming payment…” while the backend-verified attempt is polled. `?checkout=cancelled` reports that no payment was taken. Only a `VERIFIED` payment shows success, and the current-plan card says “Renews manually” (never “Auto-renews”) with the period end date. Workspace owners can buy, renew and cancel; other members see billing read-only with disabled actions. A plan change paid mid-period is announced as starting when the current period ends.

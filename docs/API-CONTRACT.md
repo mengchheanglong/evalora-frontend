@@ -325,3 +325,27 @@ When a route changes:
 2. Update frontend API type and consumer.
 3. Update both repositories' `docs/API-CONTRACT.md`.
 4. Run each repository's required verification commands.
+
+## Current organization subscription
+
+`GET /api/subscriptions/current` requires workspace authentication and returns `null` when no subscription exists, otherwise `{ plan, status, billingCycle, renewalMode, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, pendingPlan, pendingBillingCycle, createdAt, updatedAt }`. Plan is `PLUS | PRO | BUSINESS`; status is `ACTIVE | TRIALING | PAST_DUE | CANCELLED | EXPIRED`; cycle is `MONTHLY | ANNUAL`; `renewalMode` is `MANUAL | AUTOMATIC`. Dates are UTC ISO strings. Provider IDs are omitted. Errors remain errors, not no-plan results.
+
+The account dropdown calls `apiGet("/subscriptions/current", { signal })`, using the existing cookie-authenticated `/api/backend` proxy. The signal bypasses shared GET caching; requests are cancelled on identity/workspace changes or unmount. Both dropdown labels share catalog-derived plan names. Loading shows “Loading subscription…”, null shows “No active plan”, and request/response errors show “Subscription unavailable”. Non-null records display their plan regardless of status. `parseCurrentSubscription` defaults a missing `renewalMode` to `MANUAL` and missing pending fields to `null`, so the dropdown keeps working against a backend that predates manual renewal, and an unknown plan/status/cycle stays an error rather than a no-plan state.
+
+## Prepaid payment (ABA PayWay)
+
+Billing is prepaid with **manual renewal**: one verified payment buys one month or one year, and nothing is charged automatically. The browser sends only a plan and a cycle — the backend price catalog decides the amount — and the subscription only becomes active after the backend verifies the payment with ABA PayWay.
+
+| Method | Path | Caller |
+| --- | --- | --- |
+| POST | `/subscriptions/checkout` | Workspace owner only |
+| GET | `/subscriptions/attempts/:tranId` | Any workspace viewer |
+| POST | `/subscriptions/cancel` | Workspace owner only |
+
+`src/lib/subscription-checkout.ts` owns this flow. `CHECKOUT_PRICES` mirrors the backend catalog for display only (`$29/$276`, `$79/$756`, `$199/$1908`); the amount shown after confirmation comes from the backend response. `startCheckout` posts `{ plan, billingCycle }` and validates the response before use — the hosted form must be HTTPS, must be a POST, and must carry a `hash` and a `tran_id` matching the attempt. `submitPayWayForm` submits those signed fields to PayWay; the API key never reaches the browser.
+
+On return to `/settings/billing?checkout=return&tran_id=…` the page shows “Confirming payment…” and polls `GET /subscriptions/attempts/:tranId` through `pollPaymentAttempt` until the backend reports `VERIFIED` or `FAILED`. Polling clears the shared GET cache first, so a cached `PENDING` can never mask a completed payment. Success is shown only for a backend-verified payment; `?checkout=cancelled` shows “Checkout was cancelled” and never reports a subscription. The return parameters are stripped from the URL so a refresh does not replay the state.
+
+### Sandbox billing testers
+
+`GET /api/subscriptions/permissions` returns `{ canManageBilling: boolean }` for the authenticated workspace viewer (no-store). Billing checkout and cancellation allow owners, plus interviewer emails in the server-only comma-separated `BILLING_TESTER_EMAILS` when `PAYWAY_ENV=sandbox` and `NODE_ENV` is `development` or `test`. Email matching trims whitespace and ignores case. In production the allowlist has no effect. Workspace membership is always required; other permissions are unchanged.
