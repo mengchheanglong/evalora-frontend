@@ -1,5 +1,6 @@
 "use client";
 
+import { SubscriptionUsage } from "@/components/subscription-usage";
 import { Icon } from "@/components/icons";
 import { hasEnded, isRenewalDue, formatPeriodDate, subscriptionLabel, type SubscriptionState } from "@/lib/current-subscription";
 import { subscriptionPlans, type BillingInterval } from "@/lib/subscription-plans";
@@ -81,6 +82,8 @@ export function BillingManagement({ state, billing, onBillingChange, isOwner, ch
               <div><dt className="text-xs text-[var(--theme-muted)]">Billing</dt><dd className="mt-2 text-sm font-semibold">{subscription.billingCycle === "ANNUAL" ? "Annual" : "Monthly"}</dd></div>
               <div><dt className="text-xs text-[var(--theme-muted)]">{periodLabel}</dt><dd className="mt-2 text-sm font-semibold">{formattedEnd}</dd></div>
             </dl>
+
+            <div className="mt-5 rounded-xl border border-[var(--theme-border)] p-4"><SubscriptionUsage subscription={subscription} /></div>
 
             {paidRenewal ? (
               <p className="mt-5 flex flex-wrap items-center gap-2 text-sm text-[var(--theme-muted)]">
@@ -182,7 +185,7 @@ function CheckoutStatus({ checkout, onConfirm, onDismiss }: {
             <div className="flex items-center justify-between gap-4"><dt className="text-[var(--theme-muted)]">Renewal</dt><dd className="font-semibold">Manual renewal</dd></div>
           </dl>
           <p className="mt-5 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-4 py-3 text-sm text-[var(--theme-muted)]">
-            Manual renewal — nothing is charged automatically, and your plan change takes effect when the current paid period ends. You will be redirected to ABA PayWay to pay securely.
+            Manual renewal — nothing is charged automatically, and upgrades activate after payment is verified and keep your remaining paid time. Downgrades and billing-cycle-only changes start when the current paid period ends. You will be redirected to ABA PayWay to pay securely.
           </p>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
             <button className="min-h-11 rounded-lg border border-[var(--theme-border)] px-4 text-sm font-semibold" onClick={onDismiss} type="button">Cancel</button>

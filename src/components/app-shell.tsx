@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { SubscriptionUsage } from "@/components/subscription-usage";
 import { useCurrentSubscription } from "@/components/use-current-subscription";
 import { subscriptionLabel } from "@/lib/current-subscription";
 import { useAuth } from "@/components/auth-provider";
@@ -268,6 +269,11 @@ export function AppShell({
                         <Icon className="-rotate-90 text-[var(--theme-muted)]" name="chevron" size={13} />
                       </Link>
                     </div>
+                    {subscription.status === "ready" && subscription.subscription && (
+                      <div className="border-b border-[var(--theme-border)] px-4 py-3">
+                        <SubscriptionUsage key={`${user.id}:${user.organizationId}`} subscription={subscription.subscription} />
+                      </div>
+                    )}
                     <div className="p-1.5">
                       <Link className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-xs font-semibold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)] focus-visible:outline-2 focus-visible:outline-primary" href="/settings" onClick={() => setAccountOpen(false)} role="menuitem">
                         <Icon name="settings" size={16} />

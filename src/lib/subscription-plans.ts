@@ -51,7 +51,7 @@ export const subscriptionPlans = [
     monthlyPrice: { monthly: 199, annual: 159 },
     action: "Contact sales",
     href: "/register",
-    accent: "text-purple-700 bg-purple-50",
+    accent: "subscription-business-accent",
     popular: false,
     features: [
       "Unlimited interview sessions",

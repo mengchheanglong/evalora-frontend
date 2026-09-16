@@ -349,3 +349,13 @@ On return to `/settings/billing?checkout=return&tran_id=…` the page shows “C
 ### Sandbox billing testers
 
 `GET /api/subscriptions/permissions` returns `{ canManageBilling: boolean }` for the authenticated workspace viewer (no-store). Billing checkout and cancellation allow owners, plus interviewer emails in the server-only comma-separated `BILLING_TESTER_EMAILS` when `PAYWAY_ENV=sandbox` and `NODE_ENV` is `development` or `test`. Email matching trims whitespace and ignores case. In production the allowlist has no effect. Workspace membership is always required; other permissions are unchanged.
+
+### Subscription usage
+
+`GET /api/subscriptions/usage` requires an authenticated workspace viewer and returns `{ sessionsUsed, sessionLimit, periodStart, periodEnd }`. Sessions are counted by their first start time (`startedAt`) in the current UTC calendar month, scoped to the authenticated organization. Unused invitations are excluded; started interviews count once, including interviews completed or expired afterward. Limits reflect the active plan: Plus 50, Pro 250, Business `null` (unlimited); without an active paid plan, the limit is 0. This endpoint reports usage and does not introduce quota enforcement. Renewal dates continue to come from `/subscriptions/current`.
+
+`BILLING_TESTER_EMAILS=*` enables billing tests for every authenticated interviewer with workspace membership, only when `PAYWAY_ENV=sandbox` and `NODE_ENV=development` or `test`. The wildcard grants no other permissions and has no effect in production.
+
+### Immediate upgrades
+
+Verified upgrades (Plus → Pro/Business, Pro → Business) activate immediately. The new period starts at verification; the purchased cycle is added to the previous paid-through date, preserving remaining paid time. Downgrades and cycle-only changes remain scheduled for the current period end. Payment verification, workspace authorization, and idempotency are unchanged.

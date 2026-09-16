@@ -59,6 +59,7 @@ export default function BillingPage() {
       }
       if (attempt.status === "VERIFIED") {
         setCheckout({ status: "verified", plan: attempt.plan });
+        window.dispatchEvent(new Event("subscription-updated"));
         setReloadKey((key) => key + 1);
         return;
       }
