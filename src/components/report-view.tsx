@@ -97,6 +97,16 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveV
               </button>
             ) : null}
           </SectionCard>
+
+          <ReviewerCard
+            initialTags={report.recruiterTags}
+            initialVerdict={report.recruiterVerdict}
+            notes={notes}
+            onAddNote={onAddNote}
+            onSaveVerdict={onSaveVerdict}
+            reviewerSummary={report.reviewerSummary}
+            savingNote={savingNote}
+          />
         </div>
 
         {/* Right: qualitative + reviewer */}
@@ -112,16 +122,6 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveV
               <ul className="space-y-2.5">{report.improvementAreas.map((item, index) => <SignalItem accent="muted" icon="chevron" key={index}>{item}</SignalItem>)}</ul>
             ) : <Empty>No development areas flagged.</Empty>}
           </SectionCard>
-
-          <ReviewerCard
-            initialTags={report.recruiterTags}
-            initialVerdict={report.recruiterVerdict}
-            notes={notes}
-            onAddNote={onAddNote}
-            onSaveVerdict={onSaveVerdict}
-            reviewerSummary={report.reviewerSummary}
-            savingNote={savingNote}
-          />
         </div>
       </div>
 
