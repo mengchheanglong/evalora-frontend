@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { Icon } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
 import { getErrorMessage } from "@/lib/api";
+import { homePathForRole } from "@/lib/auth-routes";
 
 type VerificationState = "checking" | "waiting" | "error";
 
@@ -35,9 +36,9 @@ export default function VerifyEmailPage() {
 
     void (async () => {
       try {
-        await verifyEmail(token);
+        const user = await verifyEmail(token);
         sessionStorage.removeItem("evalora-verification-fallback");
-        router.replace("/dashboard");
+        router.replace(homePathForRole(user.role));
         router.refresh();
       } catch (requestError) {
         setError(getErrorMessage(requestError, "Unable to verify this email."));

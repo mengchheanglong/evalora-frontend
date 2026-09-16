@@ -10,6 +10,7 @@ import { PageLoader } from "@/components/ui-states";
 import { BackendHealthBanner } from "@/components/backend-health-banner";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { apiGet } from "@/lib/api";
+import { ADMIN_HOME } from "@/lib/auth-routes";
 import { ORG_LOGO_CHANGED_EVENT, orgInitials, readOrgLogo } from "@/lib/org-logo";
 import {
   readUserProfilePhoto,
@@ -17,7 +18,7 @@ import {
   USER_PROFILE_PHOTO_CHANGED_EVENT,
   userInitials,
 } from "@/lib/user-profile-photo";
-import type { WorkspaceProfile } from "@/lib/types";
+import type { UserRole, WorkspaceProfile } from "@/lib/types";
 
 type AppShellProps = {
   active: string;
@@ -44,14 +45,16 @@ const workspaceNavigation: NavigationItem[] = [
   { label: "Team", href: "/users", key: "users", icon: "users" },
 ];
 
-/** Rendered only for the platform `admin` role; the backend enforces the same rule on every `/admin/*` call. */
-const platformNavigation: NavigationItem[] = [
-  { label: "Admin Hub", href: "/admin", key: "admin", icon: "shield" },
-];
-
 const sharedSecondaryNavigation: NavigationItem[] = [
   { label: "Settings", href: "/settings", key: "settings", icon: "settings" },
 ];
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Platform admin",
+  organization: "Workspace owner",
+  interviewer: "Interviewer",
+  candidate: "Candidate",
+};
 
 export function AppShell({
   active,
@@ -74,8 +77,15 @@ export function AppShell({
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (status === "anonymous") router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
-  }, [pathname, router, status]);
+    if (status === "anonymous") {
+      router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    // Platform admins have their own console at /admin with its own shell. Only
+    // an admin who also owns a workspace can use the workspace shell; the rest
+    // are sent to the console instead of seeing an empty workspace.
+    if (status === "authenticated" && user?.role === "admin" && !user.organizationId) router.replace(ADMIN_HOME);
+  }, [pathname, router, status, user?.organizationId, user?.role]);
 
   useEffect(() => {
     if (status !== "authenticated" || !user?.organizationId) return;
@@ -148,8 +158,9 @@ export function AppShell({
     };
   }, [accountOpen]);
 
-  if (status !== "authenticated" || !user) {
-    return <main className="min-h-screen bg-[var(--theme-bg)]"><PageLoader label="Opening your workspace" /></main>;
+  const consoleOnlyAdmin = user?.role === "admin" && !user.organizationId;
+  if (status !== "authenticated" || !user || consoleOnlyAdmin) {
+    return <main className="min-h-screen bg-[var(--theme-bg)]"><PageLoader label={consoleOnlyAdmin ? "Opening the platform console" : "Opening your workspace"} /></main>;
   }
 
   async function handleLogout() {
@@ -170,13 +181,13 @@ export function AppShell({
       {!hideSidebar ? (
         <>
           <aside className="sticky top-0 hidden h-screen border-r border-[var(--theme-border)] bg-[var(--theme-panel)] lg:flex lg:flex-col">
-            <Sidebar active={active} isAdmin={user.role === "admin"} />
+            <Sidebar active={active} />
           </aside>
           {mobileOpen ? (
             <div className="fixed inset-0 z-50 lg:hidden">
               <button aria-label="Close navigation" className="absolute inset-0 bg-[var(--theme-heading)]/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} type="button" />
               <aside className="relative h-full w-[284px] border-r border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-2xl">
-                <Sidebar active={active} isAdmin={user.role === "admin"} onNavigate={() => setMobileOpen(false)} />
+                <Sidebar active={active} onNavigate={() => setMobileOpen(false)} />
               </aside>
             </div>
           ) : null}
@@ -236,12 +247,25 @@ export function AppShell({
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{accountName}</p>
                           <p className="mt-0.5 truncate text-xs text-[var(--theme-muted)]">{user.email}</p>
-                          <p className="mt-0.5 text-xs font-semibold capitalize text-[var(--theme-faint)]">{user.role === "organization" ? "Workspace owner" : user.role}</p>
+                          <p className="mt-0.5 text-xs font-semibold text-[var(--theme-faint)]">{ROLE_LABELS[user.role]}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="p-1.5">
+                      {user.role === "admin" ? (
+                        // The only way from the workspace to the platform console: an
+                        // account-menu switch, never a workspace sidebar entry.
+                        <Link
+                          className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-xs font-semibold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)]"
+                          href={ADMIN_HOME}
+                          onClick={() => setAccountOpen(false)}
+                          role="menuitem"
+                        >
+                          <Icon className="text-amber-500" name="shield" size={15} />
+                          Platform console
+                        </Link>
+                      ) : null}
                       <button
                         className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
                         onClick={() => void handleLogout()}
@@ -286,7 +310,7 @@ export function AppShell({
   );
 }
 
-function Sidebar({ active, isAdmin = false, onNavigate }: { active: string; isAdmin?: boolean; onNavigate?: () => void }) {
+function Sidebar({ active, onNavigate }: { active: string; onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-[82px] items-center px-5">
@@ -300,14 +324,6 @@ function Sidebar({ active, isAdmin = false, onNavigate }: { active: string; isAd
         <div className="mt-3 space-y-2">
           {workspaceNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
-        {isAdmin ? (
-          <>
-            <p className="mt-7 px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">Platform</p>
-            <div className="mt-3 space-y-2">
-              {platformNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
-            </div>
-          </>
-        ) : null}
         <p className="mt-7 px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">Account</p>
         <div className="mt-3 space-y-2">
           {sharedSecondaryNavigation.map((item) => <SidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
@@ -340,5 +356,4 @@ const WORKSPACE_PREFETCH_PATHS: Record<string, string[]> = {
   "/analytics": ["/analytics/summary", "/analytics/template-usage"],
   "/users": ["/organization/members"],
   "/settings": ["/organization", "/organization/privacy"],
-  "/admin": ["/admin/overview"],
 };

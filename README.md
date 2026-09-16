@@ -42,6 +42,7 @@ Browser requests go through the same-origin route handler at `/api/backend/*`. L
 - `/candidates`, `/candidates/[sessionId]` - candidate progress and response evidence.
 - `/reports/[sessionId]` - advisory report and reviewer notes.
 - `/analytics` - organization-scoped performance and evidence themes.
+- `/admin`, `/admin/organizations`, `/admin/users` - platform console for the `admin` role. Separate from the workspace dashboard: its own shell, sidebar, and sign-in landing page.
 
 ## Source of truth
 

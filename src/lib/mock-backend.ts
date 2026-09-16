@@ -640,6 +640,12 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   const segments = relativePath.split("/").filter(Boolean);
   const body = method === "GET" || method === "HEAD" ? undefined : await readJson(request);
 
+  // Answers useBackendHealth()'s reachability probe. In live/auto mode this path
+  // proxies straight to the real Nest API; in mock mode nothing ever calls out
+  // to it, so without this the health banner would wrongly claim the mock is
+  // "unreachable" even though every other mock route is answering normally.
+  if (relativePath === "health" && method === "GET") return json({ status: "ok", dataSource: "mock" });
+
   if (relativePath === "auth/me" && method === "GET") return json(mockUser);
   if (relativePath === "auth/me" && method === "PUT") {
     const name = String(asRecord(body).name ?? "").trim();

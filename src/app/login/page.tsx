@@ -9,6 +9,7 @@ import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Icon } from "@/components/icons";
 import { InlineAlert } from "@/components/ui-states";
 import { getErrorMessage } from "@/lib/api";
+import { resolveReturnTo } from "@/lib/auth-routes";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,9 +25,9 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      await loginWithGoogle(credential, undefined, rememberMe);
-      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
-      router.replace(returnTo?.startsWith("/") ? returnTo : "/dashboard");
+      const user = await loginWithGoogle(credential, undefined, rememberMe);
+      // Platform admins land on their own console; workspace roles on the dashboard.
+      router.replace(resolveReturnTo(new URLSearchParams(window.location.search).get("returnTo"), user.role));
       router.refresh();
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to sign in with Google."));
@@ -41,9 +42,8 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      await login({ email, password, remember: rememberMe });
-      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
-      router.replace(returnTo?.startsWith("/") ? returnTo : "/dashboard");
+      const user = await login({ email, password, remember: rememberMe });
+      router.replace(resolveReturnTo(new URLSearchParams(window.location.search).get("returnTo"), user.role));
       router.refresh();
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to sign in."));
