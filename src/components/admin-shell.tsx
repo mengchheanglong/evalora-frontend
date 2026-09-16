@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { AdminSearchPalette, useSearchShortcut } from "@/components/admin-search";
 import { useAuth } from "@/components/auth-provider";
 import { BackendHealthBanner } from "@/components/backend-health-banner";
 import { Icon, type IconName } from "@/components/icons";
@@ -57,8 +58,12 @@ export function AdminShell({ active, title, description, actions, children }: Ad
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState("");
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+  useSearchShortcut(openSearch);
 
   useEffect(() => {
     if (status === "anonymous") router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
@@ -127,12 +132,22 @@ export function AdminShell({ active, title, description, actions, children }: Ad
               <LogoMark className="size-[36px]" />
               <span className="text-sm font-bold text-[var(--theme-heading)]">Platform console</span>
             </Link>
-            <div className="hidden items-center gap-2 text-sm font-semibold text-[var(--theme-muted)] lg:flex">
-              <Icon className="text-amber-500" name="shield" size={16} />
-              <span>Platform administration</span>
-            </div>
+
+            <button
+              aria-keyshortcuts="Control+K Meta+K"
+              className="ml-2 hidden h-10 w-full max-w-[420px] items-center gap-3 rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel-tint)] px-3 text-left text-sm text-[var(--theme-muted)] transition hover:border-[var(--theme-border-strong)] hover:bg-[var(--theme-panel)] md:flex"
+              onClick={openSearch}
+              type="button"
+            >
+              <Icon name="search" size={16} />
+              <span className="flex-1 truncate">Search workspaces and people…</span>
+              <kbd className="rounded border border-[var(--theme-border)] bg-[var(--theme-panel)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--theme-faint)]">Ctrl K</kbd>
+            </button>
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <button aria-label="Search" className="flex size-9 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-text)] md:hidden" onClick={openSearch} type="button">
+                <Icon name="search" size={17} />
+              </button>
               {actions}
               <div className="hidden md:block">
                 <ThemeSwitcher compact />
@@ -214,6 +229,8 @@ export function AdminShell({ active, title, description, actions, children }: Ad
           {children}
         </div>
       </section>
+
+      <AdminSearchPalette onClose={closeSearch} open={searchOpen} />
     </main>
   );
 }
@@ -234,9 +251,12 @@ function AdminSidebar({ active, onNavigate }: { active: AdminSection; onNavigate
           {ADMIN_NAVIGATION.map((item) => <AdminSidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
         </div>
       </nav>
-      <p className="border-t border-[var(--theme-border)] px-5 py-4 text-xs leading-5 text-[var(--theme-faint)]">
-        Changes made here apply across every workspace and take effect on the target&apos;s next request.
-      </p>
+      <div className="border-t border-[var(--theme-border)] px-5 py-4 text-xs leading-5 text-[var(--theme-faint)]">
+        <p>Changes made here apply across every workspace and take effect on the target&apos;s next request.</p>
+        <p className="mt-2">
+          Press <kbd className="rounded border border-[var(--theme-border)] px-1 text-[10px] font-bold">/</kbd> to search.
+        </p>
+      </div>
     </div>
   );
 }

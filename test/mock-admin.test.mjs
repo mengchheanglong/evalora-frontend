@@ -15,10 +15,11 @@ test("non-admin accounts get 403 from every mock admin route, like the Nest Role
   const response = call("GET", "admin/overview", { user: owner });
   assert.equal(response.status, 403);
   assert.equal((await response.json()).message, "You do not have permission to access this resource.");
+  assert.equal(call("GET", "admin/organizations/org-demo", { user: owner }).status, 403);
   assert.equal(call("PATCH", "admin/users/cand-1/status", { body: { isSuspended: true }, user: owner }).status, 403);
 });
 
-test("overview totals are consistent with the mock directory", async () => {
+test("overview totals, 30-day activity, comparisons, and attention are consistent with the mock directory", async () => {
   const overview = await call("GET", "admin/overview").json();
   assert.equal(overview.organizations.total, 4);
   assert.equal(overview.organizations.suspended, 1);
@@ -26,10 +27,22 @@ test("overview totals are consistent with the mock directory", async () => {
   assert.equal(overview.users.byRole.candidate, 2);
   assert.ok(Array.isArray(overview.systemHealth.services) && overview.systemHealth.services.length >= 5);
   assert.equal(overview.ai.estimatedCostUsd.thisMonth, 0);
+  assert.equal(overview.ai.projectedMonthCostUsd, 0);
   assert.equal(overview.sessions.total, Object.values(overview.sessions.byStatus).reduce((sum, count) => sum + count, 0));
+
+  assert.equal(overview.activity.days.length, 30);
+  assert.equal(overview.activity.days.at(-1), new Date().toISOString().slice(0, 10));
+  for (const key of ["sessionsStarted", "sessionsCompleted", "newUsers", "newOrganizations", "billableTurns"]) {
+    assert.equal(overview.activity[key].length, 30, key);
+    assert.equal(overview.activity[key].reduce((sum, value) => sum + value, 0), overview.comparisons[key].current, key);
+  }
+  assert.ok(overview.comparisons.sessionsStarted.current > 0);
+  assert.deepEqual(Object.keys(overview.attention).sort(), ["liveSessions", "suspendedOrganizations", "suspendedUsers", "unverifiedStaff", "workspacesWithoutOwner"]);
+  assert.equal(overview.attention.workspacesWithoutOwner, 1);
+  assert.equal(overview.attention.suspendedOrganizations, 1);
 });
 
-test("organization search, filters, and pagination mirror the API contract", async () => {
+test("organization search, filters, sorting, and pagination mirror the API contract", async () => {
   const byName = await call("GET", "admin/organizations?q=contoso").json();
   assert.deepEqual(byName.items.map((item) => item.id), ["org-contoso"]);
   const byOwner = await call("GET", "admin/organizations?q=priya@northwind").json();
@@ -42,6 +55,36 @@ test("organization search, filters, and pagination mirror the API contract", asy
   assert.equal(page.items.length, 2);
   const own = (await call("GET", "admin/organizations?q=evalora demo").json()).items[0];
   assert.equal(own.isCurrentWorkspace, true);
+  assert.equal(own.sessionCount, 26);
+  assert.equal(own.memberCount, 3);
+
+  const byNameAsc = (await call("GET", "admin/organizations?sort=name&order=asc").json()).items.map((item) => item.name);
+  assert.deepEqual(byNameAsc, [...byNameAsc].sort((a, b) => a.localeCompare(b)));
+  const bySessions = (await call("GET", "admin/organizations?sort=sessions").json()).items.map((item) => item.sessionCount);
+  assert.deepEqual(bySessions, [...bySessions].sort((a, b) => b - a));
+  const byEmail = (await call("GET", "admin/users?sort=email&order=asc").json()).items.map((item) => item.email);
+  assert.deepEqual(byEmail, [...byEmail].sort((a, b) => a.localeCompare(b)));
+});
+
+test("detail endpoints add team, session breakdown, and recent sessions", async () => {
+  const organization = await call("GET", "admin/organizations/org-demo").json();
+  assert.equal(organization.name, "Evalora Demo Workspace");
+  assert.deepEqual(organization.members.map((member) => member.id), ["user-demo-owner", "user-demo-interviewer", "user-demo-interviewer-2"]);
+  assert.equal(organization.members[0].role, "admin");
+  assert.equal(Object.values(organization.sessionsByStatus).reduce((sum, count) => sum + count, 0), 26);
+  assert.equal(organization.recentSessions.length, 5);
+  assert.ok(organization.lastActivityAt);
+  assert.equal(call("GET", "admin/organizations/missing").status, 404);
+
+  const user = await call("GET", "admin/users/user-demo-interviewer").json();
+  assert.equal(user.createdSessionCount, 26);
+  assert.equal(user.candidateSessionCount, 0);
+  assert.equal(user.recentSessions.length, 5);
+  assert.equal(user.organization.id, "org-demo");
+  const candidate = await call("GET", "admin/users/cand-1").json();
+  assert.ok(candidate.candidateSessionCount > 0);
+  assert.equal(candidate.templateCount, 0);
+  assert.equal(call("GET", "admin/users/missing").status, 404);
 });
 
 test("guardrails: self-deactivation, own workspace, candidates, last owner, unknown ids", () => {

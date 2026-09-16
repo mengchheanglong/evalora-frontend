@@ -2,9 +2,14 @@ import { apiGet, apiPatch } from "./api";
 import type {
   AdminAccountStatus,
   AdminOrganization,
+  AdminOrganizationDetail,
+  AdminOrganizationSort,
   AdminOverview,
   AdminPage,
+  AdminSortOrder,
   AdminUser,
+  AdminUserDetail,
+  AdminUserSort,
   SubscriptionPlan,
   UserRole,
 } from "./types";
@@ -16,6 +21,8 @@ import type {
  */
 
 export const ADMIN_PAGE_SIZE = 25;
+/** Enough rows for the command palette to be useful without turning into a list page. */
+export const ADMIN_SEARCH_LIMIT = 5;
 
 export const ADMIN_PLANS: SubscriptionPlan[] = ["free", "pro", "enterprise"];
 
@@ -41,15 +48,19 @@ export const ADMIN_STATUS_FILTERS: Array<{ value: AdminAccountStatus | ""; label
   { value: "suspended", label: "Suspended" },
 ];
 
+export const ADMIN_ORGANIZATION_SORTS: AdminOrganizationSort[] = ["createdAt", "name", "sessions"];
+export const ADMIN_USER_SORTS: AdminUserSort[] = ["createdAt", "name", "email"];
+
 export type AdminListParams = {
   q?: string;
   status?: AdminAccountStatus | "";
+  order?: AdminSortOrder | "";
   page?: number;
   pageSize?: number;
 };
 
-export type AdminOrganizationParams = AdminListParams & { plan?: SubscriptionPlan | "" };
-export type AdminUserParams = AdminListParams & { role?: UserRole | "" };
+export type AdminOrganizationParams = AdminListParams & { plan?: SubscriptionPlan | ""; sort?: AdminOrganizationSort | "" };
+export type AdminUserParams = AdminListParams & { role?: UserRole | ""; sort?: AdminUserSort | "" };
 
 /** Builds a query string, dropping blank/undefined values so the URL stays readable and cache keys stay stable. */
 export function buildAdminQuery(params: Record<string, string | number | undefined | null>): string {
@@ -89,6 +100,11 @@ export function formatUsd(value: number): string {
   }).format(safe);
 }
 
+export function formatCompactNumber(value: number): string {
+  const safe = Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(safe);
+}
+
 export function formatUptime(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(Number.isFinite(totalSeconds) ? totalSeconds : 0));
   const days = Math.floor(seconds / 86_400);
@@ -106,12 +122,51 @@ export function formatLatency(latencyMs: number | undefined): string {
   return `${Math.round(latencyMs)} ms`;
 }
 
+/**
+ * Coarse, monotonic relative time for list rows ("3 days ago"). Coarse on
+ * purpose: an operator scanning a table needs recency, not precision, and the
+ * exact timestamp stays on the element's title.
+ */
+export function formatRelativeTime(iso: string, now: number = Date.now()): string {
+  const time = new Date(iso).getTime();
+  if (!Number.isFinite(time)) return "—";
+  const seconds = Math.max(0, Math.round((now - time) / 1_000));
+  if (seconds < 45) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return days === 1 ? "yesterday" : `${days} days ago`;
+  if (days < 30) return `${Math.round(days / 7)} wk ago`;
+  if (days < 365) return `${Math.round(days / 30)} mo ago`;
+  return `${Math.round(days / 365)} yr ago`;
+}
+
+/** "+12.5%", "-8%", "0%"; null means there was nothing to compare against. */
+export function formatPercentChange(changePct: number | null): string {
+  if (changePct === null || !Number.isFinite(changePct)) return "n/a";
+  const rounded = Math.round(changePct * 10) / 10;
+  const text = Number.isInteger(rounded) ? String(Math.abs(rounded)) : Math.abs(rounded).toFixed(1);
+  if (rounded > 0) return `+${text}%`;
+  if (rounded < 0) return `-${text}%`;
+  return "0%";
+}
+
+export function sumSeries(values: number[]): number {
+  return values.reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0);
+}
+
 export function getAdminOverview() {
   return apiGet<AdminOverview>("/admin/overview");
 }
 
 export function listAdminOrganizations(params: AdminOrganizationParams = {}) {
   return apiGet<AdminPage<AdminOrganization>>(`/admin/organizations${buildAdminQuery(params)}`);
+}
+
+export function getAdminOrganization(organizationId: string) {
+  return apiGet<AdminOrganizationDetail>(`/admin/organizations/${encodeURIComponent(organizationId)}`);
 }
 
 export function setOrganizationSuspended(organizationId: string, isSuspended: boolean) {
@@ -126,10 +181,35 @@ export function listAdminUsers(params: AdminUserParams = {}) {
   return apiGet<AdminPage<AdminUser>>(`/admin/users${buildAdminQuery(params)}`);
 }
 
+export function getAdminUser(userId: string) {
+  return apiGet<AdminUserDetail>(`/admin/users/${encodeURIComponent(userId)}`);
+}
+
 export function setUserSuspended(userId: string, isSuspended: boolean) {
   return apiPatch<AdminUser>(`/admin/users/${encodeURIComponent(userId)}/status`, { isSuspended });
 }
 
 export function setUserRole(userId: string, role: AssignableRole) {
   return apiPatch<AdminUser>(`/admin/users/${encodeURIComponent(userId)}/role`, { role });
+}
+
+export interface AdminSearchResults {
+  organizations: AdminOrganization[];
+  users: AdminUser[];
+  organizationTotal: number;
+  userTotal: number;
+}
+
+/** One query, both directories; the palette shows a handful of each and links to the full lists. */
+export async function searchAdminDirectory(q: string): Promise<AdminSearchResults> {
+  const [organizations, users] = await Promise.all([
+    listAdminOrganizations({ q, pageSize: ADMIN_SEARCH_LIMIT }),
+    listAdminUsers({ q, pageSize: ADMIN_SEARCH_LIMIT }),
+  ]);
+  return {
+    organizations: organizations.items,
+    users: users.items,
+    organizationTotal: organizations.total,
+    userTotal: users.total,
+  };
 }

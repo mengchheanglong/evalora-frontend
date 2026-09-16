@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/icons";
 
 type ConfirmDialogProps = {
@@ -12,6 +12,12 @@ type ConfirmDialogProps = {
   tone?: "danger" | "primary";
   icon?: IconName;
   pending?: boolean;
+  /**
+   * Extra step for high-impact actions (the "type the name to confirm"
+   * pattern): the confirm button stays disabled until the typed value matches
+   * `expected` exactly.
+   */
+  challenge?: { label: string; expected: string; placeholder?: string };
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -30,30 +36,37 @@ export function ConfirmDialog({
   tone = "danger",
   icon,
   pending = false,
+  challenge,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const challengeRef = useRef<HTMLInputElement>(null);
+  const [typed, setTyped] = useState("");
 
   useEffect(() => {
     if (!open) return;
+    setTyped("");
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !pending) onCancel();
     };
     document.addEventListener("keydown", onKey);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    confirmRef.current?.focus();
+    // With a challenge the first thing to do is type, so focus lands there.
+    if (challenge) challengeRef.current?.focus();
+    else confirmRef.current?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onCancel, pending]);
+  }, [open, onCancel, pending, challenge]);
 
   if (!open) return null;
 
   const danger = tone === "danger";
   const resolvedIcon: IconName = icon ?? (danger ? "trash" : "check");
+  const challengeMet = !challenge || typed.trim() === challenge.expected;
 
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center p-4">
@@ -68,13 +81,32 @@ export function ConfirmDialog({
             {message ? <p className="mt-1.5 text-xs leading-5 text-[var(--theme-muted)]">{message}</p> : null}
           </div>
         </div>
+        {challenge ? (
+          <label className="mt-5 block">
+            <span className="block text-xs font-bold text-[var(--theme-heading)]">{challenge.label}</span>
+            <input
+              autoComplete="off"
+              className="control mt-1.5 h-10 rounded-[8px] text-sm"
+              disabled={pending}
+              onChange={(event) => setTyped(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && challengeMet && !pending) onConfirm();
+              }}
+              placeholder={challenge.placeholder ?? challenge.expected}
+              ref={challengeRef}
+              spellCheck={false}
+              type="text"
+              value={typed}
+            />
+          </label>
+        ) : null}
         <div className="mt-6 flex justify-end gap-2.5">
           <button className="button-secondary h-10 rounded-[8px] px-4 text-xs" disabled={pending} onClick={onCancel} type="button">
             {cancelLabel}
           </button>
           <button
             className={`inline-flex h-10 min-w-[112px] items-center justify-center gap-2 rounded-[8px] px-4 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-70 ${danger ? "bg-rose-600 hover:bg-rose-700" : "bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)]"}`}
-            disabled={pending}
+            disabled={pending || !challengeMet}
             onClick={onConfirm}
             ref={confirmRef}
             type="button"
