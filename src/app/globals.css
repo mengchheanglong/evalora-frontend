@@ -1565,3 +1565,19 @@ textarea.control {
   border-color: #d1d5db !important;
   color: #111827 !important;
 }
+
+/* Business plan accents follow the selected application theme. */
+.subscription-business-accent {
+  background-color: #faf5ff;
+  color: #7e22ce;
+}
+
+[data-theme="dark"] .subscription-business-accent {
+  background-color: #302047;
+  color: #d8b4fe;
+}
+
+[data-theme="ocean"] .subscription-business-accent {
+  background-color: #d0eaf5;
+  color: #075985;
+}

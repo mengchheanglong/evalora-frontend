@@ -9,7 +9,17 @@ import { fetchCurrentSubscription, subscriptionLoading, type SubscriptionState }
  * period is displayed without a full page navigation.
  */
 export function useCurrentSubscription(userId?: string, organizationId?: string, authenticated = false, reloadKey = 0) {
-  const scope = authenticated && userId ? JSON.stringify([userId, organizationId ?? null, reloadKey]) : null;
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRefreshKey((key) => key + 1);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("subscription-updated", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("subscription-updated", refresh);
+    };
+  }, []);
+  const scope = authenticated && userId ? JSON.stringify([userId, organizationId ?? null, reloadKey, refreshKey]) : null;
   const [result, setResult] = useState<{ scope: string; state: SubscriptionState } | null>(null);
 
   useEffect(() => {
