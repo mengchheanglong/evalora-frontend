@@ -250,13 +250,13 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
       {onSaveVerdict ? (
         <div className="mb-4">
           <p className="mb-2 text-xs font-bold text-[var(--theme-heading)]">Hiring Decision</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:gap-2">
             {DECISION_BUTTONS.map((option) => {
               const selected = option.isSelected(verdict);
               return (
                 <button
                   aria-pressed={selected}
-                  className={`flex items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
+                  className={`flex min-h-11 items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
                     selected
                       ? option.activeStyle
                       : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
@@ -302,7 +302,7 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
               placeholder="Add custom tag…"
               value={customTagInput}
             />
-            <button className="h-8 rounded-[6px] border border-[var(--theme-border)] px-2 text-xs font-semibold text-[var(--theme-muted)] transition hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]" onClick={addCustomTag} type="button">Add</button>
+            <button className="min-h-11 min-w-11 rounded-[6px] border border-[var(--theme-border)] px-3 text-xs font-semibold text-[var(--theme-muted)] transition hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]" onClick={addCustomTag} type="button">Add</button>
           </div>
           {selectedTags.length ? (
             <div className="mt-2 flex flex-wrap gap-1">
@@ -320,7 +320,7 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
       {/* Private note textarea */}
       <form onSubmit={submitNote}>
         <textarea
-          className="control min-h-[84px] rounded-[8px] text-sm"
+          className="control min-h-32 rounded-[8px] text-sm"
           maxLength={1000}
           name="note"
           onChange={(event) => setNoteText(event.target.value)}
@@ -338,7 +338,7 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
       {/* Submit decision button */}
       {onSaveVerdict ? (
         <button
-          className="mt-3 w-full rounded-[7px] bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+          className="sticky bottom-4 z-10 mt-3 block w-full rounded-[7px] bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-700 disabled:opacity-60 sm:static sm:mt-3 sm:shadow-sm sm:text-xs sm:py-2.5"
           disabled={savingVerdict || !verdict}
           onClick={() => void submitVerdict()}
           type="button"
