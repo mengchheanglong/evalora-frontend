@@ -346,17 +346,23 @@ export function ActivityChart({
       <p className="mt-2 text-xs text-[var(--theme-muted)]">
         {total.toLocaleString()} total · peak {active.values[peakIndex].toLocaleString()} on {formatDayLabel(days[peakIndex])} · {(total / days.length).toFixed(1)} per day on average
       </p>
-      <table className="sr-only">
-        <caption>{active.label} per day</caption>
-        <tbody>
-          {days.map((day, index) => (
-            <tr key={day}>
-              <th scope="row">{day}</th>
-              <td>{active.values[index]}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* The screen-reader alternative to the plot. `sr-only` has to sit on a
+          wrapper: CSS treats `height` on a `display: table` box as a minimum,
+          so the class cannot collapse a table and it would add its full height
+          to the page's scroll area. */}
+      <div className="sr-only">
+        <table>
+          <caption>{active.label} per day</caption>
+          <tbody>
+            {days.map((day, index) => (
+              <tr key={day}>
+                <th scope="row">{day}</th>
+                <td>{active.values[index]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
