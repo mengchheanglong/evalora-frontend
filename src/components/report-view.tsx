@@ -29,7 +29,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
     <div className="space-y-4">
       {/* Hero */}
       <section className="card overflow-hidden rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)]">
-        <div className="grid gap-4 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-4 p-4 text-center sm:text-left lg:grid-cols-[1fr_auto] lg:items-center lg:text-left">
           {showIdentity ? (
             <div className="flex flex-wrap items-center gap-3">
               <span className={`grid size-12 shrink-0 place-items-center rounded-[9px] bg-linear-to-br text-lg font-bold shadow-sm ${candidateAvatarTone(report.candidateName)}`}>
@@ -54,9 +54,9 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
               </div>
             </div>
           )}
-          <div className="flex items-center gap-4 lg:border-l lg:border-[var(--theme-border)] lg:pl-4">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 lg:border-l lg:border-[var(--theme-border)] lg:pl-4">
             <ScoreRing score={score} />
-            <div>
+            <div className="text-center sm:text-left">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Recommendation</p>
               <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
                 <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
@@ -417,8 +417,8 @@ function ScoreRing({ score }: { score: number }) {
   const clamped = Math.max(0, Math.min(100, score));
   const circumference = 2 * Math.PI * 15.5;
   return (
-    <div className="relative grid size-18 shrink-0 place-items-center">
-      <svg className="size-18 -rotate-90" viewBox="0 0 36 36">
+    <div className="relative grid size-28 shrink-0 place-items-center sm:size-18">
+      <svg className="size-28 -rotate-90 sm:size-18" viewBox="0 0 36 36">
         <circle className="text-[var(--theme-panel-soft)]" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" strokeWidth="3.2" />
         <circle
           className={`${meta.ring} transition-all duration-700`}

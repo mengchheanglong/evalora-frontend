@@ -224,13 +224,13 @@ function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab
     { id: "report" as const, label: "Report", icon: "file" as const },
   ];
   return (
-    <div className="flex gap-1 border-b border-[var(--theme-border)]">
+    <div className="flex gap-1 overflow-x-auto border-b border-[var(--theme-border)] flex-nowrap">
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
           <button
             aria-current={isActive ? "page" : undefined}
-            className={`relative flex items-center gap-1.5 px-3 pb-2.5 pt-1 text-xs font-bold transition-colors ${isActive ? "text-[var(--color-primary-700)]" : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)]"}`}
+            className={`relative flex min-w-fit items-center gap-1.5 px-3 pb-2.5 pt-1 text-xs font-bold transition-colors ${isActive ? "text-[var(--color-primary-700)]" : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)]"}`}
             key={tab.id}
             onClick={() => onChange(tab.id)}
             type="button"
