@@ -42,7 +42,7 @@ Browser requests go through the same-origin route handler at `/api/backend/*`. L
 - `/candidates`, `/candidates/[sessionId]` - candidate progress and response evidence.
 - `/reports/[sessionId]` - advisory report and reviewer notes.
 - `/analytics` - organization-scoped performance and evidence themes.
-- `/admin`, `/admin/organizations`, `/admin/users` - platform console for the `admin` role. Separate from the workspace dashboard: its own shell, sidebar, and sign-in landing page.
+- `/admin`, `/admin/organizations`, `/admin/users`, `/admin/costs`, `/admin/health` - platform console for the `admin` role. Separate from the workspace dashboard: its own shell, sidebar, and sign-in landing page. `/admin` is the overview and triage page, `/admin/costs` owns AI spend and plan mix, and `/admin/health` owns the live service readings and is the only page that polls.
 
 ## Source of truth
 

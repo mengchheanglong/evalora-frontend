@@ -15,27 +15,49 @@ import { apiGet } from "@/lib/api";
 import { ADMIN_HOME, WORKSPACE_HOME } from "@/lib/auth-routes";
 import { readUserProfilePhoto, userInitials } from "@/lib/user-profile-photo";
 
-export type AdminSection = "overview" | "organizations" | "users";
+export type AdminSection = "overview" | "organizations" | "users" | "costs" | "health";
 
 type AdminNavigationItem = { key: AdminSection; label: string; href: string; icon: IconName; hint: string };
+type AdminNavigationGroup = { heading: string; items: AdminNavigationItem[] };
 
 /**
  * Navigation for the platform console. It is deliberately independent of the
  * workspace shell: nothing from the workspace sidebar appears here, and the
  * workspace sidebar never links here.
+ *
+ * The two groups mirror how the pages are used. "Platform" is the directory
+ * work an admin does on demand; "Operations" is the money-and-machines view
+ * checked on its own rhythm. Splitting them keeps each page answering one
+ * question instead of stacking three dashboards on the landing page.
  */
-export const ADMIN_NAVIGATION: AdminNavigationItem[] = [
-  { key: "overview", label: "Usage & Cost", href: ADMIN_HOME, icon: "analytics", hint: "Platform totals, AI spend, infrastructure" },
-  { key: "organizations", label: "Organizations", href: `${ADMIN_HOME}/organizations`, icon: "globe", hint: "Workspaces, plans, suspension" },
-  { key: "users", label: "Users", href: `${ADMIN_HOME}/users`, icon: "users", hint: "Every account across every workspace" },
+export const ADMIN_NAVIGATION: AdminNavigationGroup[] = [
+  {
+    heading: "Platform",
+    items: [
+      { key: "overview", label: "Overview", href: ADMIN_HOME, icon: "home", hint: "What needs attention, 30-day trends, recent joins" },
+      { key: "organizations", label: "Organizations", href: `${ADMIN_HOME}/organizations`, icon: "globe", hint: "Workspaces, plans, suspension" },
+      { key: "users", label: "Users", href: `${ADMIN_HOME}/users`, icon: "users", hint: "Every account across every workspace" },
+    ],
+  },
+  {
+    heading: "Operations",
+    items: [
+      { key: "costs", label: "Usage & Cost", href: `${ADMIN_HOME}/costs`, icon: "analytics", hint: "AI spend, what drives it, subscription plans" },
+      { key: "health", label: "System health", href: `${ADMIN_HOME}/health`, icon: "waves", hint: "Live service status, latency, workload" },
+    ],
+  },
 ];
 
-// Keys match each page's first request exactly so hovering a link warms the GET cache.
+// Keys match each page's first request exactly so hovering a link warms the GET
+// cache. Overview, costs, and health all read the same `/admin/overview`
+// payload, so moving between them inside the cache TTL costs no extra request.
 const FIRST_PAGE_QUERY = buildAdminQuery({ page: 1, pageSize: ADMIN_PAGE_SIZE });
 const ADMIN_PREFETCH_PATHS: Record<string, string[]> = {
   [ADMIN_HOME]: ["/admin/overview"],
   [`${ADMIN_HOME}/organizations`]: [`/admin/organizations${FIRST_PAGE_QUERY}`],
   [`${ADMIN_HOME}/users`]: [`/admin/users${FIRST_PAGE_QUERY}`],
+  [`${ADMIN_HOME}/costs`]: ["/admin/overview"],
+  [`${ADMIN_HOME}/health`]: ["/admin/overview"],
 };
 
 type AdminShellProps = {
@@ -246,10 +268,14 @@ function AdminSidebar({ active, onNavigate }: { active: AdminSection; onNavigate
         </span>
       </Link>
       <nav className="flex-1 px-3.5 py-4">
-        <p className="px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">Platform</p>
-        <div className="mt-3 space-y-2">
-          {ADMIN_NAVIGATION.map((item) => <AdminSidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
-        </div>
+        {ADMIN_NAVIGATION.map((group, index) => (
+          <div className={index > 0 ? "mt-6" : ""} key={group.heading}>
+            <p className="px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">{group.heading}</p>
+            <div className="mt-3 space-y-2">
+              {group.items.map((item) => <AdminSidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
+            </div>
+          </div>
+        ))}
       </nav>
       <div className="border-t border-[var(--theme-border)] px-5 py-4 text-xs leading-5 text-[var(--theme-faint)]">
         <p>Changes made here apply across every workspace and take effect on the target&apos;s next request.</p>
