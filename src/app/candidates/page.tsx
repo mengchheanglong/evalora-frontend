@@ -175,7 +175,8 @@ export default function CandidatesPage() {
               </div>
               {visible.length ? (
                 <>
-                  <div className="overflow-x-auto">
+                  {/* Desktop table (md+) */}
+                  <div className="hidden overflow-x-auto md:block">
                     <table className="w-full min-w-[860px] text-left text-xs">
                       <thead className="bg-[var(--theme-panel-soft)] text-xs font-semibold uppercase tracking-wide text-[var(--theme-faint)]">
                         <tr className="border-b border-[var(--theme-border)]">
@@ -219,6 +220,32 @@ export default function CandidatesPage() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Mobile candidate cards (< md) */}
+                  <div className="divide-y divide-[var(--theme-border)] md:hidden">
+                    {paginatedCandidates.map((session) => (
+                      <Link className="block p-4 transition hover:bg-[var(--theme-panel-soft)]/70" href={`/candidates/${session.id}`} key={session.id}>
+                        <div className="flex items-start gap-3">
+                          <span className={`flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-sm font-bold ${candidateAvatarTone(session.candidateName)}`}>
+                            {candidateInitials(session.candidateName)}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-base font-bold text-[var(--theme-heading)] truncate">{session.candidateName}</p>
+                            <p className="mt-0.5 text-sm text-[var(--theme-muted)] truncate">{session.targetRole ?? "Not specified"}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <StatusBadge status={session.status} />
+                          <RecruiterDecisionBadge verdict={session.recruiterVerdict} />
+                          {session.overallScore !== undefined ? <ScoreCircle score={session.overallScore} /> : null}
+                        </div>
+                        <button className="button-primary mt-3 min-h-11 w-full rounded-[7px] text-sm" type="button">
+                          View Report
+                        </button>
+                      </Link>
+                    ))}
+                  </div>
+
                   <Pagination
                     onPageChange={(page) => setPagination({ filterKey, page })}
                     page={currentPage}

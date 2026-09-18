@@ -262,8 +262,10 @@ export default function SessionsPage() {
 
           {/* Table */}
           {filteredSessions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm whitespace-nowrap">
+            <>
+              {/* Desktop table (md+) */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-[var(--theme-panel-soft)] text-xs font-semibold text-[var(--theme-faint)] uppercase tracking-wider">
                   <tr>
                     <th className="px-5 py-3">Session ID</th>
@@ -343,8 +345,37 @@ export default function SessionsPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+
+              {/* Mobile session cards (< md) */}
+              <div className="divide-y divide-[var(--theme-border)] md:hidden">
+                {filteredSessions.map((session) => (
+                  <Link className="block p-4 transition hover:bg-[var(--theme-panel-soft)]" href={`/candidates/${session.id}`} key={session.id}>
+                    <div className="flex items-start gap-3">
+                      <div className="size-10 shrink-0 rounded-full bg-[var(--theme-active)] flex items-center justify-center text-[var(--theme-active-text)] font-bold text-sm">
+                        {session.candidateName.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-bold text-[var(--theme-heading)] truncate">{session.candidateName}</p>
+                        <p className="mt-0.5 text-sm text-[var(--theme-muted)] truncate">{session.templateTitle}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <StatusBadge status={session.status} />
+                      <RecruiterDecisionBadge verdict={session.recruiterVerdict} />
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[var(--theme-faint)]">
+                      <Icon name="calendar" size={12} />
+                      <span>{session.date} · {session.time}</span>
+                    </div>
+                    <button className="button-primary mt-3 min-h-11 w-full rounded-[7px] text-sm" type="button">
+                      View Report
+                    </button>
+                  </Link>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="p-10 text-center">
               <EmptyState 
