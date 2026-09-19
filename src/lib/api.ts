@@ -260,20 +260,28 @@ export async function safeUpstreamErrorResponse(response: Response, contentType:
     return serviceUnavailableResponse();
   }
 
-  const safeMessage = errorMessage(payload, response.status);
-  const raw = extractRawMessage(payload);
-  return Response.json(
-    {
+    const safeMessage = errorMessage(payload, response.status);
+    const raw = extractRawMessage(payload);
+    const headers: Record<string, string> = { "X-Evalora-Data-Source": "live" };
+    for (const header of ["retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset"]) {
+      const val = response.headers.get(header);
+      if (val) headers[header] = val;
+    }
+
+    const sanitizedBody: { message: string; retryAfter?: number; _raw: string } = {
       message: safeMessage,
       // Include the raw backend message so the frontend can surface validated
       // user-facing errors that the PUBLIC_API_MESSAGES allowlist may not cover.
       _raw: raw,
-    },
-    {
+    };
+    if (response.status === 429 && typeof (payload as { retryAfter?: unknown })?.retryAfter === "number") {
+      sanitizedBody.retryAfter = (payload as { retryAfter: number }).retryAfter;
+    }
+
+    return Response.json(sanitizedBody, {
       status: response.status,
-      headers: { "X-Evalora-Data-Source": "live" },
-    },
-  );
+      headers,
+    });
 }
 
 function normalizePath(path: string): string {
@@ -335,11 +343,19 @@ function errorMessage(payload: unknown, status: number): string {
   }
   if (status === 401) return SESSION_EXPIRED_MESSAGE;
   if (status === 403) return "You do not have permission to access this workspace.";
+  if (status === 429) return "Too many requests. Please wait a moment and try again.";
   return `Request failed (${status}).`;
 }
 
 function safeUserMessage(value: string): string | null {
   const message = value.trim();
   if (PUBLIC_API_MESSAGES.has(message)) return message;
+  if (
+    /^Too many\b.*Please retry in \d+ seconds?\./i.test(message) ||
+    /(?:generated a lot of drafts|sent the assistant a lot of requests).*Please retry in \d+ seconds?\./i.test(message) ||
+    /^Please retry in \d+ seconds?\./i.test(message)
+  ) {
+    return message;
+  }
   return /^Request failed \([1-5]\d{2}\)\.$/.test(message) ? message : null;
 }

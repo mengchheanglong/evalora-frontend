@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/button-link";
 import { Icon, type IconName } from "@/components/icons";
 import { EvaloraLogo, LogoMark } from "@/components/logo";
+import { SubscriptionPlans } from "@/components/subscription-plans";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { howItWorks, landingFeatures, landingStats, testimonials } from "@/lib/mock-data";
 
@@ -46,21 +47,6 @@ const securityItems: Array<{ icon: IconName; title: string; description: string 
     title: "Advisory AI by design",
     description: "AI suggests and summarizes; your team makes every final decision.",
   },
-];
-
-const pricingIncluded = [
-  "Unlimited candidates",
-  "AI interview assessment",
-  "Coding assessment",
-  "Behavioral assessment",
-  "Leadership & communication scenarios",
-  "Custom assessment templates",
-  "Interview session management",
-  "Candidate reports & reviewer notes",
-  "Analytics dashboard",
-  "Role-based access control",
-  "Secure candidate data",
-  "Team onboarding & support",
 ];
 
 const footerLinks = {
@@ -367,51 +353,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-16 sm:py-20 sm:px-8" id="pricing">
-        <div className="mx-auto max-w-[640px] text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Pricing</p>
-          <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
-            Simple private pricing for every team
-          </h2>
-          <p className="mt-4 text-base text-neutral-500">
-            One plan, every module included — scoped to your hiring volume and review standards.
-          </p>
-        </div>
-
-        <div className="mx-auto mt-12 max-w-[1000px] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_24px_60px_-24px_rgba(15,23,42,0.18)] lg:grid lg:grid-cols-[1.05fr_1fr]">
-          <div className="p-8 sm:p-10">
-            <span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-primary-700">
-              For all teams
-            </span>
-            <h3 className="mt-5 text-4xl font-extrabold tracking-[-0.02em] text-neutral-950">Let&apos;s talk</h3>
-            <p className="mt-3 max-w-[400px] text-sm text-neutral-500">
-              Build the assessment workflow that fits your hiring process, team size, and review standards — with
-              guided onboarding from day one.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <ButtonLink className="h-11 !rounded-lg px-6 text-sm" href="/register">
-                Contact sales
-              </ButtonLink>
-              <ButtonLink className="h-11 !rounded-lg px-6 text-sm" href="/assessment/demo-session" variant="outline">
-                Try the live demo
-              </ButtonLink>
-            </div>
-            <p className="mt-5 text-xs text-neutral-400">Pilot-friendly — start with a single role.</p>
-          </div>
-          <div className="border-t border-neutral-200 bg-neutral-50 p-8 sm:p-10 lg:border-l lg:border-t-0">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Everything included</p>
-            <ul className="mt-5 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              {pricingIncluded.map((item) => (
-                <li className="flex items-start gap-2.5 text-sm font-medium text-neutral-700" key={item}>
-                  <Icon className="mt-0.5 shrink-0 text-primary-600" name="check" size={15} />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
+      <SubscriptionPlans />
 
       {/* CTA */}
       <section className="mx-auto max-w-[1200px] px-5 pb-16 sm:px-8 sm:pb-20">

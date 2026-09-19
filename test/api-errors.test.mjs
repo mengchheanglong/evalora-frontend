@@ -61,6 +61,67 @@ test("short JSON validation messages remain actionable", async () => {
   );
 });
 
+test("rate limit 429 responses with clear retry instructions remain user-facing", async () => {
+  const rateLimitMessages = [
+    "Too many requests from this IP address. Please retry in 15 seconds.",
+    "Too many authentication attempts. Please wait a moment and try again. Please retry in 30 seconds.",
+    "Too many code execution requests. Please slow down and try again shortly. Please retry in 10 seconds.",
+    "Too many AI generation requests. Please slow down and try again shortly. Please retry in 45 seconds.",
+    "Too many candidate access requests. Please wait and try again. Please retry in 5 seconds.",
+    "You have generated a lot of drafts recently. Please wait a few minutes and try again. Please retry in 60 seconds.",
+    "You have sent the assistant a lot of requests recently. Please wait a few minutes and try again. Please retry in 25 seconds.",
+    "Too many rapid submissions. Please retry in 3 seconds.",
+  ];
+
+  for (const rateLimitMessage of rateLimitMessages) {
+    globalThis.fetch = async () => Response.json({ message: rateLimitMessage, retryAfter: 15 }, { status: 429 });
+    await assert.rejects(
+      apiPost("/code/run", {}),
+      (error) => {
+        assert.ok(error instanceof ApiError);
+        assert.equal(getErrorMessage(error, "Execution failed."), rateLimitMessage);
+        assert.equal(error.status, 429);
+        return true;
+      },
+    );
+  }
+});
+
+test("safeUpstreamErrorResponse preserves rate limit headers and retryAfter on 429 responses", async () => {
+  const upstream = new Response(
+    JSON.stringify({
+      statusCode: 429,
+      error: "Too Many Requests",
+      message: "Too many code execution requests. Please slow down and try again shortly. Please retry in 10 seconds.",
+      retryAfter: 10,
+    }),
+    {
+      status: 429,
+      headers: {
+        "content-type": "application/json",
+        "retry-after": "10",
+        "x-ratelimit-limit": "30",
+        "x-ratelimit-remaining": "0",
+        "x-ratelimit-reset": "1725700000",
+      },
+    },
+  );
+
+  const response = await apiPolicy.safeUpstreamErrorResponse(upstream, "application/json");
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("retry-after"), "10");
+  assert.equal(response.headers.get("x-ratelimit-limit"), "30");
+  assert.equal(response.headers.get("x-ratelimit-remaining"), "0");
+  assert.equal(response.headers.get("x-ratelimit-reset"), "1725700000");
+
+  const body = await response.json();
+  assert.equal(
+    body.message,
+    "Too many code execution requests. Please slow down and try again shortly. Please retry in 10 seconds.",
+  );
+  assert.equal(body.retryAfter, 10);
+});
+
 test("workspace invite conflict messages remain actionable", async () => {
   const conflictMessages = [
     "This person is already a member of your workspace.",

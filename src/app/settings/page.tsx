@@ -421,6 +421,15 @@ export default function SettingsPage() {
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
           {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
+          <Link className="card flex items-center gap-3 p-5 transition hover:border-primary-300 focus-visible:outline-2 focus-visible:outline-primary" href="/settings/billing">
+            <Icon className="text-primary-600" name="crown" size={20} />
+            <span className="flex-1">
+              <span className="block text-sm font-bold">Billing &amp; Subscription</span>
+              <span className="mt-1 block text-xs text-[var(--theme-muted)]">Plan options, usage, and billing details</span>
+            </span>
+            <Icon className="-rotate-90" name="chevron" size={16} />
+          </Link>
+
           {!isOwner ? (
             <section className="card scroll-mt-[96px] overflow-hidden" id="profile">
               <form onSubmit={(event) => void saveProfile(event)}>
