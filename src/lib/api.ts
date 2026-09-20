@@ -24,6 +24,7 @@ const PUBLIC_API_MESSAGES = new Set([
   "Name is required.",
   "Invalid email or password.",
   "Invalid credentials.",
+  "Verify your email before signing in.",
   "Candidates access assessments through an invitation link or access code.",
   "This email is registered as a candidate invitation. Use a different Google account for workspace access.",
   "Candidates access assessments through invitation links or access codes, not platform registration.",
@@ -271,11 +272,11 @@ export async function safeUpstreamErrorResponse(response: Response, contentType:
       if (val) headers[header] = val;
     }
 
-    const sanitizedBody: { message: string; retryAfter?: number; _raw: string } = {
+    const sanitizedBody: { message: string; retryAfter?: number; _raw?: string } = {
       message: safeMessage,
       // Include the raw backend message so the frontend can surface validated
       // user-facing errors that the PUBLIC_API_MESSAGES allowlist may not cover.
-      _raw: raw,
+      ...(raw ? { _raw: raw } : {}),
     };
     if (response.status === 429 && typeof (payload as { retryAfter?: unknown })?.retryAfter === "number") {
       sanitizedBody.retryAfter = (payload as { retryAfter: number }).retryAfter;
