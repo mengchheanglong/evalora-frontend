@@ -320,14 +320,41 @@ export default function HomePage() {
         <div className="mx-auto max-w-[1200px] px-5 py-16 sm:py-20 sm:px-8">
           <div className="mx-auto max-w-[640px] text-center">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Customers</p>
-            <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
               Loved by hiring teams
             </h2>
-            <p className="mt-4 text-base text-neutral-500">
+            <p className="mt-4 text-sm text-neutral-500 sm:text-base">
               See what teams using Evalora have to say.
             </p>
           </div>
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {/* Mobile: single merged card */}
+          <div className="mt-10 md:hidden">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm divide-y divide-neutral-100">
+              {testimonials.map((testimonial, index) => (
+                <figure className={`flex flex-col ${index === 0 ? '' : 'pt-6'}`} key={`mobile-${testimonial.name}`}>
+                  <div aria-label="Five star rating" className="flex gap-1 text-amber-400">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Icon fill="currentColor" key={star} name="star" size={13} />
+                    ))}
+                  </div>
+                  <blockquote className="mt-3 text-sm text-neutral-700">
+                    &ldquo;{testimonial.quote}&rdquo;
+                  </blockquote>
+                  <figcaption className="mt-3 flex items-center gap-3">
+                    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-[11px] font-extrabold text-primary-700">
+                      {testimonial.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                    </span>
+                    <span>
+                      <span className="block text-sm font-bold text-neutral-950">{testimonial.name}</span>
+                      <span className="mt-0.5 block text-xs text-neutral-500">{testimonial.role}</span>
+                    </span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+          {/* Desktop: separate cards in a row */}
+          <div className="mt-10 hidden gap-5 md:grid md:grid-cols-3">
             {testimonials.map((testimonial) => (
               <figure className="flex flex-col rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm" key={testimonial.name}>
                 <div aria-label="Five star rating" className="flex gap-1 text-amber-400">
