@@ -11,6 +11,7 @@ export type ModuleType =
   | "problem_solving";
 export type QuestionType = "mcq" | "scale" | "short_answer" | "coding" | "scenario" | "roleplay";
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type RecruiterVerdict = "STRONG_HIRE" | "HIRE" | "NEUTRAL" | "NO_HIRE";
 
 export interface AuthUser {
   id: string;
@@ -365,6 +366,10 @@ export interface CandidateReport {
   reviewerSummary?: string;
   advisoryNotice: string;
   generatedAt?: string;
+  recruiterVerdict?: RecruiterVerdict;
+  recruiterTags?: string[];
+  recruiterScore?: number;
+  decidedAt?: string;
   persistence?: { status: "persisted" | "skipped" | "failed"; reason?: string; evaluationCount?: number };
 }
 
