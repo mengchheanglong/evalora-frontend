@@ -28,12 +28,14 @@ export type IconName =
   | "plus"
   | "plusUser"
   | "question"
+  | "refresh"
   | "report"
   | "search"
   | "screenShare"
   | "settings"
   | "shield"
   | "sparkle"
+  | "spinner"
   | "star"
   | "sun"
   | "trash"
@@ -250,6 +252,14 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M12 17h.01" />
     </>
   ),
+  refresh: (
+    <>
+      <path d="M3 12a9 9 0 0 1 15.5-6.36L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.5 6.36L3 16" />
+      <path d="M3 21v-5h5" />
+    </>
+  ),
   report: (
     <>
       <path d="M6 3h9l3 3v15H6z" />
@@ -298,6 +308,11 @@ const icons: Record<IconName, ReactNode> = {
       <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5Z" />
       <path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8Z" />
       <path d="M5 4l.6 1.4L7 6l-1.4.6L5 8l-.6-1.4L3 6l1.4-.6Z" />
+    </>
+  ),
+  spinner: (
+    <>
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </>
   ),
   star: (

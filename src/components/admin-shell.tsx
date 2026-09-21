@@ -21,21 +21,16 @@ type AdminNavigationItem = { key: AdminSection; label: string; href: string; ico
 type AdminNavigationGroup = { heading: string; items: AdminNavigationItem[] };
 
 /**
- * Navigation for the platform console. It is deliberately independent of the
- * workspace shell: nothing from the workspace sidebar appears here, and the
- * workspace sidebar never links here.
- *
- * The two groups mirror how the pages are used. "Platform" is the directory
- * work an admin does on demand; "Operations" is the money-and-machines view
- * checked on its own rhythm. Splitting them keeps each page answering one
- * question instead of stacking three dashboards on the landing page.
+ * Navigation for the platform console. Designed with Atlassian & shadcn hierarchy:
+ * - "Platform" group: Core directory management (Overview, Workspaces, Accounts).
+ * - "Operations" group: Mission-critical monitoring (Usage & Cost, System Health).
  */
 export const ADMIN_NAVIGATION: AdminNavigationGroup[] = [
   {
     heading: "Platform",
     items: [
       { key: "overview", label: "Overview", href: ADMIN_HOME, icon: "home", hint: "What needs attention, 30-day trends, recent joins" },
-      { key: "organizations", label: "Organizations", href: `${ADMIN_HOME}/organizations`, icon: "globe", hint: "Workspaces, plans, suspension" },
+      { key: "organizations", label: "Organizations", href: `${ADMIN_HOME}/organizations`, icon: "globe", hint: "Workspaces, subscription plans, suspension" },
       { key: "users", label: "Users", href: `${ADMIN_HOME}/users`, icon: "users", hint: "Every account across every workspace" },
     ],
   },
@@ -48,9 +43,6 @@ export const ADMIN_NAVIGATION: AdminNavigationGroup[] = [
   },
 ];
 
-// Keys match each page's first request exactly so hovering a link warms the GET
-// cache. Overview, costs, and health all read the same `/admin/overview`
-// payload, so moving between them inside the cache TTL costs no extra request.
 const FIRST_PAGE_QUERY = buildAdminQuery({ page: 1, pageSize: ADMIN_PAGE_SIZE });
 const ADMIN_PREFETCH_PATHS: Record<string, string[]> = {
   [ADMIN_HOME]: ["/admin/overview"],
@@ -68,12 +60,6 @@ type AdminShellProps = {
   children: ReactNode;
 };
 
-/**
- * Layout for the platform console (`/admin/*`). Separate from `AppShell` on
- * purpose: its own sidebar, header, branding, and access rule. Anonymous
- * visitors go to `/login`; signed-in non-admins go to the workspace dashboard.
- * The backend enforces the same role on every `/admin/*` call.
- */
 export function AdminShell({ active, title, description, actions, children }: AdminShellProps) {
   const { status, user, logout } = useAuth();
   const pathname = usePathname();
@@ -129,104 +115,150 @@ export function AdminShell({ active, title, description, actions, children }: Ad
   }
 
   const initials = userInitials(user.name);
+  const activeNavItem = ADMIN_NAVIGATION.flatMap((g) => g.items).find((i) => i.key === active);
 
   return (
-    <main className="min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] lg:grid lg:grid-cols-[244px_1fr]">
-      <aside className="sticky top-0 hidden h-screen border-r border-[var(--theme-border)] bg-[var(--theme-panel)] lg:flex lg:flex-col">
+    <main className="min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] lg:grid lg:grid-cols-[260px_1fr]">
+      {/* Desktop Sidebar */}
+      <aside className="sticky top-0 hidden h-screen border-r border-[var(--theme-border)] bg-[var(--theme-panel)] lg:flex lg:flex-col shadow-xs">
         <AdminSidebar active={active} />
       </aside>
+
+      {/* Mobile Navigation Drawer */}
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button aria-label="Close navigation" className="absolute inset-0 bg-[var(--theme-heading)]/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} type="button" />
-          <aside className="relative h-full w-[284px] border-r border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-2xl">
+          <button
+            aria-label="Close navigation"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileOpen(false)}
+            type="button"
+          />
+          <aside className="relative h-full w-[280px] border-r border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-2xl">
             <AdminSidebar active={active} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       ) : null}
 
-      <section className="min-w-0">
-        <header className="sticky top-0 z-30 border-b border-[var(--theme-border)] bg-[var(--theme-panel)] backdrop-blur-xl">
-          <div className="flex h-[68px] items-center gap-3 px-4 sm:px-6 xl:px-8">
-            <button aria-label="Open navigation" className="flex size-9 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-text)] lg:hidden" onClick={() => setMobileOpen(true)} type="button">
-              <Icon name="menu" size={19} />
-            </button>
-            <Link className="flex items-center gap-2 lg:hidden" href={ADMIN_HOME}>
-              <LogoMark className="size-[36px]" />
-              <span className="text-sm font-bold text-[var(--theme-heading)]">Platform console</span>
-            </Link>
-
-            <button
-              aria-keyshortcuts="Control+K Meta+K"
-              className="ml-2 hidden h-10 w-full max-w-[420px] items-center gap-3 rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel-tint)] px-3 text-left text-sm text-[var(--theme-muted)] transition hover:border-[var(--theme-border-strong)] hover:bg-[var(--theme-panel)] md:flex"
-              onClick={openSearch}
-              type="button"
-            >
-              <Icon name="search" size={16} />
-              <span className="flex-1 truncate">Search workspaces and people…</span>
-              <kbd className="rounded border border-[var(--theme-border)] bg-[var(--theme-panel)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--theme-faint)]">Ctrl K</kbd>
-            </button>
-
-            <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              <button aria-label="Search" className="flex size-9 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-text)] md:hidden" onClick={openSearch} type="button">
-                <Icon name="search" size={17} />
+      <section className="flex min-w-0 flex-col">
+        {/* Sticky Top Header */}
+        <header className="sticky top-0 z-30 border-b border-[var(--theme-border)] bg-[var(--theme-panel)]/90 backdrop-blur-md">
+          <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+            {/* Left: Mobile Toggle & Breadcrumbs */}
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                aria-label="Open navigation"
+                className="flex size-9 items-center justify-center rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-tint)] lg:hidden"
+                onClick={() => setMobileOpen(true)}
+                type="button"
+              >
+                <Icon name="menu" size={18} />
               </button>
-              {actions}
-              <div className="hidden md:block">
-                <ThemeSwitcher compact />
-              </div>
 
+              <div className="flex items-center gap-2 text-xs font-medium text-[var(--theme-muted)] min-w-0">
+                <Link className="flex items-center gap-1.5 font-semibold text-[var(--theme-heading)] hover:text-[var(--color-primary-600)] transition" href={ADMIN_HOME}>
+                  <LogoMark className="size-5 shrink-0" />
+                  <span className="hidden sm:inline">Platform Console</span>
+                </Link>
+                <span className="text-[var(--theme-border-strong)]">/</span>
+                <span className="truncate font-semibold text-[var(--theme-heading)]">{activeNavItem?.label ?? "Overview"}</span>
+              </div>
+            </div>
+
+            {/* Middle: Command Search Trigger */}
+            <div className="hidden md:flex flex-1 max-w-md mx-4">
+              <button
+                aria-keyshortcuts="Control+K Meta+K"
+                className="group flex h-9 w-full items-center gap-2.5 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-tint)] px-3 text-left text-xs text-[var(--theme-muted)] transition hover:border-[var(--theme-border-strong)] hover:bg-[var(--theme-panel)] hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-ring)]"
+                onClick={openSearch}
+                type="button"
+              >
+                <Icon className="text-[var(--theme-muted)] transition group-hover:text-[var(--theme-heading)]" name="search" size={15} />
+                <span className="flex-1 truncate">Search workspaces, users, metrics…</span>
+                <kbd className="inline-flex h-5 items-center gap-0.5 rounded border border-[var(--theme-border)] bg-[var(--theme-panel)] px-1.5 font-mono text-xs font-semibold text-[var(--theme-muted)] shadow-2xs">
+                  Ctrl K
+                </kbd>
+              </button>
+            </div>
+
+            {/* Right: Actions, Theme, Account */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <button
+                aria-label="Search"
+                className="flex size-9 items-center justify-center rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] transition hover:text-[var(--theme-heading)] md:hidden"
+                onClick={openSearch}
+                type="button"
+              >
+                <Icon name="search" size={16} />
+              </button>
+
+              {/* Status Badge */}
+              <Link
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-2xs"
+                href={`${ADMIN_HOME}/health`}
+              >
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Live System</span>
+              </Link>
+
+              <ThemeSwitcher compact />
+
+              {/* User Account Menu */}
               <div className="relative" ref={accountMenuRef}>
                 <button
                   aria-expanded={accountOpen}
                   aria-haspopup="menu"
                   aria-label="Account menu"
-                  className="flex size-10 items-center justify-center overflow-hidden rounded-full border border-amber-300 bg-[var(--theme-panel)] shadow-sm transition hover:ring-2 hover:ring-amber-200"
+                  className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-xs transition hover:ring-2 hover:ring-[var(--theme-ring)] hover:border-[var(--color-primary-400)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-ring)]"
                   onClick={() => setAccountOpen((open) => !open)}
                   type="button"
                 >
                   {profilePhoto ? (
                     <img alt="" className="size-full object-cover" src={profilePhoto} />
                   ) : (
-                    <span className="flex size-full items-center justify-center bg-amber-500 text-xs font-black text-white">{initials}</span>
+                    <span className="flex size-full items-center justify-center bg-gradient-to-tr from-sky-600 to-cyan-500 text-xs font-bold text-white tracking-wide">
+                      {initials}
+                    </span>
                   )}
                 </button>
 
                 {accountOpen ? (
                   <div
-                    className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-[12px] border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+                    className="absolute right-0 mt-2 w-[280px] overflow-hidden rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-xl animate-in fade-in zoom-in-95 duration-100"
                     role="menu"
                   >
-                    <div className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-4 py-4">
+                    <div className="border-b border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-amber-300 bg-[var(--theme-panel)]">
+                        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-xs">
                           {profilePhoto ? (
                             <img alt="" className="size-full object-cover" src={profilePhoto} />
                           ) : (
-                            <span className="flex size-full items-center justify-center bg-amber-500 text-sm font-black text-white">{initials}</span>
+                            <span className="flex size-full items-center justify-center bg-gradient-to-tr from-sky-600 to-cyan-500 text-xs font-bold text-white">
+                              {initials}
+                            </span>
                           )}
                         </span>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{user.name}</p>
-                          <p className="mt-0.5 truncate text-xs text-[var(--theme-muted)]">{user.email}</p>
-                          <p className="mt-0.5 text-xs font-semibold text-amber-700">Platform admin</p>
+                          <p className="truncate text-xs text-[var(--theme-muted)]">{user.email}</p>
+                          <span className="mt-1 inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300">
+                            Platform Admin
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-1.5">
-                      {user.organizationId ? (
-                        <Link
-                          className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-xs font-semibold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)]"
-                          href={WORKSPACE_HOME}
-                          onClick={() => setAccountOpen(false)}
-                          role="menuitem"
-                        >
-                          <Icon name="home" size={15} />
-                          Open my workspace
-                        </Link>
-                      ) : null}
+                    <div className="p-1.5 space-y-0.5">
+                      <Link
+                        className="flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-xs font-medium text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"
+                        href={`${ADMIN_HOME}/health`}
+                        onClick={() => setAccountOpen(false)}
+                        role="menuitem"
+                      >
+                        <Icon className="text-[var(--theme-muted)]" name="waves" size={15} />
+                        System health status
+                      </Link>
                       <button
-                        className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                        className="flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-50 dark:hover:bg-rose-950/40"
                         onClick={() => void handleLogout()}
                         role="menuitem"
                         type="button"
@@ -242,13 +274,22 @@ export function AdminShell({ active, title, description, actions, children }: Ad
           </div>
         </header>
 
-        <div className="px-4 py-6 sm:px-6 lg:py-7 xl:px-8">
-          <BackendHealthBanner />
-          <div className="mb-6">
-            <h1 className="text-2xl font-extrabold leading-tight text-[var(--theme-heading)] sm:text-3xl">{title}</h1>
-            {description ? <p className="mt-2 max-w-3xl text-sm leading-5 text-[var(--theme-muted)]">{description}</p> : null}
+        {/* Page Content Canvas */}
+        <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto max-w-7xl space-y-6">
+            <BackendHealthBanner />
+
+            {/* Page Header Bar */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-2xl font-extrabold tracking-tight text-[var(--theme-heading)] sm:text-3xl">{title}</h1>
+                {description ? <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--theme-muted)]">{description}</p> : null}
+              </div>
+              {actions ? <div className="flex items-center gap-2.5 shrink-0">{actions}</div> : null}
+            </div>
+
+            {children}
           </div>
-          {children}
         </div>
       </section>
 
@@ -257,49 +298,82 @@ export function AdminShell({ active, title, description, actions, children }: Ad
   );
 }
 
-function AdminSidebar({ active, onNavigate }: { active: AdminSection; onNavigate?: () => void }) {
+function AdminSidebar({
+  active,
+  onNavigate,
+}: {
+  active: AdminSection;
+  onNavigate?: () => void;
+}) {
   return (
     <div className="flex h-full flex-col">
-      <Link className="flex h-[82px] items-center gap-3 px-5" href={ADMIN_HOME} onClick={onNavigate}>
-        <LogoMark className="size-[42px]" />
-        <span className="leading-tight">
-          <span className="block text-xl font-bold leading-none tracking-[-0.02em] text-[var(--theme-heading)]">Evalora</span>
-          <span className="mt-1 inline-flex items-center rounded-[5px] border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-amber-700">Platform console</span>
+      {/* Brand Header */}
+      <div className="flex h-16 items-center justify-between border-b border-[var(--theme-border)] px-5">
+        <Link className="flex items-center gap-2.5 group" href={ADMIN_HOME} onClick={onNavigate}>
+          <LogoMark className="size-8 transition transform group-hover:scale-105" />
+          <div className="leading-tight">
+            <span className="block text-base font-bold tracking-tight text-[var(--theme-heading)]">Evalora</span>
+            <span className="block text-xs font-medium text-[var(--theme-muted)]">Platform Console</span>
+          </div>
+        </Link>
+        <span className="rounded-md border border-sky-200/80 bg-sky-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300">
+          Admin
         </span>
-      </Link>
-      <nav className="flex-1 px-3.5 py-4">
-        {ADMIN_NAVIGATION.map((group, index) => (
-          <div className={index > 0 ? "mt-6" : ""} key={group.heading}>
-            <p className="px-4 text-xs font-bold uppercase text-[var(--theme-muted)]">{group.heading}</p>
-            <div className="mt-3 space-y-2">
-              {group.items.map((item) => <AdminSidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />)}
+      </div>
+
+      {/* Navigation Groups */}
+      <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
+        {ADMIN_NAVIGATION.map((group) => (
+          <div key={group.heading}>
+            <p className="px-3 text-xs font-bold uppercase tracking-wider text-[var(--theme-muted)] opacity-80">
+              {group.heading}
+            </p>
+            <div className="mt-1.5 space-y-1">
+              {group.items.map((item) => (
+                <AdminSidebarLink active={active === item.key} item={item} key={item.key} onNavigate={onNavigate} />
+              ))}
             </div>
           </div>
         ))}
       </nav>
-      <div className="border-t border-[var(--theme-border)] px-5 py-4 text-xs leading-5 text-[var(--theme-faint)]">
-        <p>Changes made here apply across every workspace and take effect on the target&apos;s next request.</p>
-        <p className="mt-2">
-          Press <kbd className="rounded border border-[var(--theme-border)] px-1 text-[10px] font-bold">/</kbd> to search.
-        </p>
-      </div>
     </div>
   );
 }
 
-function AdminSidebarLink({ active, item, onNavigate }: { active: boolean; item: AdminNavigationItem; onNavigate?: () => void }) {
+function AdminSidebarLink({
+  active,
+  item,
+  onNavigate,
+}: {
+  active: boolean;
+  item: AdminNavigationItem;
+  onNavigate?: () => void;
+}) {
   return (
     <Link
       aria-current={active ? "page" : undefined}
-      className={`flex h-[48px] items-center gap-4 rounded-xl px-4 text-sm font-semibold transition ${active ? "bg-[var(--theme-active)] text-[var(--theme-active-text)]" : "text-[var(--theme-muted)] hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"}`}
+      className={`group flex h-9 items-center gap-3 rounded-xl px-3 text-xs font-medium transition ${
+        active
+          ? "bg-[var(--theme-active)] text-[var(--theme-active-text)] font-semibold shadow-xs"
+          : "text-[var(--theme-muted)] hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"
+      }`}
       href={item.href}
       onClick={onNavigate}
       onFocus={() => prefetchAdminPage(item.href)}
       onMouseEnter={() => prefetchAdminPage(item.href)}
       title={item.hint}
     >
-      <Icon className={active ? "text-[var(--theme-active-text)]" : "text-[var(--theme-heading)]"} name={item.icon} size={21} />
-      <span>{item.label}</span>
+      <Icon
+        className={`shrink-0 transition ${
+          active
+            ? "text-[var(--theme-active-text)]"
+            : "text-[var(--theme-muted)] group-hover:text-[var(--theme-heading)]"
+        }`}
+        name={item.icon}
+        size={17}
+      />
+      <span className="truncate">{item.label}</span>
+      {active ? <span className="ml-auto size-1.5 rounded-full bg-current opacity-70" /> : null}
     </Link>
   );
 }

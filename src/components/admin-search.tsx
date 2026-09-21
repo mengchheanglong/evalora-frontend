@@ -122,7 +122,7 @@ export function AdminSearchPalette({ open, onClose }: { open: boolean; onClose: 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center px-4 pt-[10vh]">
       <button aria-label="Close search" className="absolute inset-0 bg-neutral-950/50 backdrop-blur-[2px]" onClick={onClose} type="button" />
-      <div aria-label="Search the platform" aria-modal="true" className="card relative z-10 w-full max-w-[640px] overflow-hidden rounded-[12px] border border-[var(--theme-border)] shadow-2xl" role="dialog">
+      <div aria-label="Search the platform" aria-modal="true" className="card relative z-10 w-full max-w-[640px] overflow-hidden rounded-2xl border border-[var(--theme-border)] shadow-2xl" role="dialog">
         <label className="flex h-14 items-center gap-3 border-b border-[var(--theme-border)] px-4">
           <Icon className="shrink-0 text-[var(--theme-muted)]" name="search" size={18} />
           <span className="sr-only">Search workspaces and people</span>
@@ -139,7 +139,7 @@ export function AdminSearchPalette({ open, onClose }: { open: boolean; onClose: 
             type="text"
             value={query}
           />
-          <kbd className="hidden rounded border border-[var(--theme-border)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--theme-faint)] sm:block">Esc</kbd>
+          <kbd className="hidden rounded border border-[var(--theme-border)] px-1.5 py-0.5 text-xs font-semibold text-[var(--theme-faint)] sm:block">Esc</kbd>
         </label>
 
         <div className="max-h-[60vh] overflow-y-auto" id="admin-search-results" role="listbox">
@@ -154,7 +154,7 @@ export function AdminSearchPalette({ open, onClose }: { open: boolean; onClose: 
 
           {results?.organizations.length ? (
             <section className="py-2">
-              <h3 className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--theme-faint)]">Workspaces</h3>
+              <h3 className="px-4 pb-1 text-xs font-bold uppercase tracking-wider text-[var(--theme-faint)]">Workspaces</h3>
               {results.organizations.map((organization, index) => {
                 const itemIndex = organizationIndexOffset + index;
                 const selected = cursor === itemIndex;
@@ -169,7 +169,7 @@ export function AdminSearchPalette({ open, onClose }: { open: boolean; onClose: 
                     role="option"
                     type="button"
                   >
-                    <span className="grid size-8 shrink-0 place-items-center rounded-[7px] border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-[var(--theme-heading)]">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-[var(--theme-heading)]">
                       <Icon name="globe" size={15} />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -189,7 +189,7 @@ export function AdminSearchPalette({ open, onClose }: { open: boolean; onClose: 
 
           {results?.users.length ? (
             <section className="border-t border-[var(--theme-border)] py-2">
-              <h3 className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--theme-faint)]">People</h3>
+              <h3 className="px-4 pb-1 text-xs font-bold uppercase tracking-wider text-[var(--theme-faint)]">People</h3>
               {results.users.map((user, index) => {
                 const itemIndex = userIndexOffset + index;
                 const selected = cursor === itemIndex;

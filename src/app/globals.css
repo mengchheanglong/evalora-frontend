@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
 /*
  * ============================================================================
  * EVALORA DESIGN TOKENS
@@ -452,8 +454,8 @@ textarea.control {
   --theme-heading: #0f172a;
   --theme-muted: #5f6b7a;
   --theme-faint: #9aa4b2;
-  --theme-active: #bfeeff;
-  --theme-active-text: #0b5f78;
+  --theme-active: #e0f2fe;
+  --theme-active-text: #0284c7;
   --theme-shadow: 0 18px 50px rgba(15, 23, 42, 0.05);
   --theme-ring: color-mix(in srgb, var(--color-primary-500) 22%, transparent);
   --theme-glow: rgba(47, 178, 228, 0.16);

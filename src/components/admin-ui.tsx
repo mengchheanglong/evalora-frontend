@@ -8,17 +8,31 @@ import type { AdminSortOrder, ServiceHealth, ServiceStatus, SessionStatus, Subsc
 
 /**
  * Building blocks shared by the platform console pages under `/admin`.
- * They follow the same rules as the workspace charts: quantities are encoded
- * with length and position, colour marks categories or status only, and every
- * visual has a text fallback so nothing is colour-only.
+ * Crafted with shadcn UI and Atlassian Design System standards:
+ * - High visual hierarchy: prominent KPI metrics, clean typography, purposeful spacing.
+ * - Atlassian-style lozenges: distinct, accessible status and role chips with light/dark fidelity.
+ * - Data visualizations: smooth SVG sparklines with gradient area fills and interactive charts.
+ * - Responsive data tables: sticky headers, sort chevrons, hover states, and slide-over drawers.
  */
 
 export type Notice = { tone: "success" | "error"; text: string };
 
 export const STATUS_META: Record<ServiceStatus, { label: string; pill: string; dot: string }> = {
-  operational: { label: "Operational", pill: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  degraded: { label: "Degraded", pill: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" },
-  unavailable: { label: "Unavailable", pill: "border-rose-200 bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+  operational: {
+    label: "Operational",
+    pill: "border-emerald-200/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+  },
+  degraded: {
+    label: "Degraded",
+    pill: "border-amber-200/80 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300",
+    dot: "bg-amber-500",
+  },
+  unavailable: {
+    label: "Unavailable",
+    pill: "border-rose-200/80 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300",
+    dot: "bg-rose-500",
+  },
 };
 
 export const SESSION_STATUS_META: Record<SessionStatus, { label: string; color: string }> = {
@@ -46,15 +60,15 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`card rounded-[10px] p-5 ${className}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className={`rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 sm:p-6 shadow-xs transition duration-200 hover:shadow-sm ${className}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-[var(--theme-border)]/70">
         <div className="min-w-0">
-          <h2 className="text-base font-black text-[var(--theme-heading)]">{title}</h2>
-          {description ? <p className="mt-1 text-xs text-[var(--theme-muted)]">{description}</p> : null}
+          <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-[var(--theme-heading)]">{title}</h2>
+          {description ? <p className="mt-1 text-xs leading-relaxed text-[var(--theme-muted)]">{description}</p> : null}
         </div>
-        {action}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      <div className="mt-4">{children}</div>
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
@@ -62,7 +76,7 @@ export function Panel({
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--theme-muted)]">{children}</h3>
+      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--theme-muted)]">{children}</h3>
       {action}
     </div>
   );
@@ -71,70 +85,79 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
 /* ---------------------------------------------------------------- metrics */
 
 /**
- * Compact trend for a metric card: no axes, no labels, just the shape of the
- * last 30 days. The numbers it summarises are printed next to it.
+ * Compact trend for a metric card: smooth curve with gradient fill and endpoint dot.
  */
 export function Sparkline({ values, color = "var(--color-chart-1)", label }: { values: number[]; color?: string; label: string }) {
   const gradientId = useId();
   if (!values.length) return null;
-  const width = 120;
-  const height = 36;
+  const width = 124;
+  const height = 38;
   const max = Math.max(1, ...values);
   const step = values.length > 1 ? width / (values.length - 1) : 0;
-  const points = values.map((value, index) => [index * step, height - 3 - (value / max) * (height - 6)] as const);
+  const points = values.map((value, index) => [index * step, height - 4 - (value / max) * (height - 8)] as const);
   const line = points.map(([x, y], index) => `${index ? "L" : "M"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
   const last = points[points.length - 1];
   const area = `${line} L ${last[0].toFixed(1)} ${height} L 0 ${height} Z`;
 
   return (
-    <svg aria-label={label} className="block h-9 w-[120px] shrink-0" role="img" viewBox={`0 0 ${width} ${height}`}>
+    <svg aria-label={label} className="block h-9 w-[124px] shrink-0 overflow-visible" role="img" viewBox={`0 0 ${width} ${height}`}>
       <defs>
         <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.28" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.0" />
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#${gradientId})`} />
-      <path d={line} fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-      <circle cx={last[0]} cy={last[1]} fill={color} r="2.5" />
+      <path d={line} fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+      <circle cx={last[0]} cy={last[1]} fill={color} r="3" />
+      <circle cx={last[0]} cy={last[1]} fill={color} opacity="0.3" r="6" />
     </svg>
   );
 }
 
 /**
- * Period-over-period change. `goodWhen` decides which direction is green: more
- * sessions is good, more spend is neither, so cost cards pass "neutral".
+ * Period-over-period change lozenge (Atlassian / shadcn style).
  */
 export function DeltaBadge({
   changePct,
   goodWhen = "up",
-  suffix = "vs. previous 30 days",
+  suffix = "vs. prev 30d",
 }: {
   changePct: number | null;
   goodWhen?: "up" | "down" | "neutral";
   suffix?: string;
 }) {
-  if (changePct === null) return <span className="text-xs text-[var(--theme-faint)]">No earlier period to compare</span>;
+  if (changePct === null) return <span className="text-xs text-[var(--theme-faint)]">No prior baseline</span>;
   const direction = changePct > 0 ? "up" : changePct < 0 ? "down" : "flat";
-  const tone =
-    direction === "flat" || goodWhen === "neutral"
-      ? "text-[var(--theme-muted)]"
-      : direction === goodWhen
-        ? "text-emerald-700"
-        : "text-rose-600";
+  const isNeutral = direction === "flat" || (goodWhen as string) === "neutral";
+  const isPositive = !isNeutral && (direction as string) === (goodWhen as string);
+  const isNegative = !isNeutral && (direction as string) !== (goodWhen as string);
+
+  const tone = isPositive
+    ? "border-emerald-200/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400"
+    : isNegative
+      ? "border-rose-200/80 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-400"
+      : "border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]";
+
   const arrow = direction === "up" ? "↑" : direction === "down" ? "↓" : "→";
+
   return (
-    <span className={`inline-flex flex-wrap items-center gap-1 text-xs font-semibold ${tone}`}>
-      <span aria-hidden="true">{arrow}</span>
-      <span className="tabular-nums">{formatPercentChange(changePct)}</span>
-      <span className="font-normal text-[var(--theme-faint)]">{suffix}</span>
+    <span className="inline-flex flex-wrap items-center gap-1.5 text-xs">
+      <span className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 font-bold tabular-nums shadow-2xs ${tone}`}>
+        <span aria-hidden="true">{arrow}</span>
+        <span>{formatPercentChange(changePct)}</span>
+      </span>
+      {suffix ? <span className="text-[var(--theme-muted)] font-medium truncate">{suffix}</span> : null}
     </span>
   );
 }
 
 /**
- * KPI card in four layers: label, headline, comparison, trend. The footer
- * carries the breakdown an operator would otherwise have to click for.
+ * Primary KPI Metric card in shadcn / Tremor style:
+ * Top: Subdued label + Refined Icon box
+ * Middle: Large KPI stat value + Smooth Sparkline
+ * Delta: Trend pill with comparison period
+ * Bottom: Micro-detail breakdown
  */
 export function MetricCard({
   label,
@@ -158,40 +181,63 @@ export function MetricCard({
   href?: string;
 }) {
   const body = (
-    <>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            className="flex size-9 shrink-0 items-center justify-center rounded-[8px] border"
-            style={{
-              color,
-              backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-              borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
-            }}
-          >
-            <Icon name={icon} size={17} />
-          </span>
-          <p className="truncate text-xs font-bold text-[var(--theme-text)]">{label}</p>
+    <div className="flex flex-col h-full justify-between">
+      {/* Top Header */}
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-[var(--theme-muted)] truncate">{label}</p>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="flex size-9 shrink-0 items-center justify-center rounded-xl border transition shadow-2xs"
+              style={{
+                color,
+                backgroundColor: `color-mix(in srgb, ${color} 10%, var(--theme-panel-soft))`,
+                borderColor: `color-mix(in srgb, ${color} 22%, var(--theme-border))`,
+              }}
+            >
+              <Icon name={icon} size={17} />
+            </span>
+            {href ? (
+              <Icon
+                className="-rotate-90 shrink-0 text-[var(--theme-faint)] transition group-hover:text-[var(--theme-heading)] group-hover:translate-x-0.5"
+                name="chevron"
+                size={14}
+              />
+            ) : null}
+          </div>
         </div>
-        {href ? <Icon className="-rotate-90 shrink-0 text-[var(--theme-faint)]" name="chevron" size={14} /> : null}
-      </div>
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-3xl font-extrabold leading-none tabular-nums text-[var(--theme-heading)]">{value}</p>
-          {delta ? <div className="mt-2">{delta}</div> : null}
+
+        {/* Value + Sparkline */}
+        <div className="mt-3.5 flex items-baseline justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-[var(--theme-heading)]">{value}</p>
+          </div>
+          {sparkline?.length ? (
+            <div className="shrink-0">
+              <Sparkline color={color} label={sparklineLabel ?? `${label}, last 30 days`} values={sparkline} />
+            </div>
+          ) : null}
         </div>
-        {sparkline?.length ? <Sparkline color={color} label={sparklineLabel ?? `${label}, last 30 days`} values={sparkline} /> : null}
+
+        {delta ? <div className="mt-2.5">{delta}</div> : null}
       </div>
-      <p className="mt-3 text-xs leading-4 text-[var(--theme-muted)]">{detail}</p>
-    </>
+
+      {/* Footer Detail */}
+      <div className="mt-4 pt-3 border-t border-[var(--theme-border)]/70 text-xs text-[var(--theme-muted)] leading-relaxed">
+        {detail}
+      </div>
+    </div>
   );
-  const className = `card block rounded-[10px] p-4 transition ${href ? "hover:border-[var(--theme-border-strong)] hover:shadow-[var(--theme-shadow)] focus-visible:outline-2 focus-visible:outline-primary" : ""}`;
+
+  const containerClasses =
+    "group relative block rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 sm:p-6 shadow-xs transition duration-200 hover:border-[var(--theme-border-strong)] hover:shadow-md";
+
   return href ? (
-    <Link className={className} href={href}>
+    <Link className={containerClasses} href={href}>
       {body}
     </Link>
   ) : (
-    <article className={className}>{body}</article>
+    <article className={containerClasses}>{body}</article>
   );
 }
 
@@ -211,16 +257,19 @@ export function StatTile({
   trendLabel?: string;
 }) {
   return (
-    <div className="rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel-tint)] p-3.5">
+    <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-5 shadow-xs transition duration-200 hover:border-[var(--theme-border-strong)] hover:shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold text-[var(--theme-muted)]">{label}</p>
-        <span aria-hidden="true" className={`size-2 rounded-full ${STATUS_META[status].dot}`} />
+        <p className="text-xs font-bold uppercase tracking-wider text-[var(--theme-muted)]">{label}</p>
+        <span className="flex items-center gap-1.5 text-xs font-semibold">
+          <span aria-hidden="true" className={`size-2 rounded-full ${STATUS_META[status].dot}`} />
+          <span className="text-xs font-bold text-[var(--theme-muted)]">{STATUS_META[status].label}</span>
+        </span>
       </div>
-      <div className="mt-1.5 flex items-end justify-between gap-2">
-        <p className="text-xl font-extrabold leading-none text-[var(--theme-heading)]">{value}</p>
+      <div className="mt-2.5 flex items-baseline justify-between gap-2">
+        <p className="text-xl sm:text-2xl font-extrabold tracking-tight text-[var(--theme-heading)] tabular-nums">{value}</p>
         {trend && trend.length > 1 ? <Sparkline color="var(--color-chart-1)" label={trendLabel ?? `${label} trend`} values={trend} /> : null}
       </div>
-      <p className="mt-1.5 text-xs leading-4 text-[var(--theme-muted)]">{detail}</p>
+      <p className="mt-2 text-xs leading-relaxed text-[var(--theme-muted)]">{detail}</p>
     </div>
   );
 }
@@ -228,8 +277,7 @@ export function StatTile({
 export type ActivitySeriesOption = { key: string; label: string; values: number[]; color: string };
 
 /**
- * One series at a time, chosen from the tabs above the plot. Bars, not a line:
- * these are daily counts, and a bar's length is the fastest thing to compare.
+ * ActivityChart with modern segmented control, SVG bar chart, and summary ribbon.
  */
 export function ActivityChart({
   days,
@@ -239,21 +287,21 @@ export function ActivityChart({
 }: {
   days: string[];
   series: ActivitySeriesOption[];
-  activeKey: string;
+  activeKey?: string;
   onSelect: (key: string) => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const active = series.find((option) => option.key === activeKey) ?? series[0];
+  const active = series.find((s) => s.key === activeKey) ?? series[0];
   if (!active || !days.length) return null;
 
   const width = 800;
-  const height = 220;
-  const padding = { top: 14, right: 8, bottom: 26, left: 36 };
+  const height = 230;
+  const padding = { top: 18, right: 12, bottom: 28, left: 36 };
   const plotW = width - padding.left - padding.right;
   const plotH = height - padding.top - padding.bottom;
   const niceMax = niceCeiling(Math.max(1, ...active.values));
   const slot = plotW / days.length;
-  const barW = Math.max(2, slot * 0.62);
+  const barW = Math.max(3, slot * 0.64);
   const y = (value: number) => padding.top + plotH - (value / niceMax) * plotH;
   const ticks = Array.from(new Set([0, 0.25, 0.5, 0.75, 1].map((fraction) => Math.round(niceMax * fraction))));
   const total = active.values.reduce((sum, value) => sum + value, 0);
@@ -263,43 +311,46 @@ export function ActivityChart({
 
   return (
     <div>
-      <div aria-label="Activity series" className="flex flex-wrap gap-1.5" role="tablist">
+      {/* Segmented Control Bar */}
+      <div aria-label="Activity series" className="inline-flex flex-wrap gap-1 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] p-1 shadow-2xs" role="tablist">
         {series.map((option) => {
           const selected = option.key === active.key;
           return (
             <button
               aria-selected={selected}
-              className={`flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-bold transition ${
+              className={`flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${
                 selected
-                  ? "border-transparent text-white"
-                  : "border-[var(--theme-border)] bg-[var(--theme-panel)] text-[var(--theme-muted)] hover:border-[var(--theme-border-strong)] hover:text-[var(--theme-heading)]"
+                  ? "bg-[var(--theme-panel)] text-[var(--theme-heading)] shadow-xs border border-[var(--theme-border)]"
+                  : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)] hover:bg-[var(--theme-panel)]/50"
               }`}
               key={option.key}
               onClick={() => onSelect(option.key)}
               role="tab"
-              style={selected ? { backgroundColor: option.color } : undefined}
               type="button"
             >
-              <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: selected ? "rgba(255,255,255,0.85)" : option.color }} />
-              {option.label}
-              <span className="tabular-nums opacity-80">{option.values.reduce((sum, value) => sum + value, 0).toLocaleString()}</span>
+              <span aria-hidden="true" className="size-2 rounded-full shadow-2xs" style={{ backgroundColor: option.color }} />
+              <span>{option.label}</span>
+              <span className="rounded-md bg-[var(--theme-panel-tint)] px-1.5 py-0.5 text-xs tabular-nums font-bold text-[var(--theme-muted)]">
+                {option.values.reduce((sum, value) => sum + value, 0).toLocaleString()}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div className="relative mt-4">
+      <div className="relative mt-5">
         {hover !== null ? (
           <div
-            className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-[6px] border border-[var(--theme-border)] bg-[var(--theme-panel)] px-2.5 py-1.5 text-xs shadow-lg"
+            className="pointer-events-none absolute top-1 z-10 -translate-x-1/2 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 py-1.5 text-xs shadow-lg transition-all"
             style={{ left: `${tooltipLeft}%` }}
           >
-            <span className="font-bold text-[var(--theme-heading)]">{active.values[hover].toLocaleString()}</span>{" "}
-            <span className="text-[var(--theme-muted)]">
+            <span className="font-extrabold text-[var(--theme-heading)] tabular-nums">{active.values[hover].toLocaleString()}</span>{" "}
+            <span className="text-[var(--theme-muted)] font-medium">
               {active.label.toLowerCase()} on {formatDayLabel(days[hover])}
             </span>
           </div>
         ) : null}
+
         <svg
           aria-label={`${active.label} per day, last ${days.length} days`}
           className="block h-auto w-full"
@@ -309,7 +360,7 @@ export function ActivityChart({
         >
           {ticks.map((tick) => (
             <g key={tick}>
-              <line stroke="var(--color-chart-grid)" strokeWidth="1" x1={padding.left} x2={width - padding.right} y1={y(tick)} y2={y(tick)} />
+              <line stroke="var(--color-chart-grid)" strokeDasharray="3 3" strokeWidth="1" x1={padding.left} x2={width - padding.right} y1={y(tick)} y2={y(tick)} />
               <text fill="var(--theme-faint)" fontSize="11" textAnchor="end" x={padding.left - 8} y={y(tick) + 4}>
                 {tick.toLocaleString()}
               </text>
@@ -325,8 +376,8 @@ export function ActivityChart({
                 <rect
                   fill={active.color}
                   height={padding.top + plotH - barTop}
-                  opacity={hover === null || hovered ? 1 : 0.45}
-                  rx="2"
+                  opacity={hover === null || hovered ? 1 : 0.35}
+                  rx="3.5"
                   width={barW}
                   x={x}
                   y={barTop}
@@ -343,13 +394,20 @@ export function ActivityChart({
         </svg>
       </div>
 
-      <p className="mt-2 text-xs text-[var(--theme-muted)]">
-        {total.toLocaleString()} total · peak {active.values[peakIndex].toLocaleString()} on {formatDayLabel(days[peakIndex])} · {(total / days.length).toFixed(1)} per day on average
-      </p>
-      {/* The screen-reader alternative to the plot. `sr-only` has to sit on a
-          wrapper: CSS treats `height` on a `display: table` box as a minimum,
-          so the class cannot collapse a table and it would add its full height
-          to the page's scroll area. */}
+      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[var(--theme-muted)] pt-3 border-t border-[var(--theme-border)]/70">
+        <span className="font-medium">
+          <span className="font-bold text-[var(--theme-heading)]">{total.toLocaleString()}</span> total
+        </span>
+        <span>•</span>
+        <span className="font-medium">
+          Peak of <span className="font-bold text-[var(--theme-heading)]">{active.values[peakIndex].toLocaleString()}</span> on {formatDayLabel(days[peakIndex])}
+        </span>
+        <span>•</span>
+        <span className="font-medium">
+          <span className="font-bold text-[var(--theme-heading)]">{(total / days.length).toFixed(1)}</span> / day avg
+        </span>
+      </div>
+
       <div className="sr-only">
         <table>
           <caption>{active.label} per day</caption>
@@ -379,24 +437,24 @@ function formatDayLabel(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-/** Stacked bar of a workspace's sessions by lifecycle state, with the counts printed underneath. */
+/** Stacked bar of a workspace's sessions by lifecycle state */
 export function SessionStatusBar({ counts }: { counts: Record<SessionStatus, number> }) {
   const total = SESSION_STATUS_ORDER.reduce((sum, status) => sum + counts[status], 0);
   return (
     <div>
-      <div aria-hidden="true" className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
+      <div aria-hidden="true" className="flex h-2.5 w-full gap-1 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]">
         {total > 0
           ? SESSION_STATUS_ORDER.filter((status) => counts[status] > 0).map((status) => (
-              <span key={status} className="h-full rounded-sm" style={{ width: `${(counts[status] / total) * 100}%`, backgroundColor: SESSION_STATUS_META[status].color }} />
+              <span key={status} className="h-full rounded-full" style={{ width: `${(counts[status] / total) * 100}%`, backgroundColor: SESSION_STATUS_META[status].color }} />
             ))
           : null}
       </div>
-      <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+      <ul className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
         {SESSION_STATUS_ORDER.map((status) => (
-          <li className="flex items-center gap-1.5 text-[var(--theme-muted)]" key={status}>
+          <li className="flex items-center gap-2 text-[var(--theme-muted)]" key={status}>
             <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: SESSION_STATUS_META[status].color }} />
             <span className="tabular-nums font-bold text-[var(--theme-heading)]">{counts[status].toLocaleString()}</span>
-            {SESSION_STATUS_META[status].label}
+            <span>{SESSION_STATUS_META[status].label}</span>
           </li>
         ))}
       </ul>
@@ -407,7 +465,12 @@ export function SessionStatusBar({ counts }: { counts: Record<SessionStatus, num
 /* ----------------------------------------------------------------- status */
 
 export function StatusPill({ status }: { status: ServiceStatus }) {
-  return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_META[status].pill}`}>{STATUS_META[status].label}</span>;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold shadow-2xs ${STATUS_META[status].pill}`}>
+      <span className={`size-1.5 rounded-full ${STATUS_META[status].dot}`} />
+      {STATUS_META[status].label}
+    </span>
+  );
 }
 
 export function overallServiceStatus(services: ServiceHealth[]): ServiceStatus {
@@ -416,7 +479,7 @@ export function overallServiceStatus(services: ServiceHealth[]): ServiceStatus {
   return "operational";
 }
 
-/** Status-page style headline: one sentence that says whether anything is wrong before the list of components. */
+/** Status-page style headline */
 export function HealthBanner({ services, children }: { services: ServiceHealth[]; children?: ReactNode }) {
   const overall = overallServiceStatus(services);
   const degraded = services.filter((service) => service.status === "degraded").length;
@@ -426,18 +489,22 @@ export function HealthBanner({ services, children }: { services: ServiceHealth[]
       ? "All systems operational"
       : overall === "unavailable"
         ? `${unavailable} ${unavailable === 1 ? "service is" : "services are"} unavailable`
-        : `${degraded} ${degraded === 1 ? "service is" : "services are"} running on a fallback`;
+        : `${degraded} ${degraded === 1 ? "service is" : "services are"} running on fallback`;
+
   const tone =
     overall === "operational"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      ? "border-emerald-200/80 bg-emerald-50/70 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300"
       : overall === "unavailable"
-        ? "border-rose-200 bg-rose-50 text-rose-800"
-        : "border-amber-200 bg-amber-50 text-amber-800";
+        ? "border-rose-200/80 bg-rose-50/70 text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300"
+        : "border-amber-200/80 bg-amber-50/70 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300";
+
   return (
-    <div className={`flex flex-wrap items-center gap-3 rounded-[8px] border px-4 py-3 ${tone}`} role="status">
-      <span aria-hidden="true" className={`size-2.5 rounded-full ${STATUS_META[overall].dot}`} />
-      <p className="text-sm font-bold">{headline}</p>
-      <div className="ml-auto flex items-center gap-2 text-xs font-medium">{children}</div>
+    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-xs ${tone}`} role="status">
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden="true" className={`size-2.5 rounded-full ${STATUS_META[overall].dot} animate-pulse`} />
+        <p className="text-xs font-bold tracking-wide">{headline}</p>
+      </div>
+      <div className="flex items-center gap-3 text-xs font-semibold">{children}</div>
     </div>
   );
 }
@@ -445,9 +512,14 @@ export function HealthBanner({ services, children }: { services: ServiceHealth[]
 export function AccountStatusBadge({ suspended, since }: { suspended: boolean; since?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-bold ${suspended ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-bold tracking-wide shadow-2xs ${
+        suspended
+          ? "border-rose-200/80 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300"
+          : "border-emerald-200/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+      }`}
       title={suspended && since ? `Suspended ${formatDate(since)}` : undefined}
     >
+      <span className={`size-1.5 rounded-full ${suspended ? "bg-rose-500" : "bg-emerald-500"}`} />
       {suspended ? "Suspended" : "Active"}
     </span>
   );
@@ -456,28 +528,28 @@ export function AccountStatusBadge({ suspended, since }: { suspended: boolean; s
 export function PlanBadge({ plan }: { plan: SubscriptionPlan }) {
   const tone =
     plan === "enterprise"
-      ? "border-violet-200 bg-violet-50 text-violet-700"
+      ? "border-purple-200/80 bg-purple-50 text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/40 dark:text-purple-300"
       : plan === "pro"
-        ? "border-sky-200 bg-sky-50 text-sky-700"
+        ? "border-sky-200/80 bg-sky-50 text-sky-700 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300"
         : "border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-[var(--theme-text)]";
-  return <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-bold ${tone}`}>{planLabel(plan)}</span>;
+  return <span className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-bold tracking-wide shadow-2xs ${tone}`}>{planLabel(plan)}</span>;
 }
 
 export function RoleBadge({ role, label }: { role: UserRole; label: string }) {
   const tone =
     role === "admin"
-      ? "border-amber-200 bg-amber-50 text-amber-700"
+      ? "border-amber-200/80 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300"
       : role === "organization"
-        ? "border-violet-100 bg-violet-50 text-violet-700"
+        ? "border-violet-200/80 bg-violet-50 text-violet-700 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-300"
         : role === "interviewer"
-          ? "border-sky-100 bg-sky-50 text-sky-700"
+          ? "border-sky-200/80 bg-sky-50 text-sky-700 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300"
           : "border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]";
-  return <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-bold ${tone}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-bold tracking-wide shadow-2xs ${tone}`}>{label}</span>;
 }
 
 export function SessionStatusBadge({ status }: { status: SessionStatus }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-2 py-0.5 text-xs font-bold text-[var(--theme-text)]">
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-2.5 py-0.5 text-xs font-bold text-[var(--theme-text)] shadow-2xs">
       <span aria-hidden="true" className="size-1.5 rounded-full" style={{ backgroundColor: SESSION_STATUS_META[status].color }} />
       {SESSION_STATUS_META[status].label}
     </span>
@@ -485,35 +557,61 @@ export function SessionStatusBadge({ status }: { status: SessionStatus }) {
 }
 
 /**
- * Items an operator should act on, each a link into the filtered list where
- * the action lives. Rendered only when there is something to act on, so a
- * quiet platform shows one calm line instead of a row of zeros.
+ * Items an operator should act on (Atlassian Triage Lozenge style).
  */
-export function AttentionStrip({ items }: { items: Array<{ key: string; count: number; label: string; href: string; tone: "danger" | "warning" | "info" }> }) {
+export function AttentionStrip({
+  items,
+  systemStatus,
+}: {
+  items: Array<{ key: string; count: number; label: string; href: string; tone: "danger" | "warning" | "info" }>;
+  systemStatus?: { label: string; href: string; status: ServiceStatus };
+}) {
   const visible = items.filter((item) => item.count > 0);
+  const statusElement = systemStatus ? (
+    <Link
+      className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] px-3 py-1.5 text-xs font-bold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-tint)] hover:border-[var(--theme-border-strong)] shadow-2xs"
+      href={systemStatus.href}
+    >
+      <span aria-hidden="true" className={`size-2 rounded-full ${STATUS_META[systemStatus.status].dot}`} />
+      <span>{systemStatus.label}</span>
+      <Icon className="-rotate-90 opacity-60" name="chevron" size={11} />
+    </Link>
+  ) : null;
+
   if (!visible.length) {
     return (
-      <div className="flex items-center gap-2 rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel)] px-4 py-2.5 text-xs font-semibold text-[var(--theme-muted)]" role="status">
-        <Icon className="text-emerald-600" name="check" size={15} />
-        Nothing needs attention right now.
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/50 px-4 py-3 text-xs font-semibold text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-300" role="status">
+        <div className="flex items-center gap-2.5">
+          <Icon className="text-emerald-600 dark:text-emerald-400 shrink-0" name="check" size={16} />
+          <span>All systems healthy · No immediate actions required across workspaces.</span>
+        </div>
+        {statusElement}
       </div>
     );
   }
+
   const tones = {
-    danger: "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100",
-    warning: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
-    info: "border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100",
+    danger: "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300",
+    warning: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300",
+    info: "border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300",
   };
+
   return (
-    <div className="flex flex-wrap items-center gap-2" role="region" aria-label="Needs attention">
-      <span className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--theme-muted)]">Needs attention</span>
-      {visible.map((item) => (
-        <Link className={`inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-bold transition ${tones[item.tone]}`} href={item.href} key={item.key}>
-          <span className="tabular-nums">{item.count.toLocaleString()}</span>
-          {item.label}
-          <Icon className="-rotate-90 opacity-70" name="chevron" size={11} />
-        </Link>
-      ))}
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel)] p-3.5 shadow-xs" role="region" aria-label="Needs attention">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--theme-muted)] px-1">
+          <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+          Needs Attention:
+        </span>
+        {visible.map((item) => (
+          <Link className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition ${tones[item.tone]}`} href={item.href} key={item.key}>
+            <span className="tabular-nums font-extrabold">{item.count.toLocaleString()}</span>
+            <span>{item.label}</span>
+            <Icon className="-rotate-90 opacity-60" name="chevron" size={10} />
+          </Link>
+        ))}
+      </div>
+      {statusElement}
     </div>
   );
 }
@@ -522,31 +620,39 @@ export function AttentionStrip({ items }: { items: Array<{ key: string; count: n
 
 export function SearchField({ label, placeholder, value, onChange }: { label: string; placeholder: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="group flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-[7px] border border-[var(--color-primary-300)]/70 bg-[var(--color-primary-50)]/70 px-3 text-[var(--color-primary-700)] transition focus-within:border-[var(--color-primary-500)] focus-within:bg-[var(--theme-panel)] focus-within:ring-4 focus-within:ring-[var(--theme-ring)] sm:max-w-[380px]">
+    <div className="relative flex-1 min-w-[220px] sm:max-w-[340px]">
       <span className="sr-only">{label}</span>
+      <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-muted)]" name="search" size={14} />
       <input
-        className="min-w-0 flex-1 border-0 bg-transparent text-xs font-medium text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)]"
+        className="h-9 w-full rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] pl-8 pr-8 text-xs font-medium text-[var(--theme-text)] outline-none placeholder:text-[var(--theme-muted)] transition hover:border-[var(--theme-border-strong)] focus:border-[var(--color-primary-500)] focus:ring-2 focus:ring-[var(--theme-ring)]"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type="search"
         value={value}
       />
       {value ? (
-        <button aria-label="Clear search" className="text-[var(--theme-muted)] hover:text-[var(--theme-heading)]" onClick={() => onChange("")} type="button">
+        <button
+          aria-label="Clear search"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--theme-muted)] hover:text-[var(--theme-heading)]"
+          onClick={() => onChange("")}
+          type="button"
+        >
           <Icon name="x" size={13} />
         </button>
-      ) : (
-        <Icon className="pointer-events-none shrink-0 text-[var(--color-primary-700)]/70 transition group-focus-within:text-[var(--color-primary-700)]" name="search" size={15} />
-      )}
-    </label>
+      ) : null}
+    </div>
   );
 }
 
 export function FilterSelect({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
   return (
-    <label className="flex items-center gap-2 text-xs font-bold text-[var(--theme-muted)]">
-      <span>{label}</span>
-      <select className="control h-9 min-h-0 w-auto rounded-[7px] px-2 text-xs font-semibold" onChange={(event) => onChange(event.target.value)} value={value}>
+    <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--theme-muted)]">
+      <span>{label}:</span>
+      <select
+        className="h-9 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-2.5 text-xs font-medium text-[var(--theme-text)] outline-none transition hover:border-[var(--theme-border-strong)] focus:border-[var(--color-primary-500)] focus:ring-2 focus:ring-[var(--theme-ring)] cursor-pointer"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
         {children}
       </select>
     </label>
@@ -565,24 +671,28 @@ export function FilterChips({
   onChange: (value: string) => void;
 }) {
   return (
-    <div aria-label={label} className="flex flex-wrap items-center gap-1.5" role="group">
-      <span className="mr-1 text-xs font-bold text-[var(--theme-muted)]">{label}</span>
+    <div aria-label={label} className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] p-1 shadow-2xs" role="group">
+      <span className="sr-only">{label}</span>
       {options.map((option) => {
         const selected = value === option.value;
         return (
           <button
             aria-pressed={selected}
-            className={`h-8 rounded-full border px-3 text-xs font-bold transition ${
+            className={`h-7 rounded-lg px-2.5 text-xs font-semibold transition ${
               selected
-                ? "border-[var(--color-primary-400)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)]"
-                : "border-[var(--theme-border)] bg-[var(--theme-panel)] text-[var(--theme-muted)] hover:border-[var(--theme-border-strong)] hover:text-[var(--theme-heading)]"
+                ? "bg-[var(--theme-panel)] text-[var(--theme-heading)] shadow-xs border border-[var(--theme-border)]"
+                : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)] hover:bg-[var(--theme-panel)]/40"
             }`}
             key={option.value || "all"}
             onClick={() => onChange(option.value)}
             type="button"
           >
             {option.label}
-            {typeof option.count === "number" ? <span className="ml-1.5 tabular-nums opacity-70">{option.count.toLocaleString()}</span> : null}
+            {typeof option.count === "number" ? (
+              <span className="ml-1.5 rounded-md bg-[var(--theme-panel-tint)] px-1.5 py-0.5 text-xs tabular-nums font-bold text-[var(--theme-muted)]">
+                {option.count.toLocaleString()}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -611,12 +721,12 @@ export function SortableHeader<K extends string>({
   return (
     <th aria-sort={active ? (order === "asc" ? "ascending" : "descending") : "none"} className={`${align === "right" ? "text-right" : "text-left"} ${className}`} scope="col">
       <button
-        className={`inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs font-bold transition hover:text-[var(--theme-heading)] ${active ? "text-[var(--theme-heading)]" : "text-[var(--theme-muted)]"}`}
+        className={`inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-bold transition-all active:scale-95 hover:text-[var(--theme-heading)] ${active ? "text-[var(--theme-heading)] font-extrabold" : "text-[var(--theme-muted)]"}`}
         onClick={() => onSort(sortKey)}
         type="button"
       >
-        {label}
-        <span aria-hidden="true" className={`text-[10px] ${active ? "" : "opacity-30"}`}>
+        <span>{label}</span>
+        <span aria-hidden="true" className={`text-xs transition ${active ? "text-[var(--color-primary-600)] opacity-100" : "opacity-30"}`}>
           {active && order === "asc" ? "▲" : "▼"}
         </span>
       </button>
@@ -628,12 +738,26 @@ export function Pagination({ page, totalPages, total, pageSize, onChange, disabl
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--theme-border)] px-5 py-3 text-xs text-[var(--theme-muted)]">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--theme-border)] px-5 py-3.5 text-xs text-[var(--theme-muted)]">
       <span>{total === 0 ? "No results" : `Showing ${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`}</span>
       <div className="flex items-center gap-2">
-        <button className="button-secondary h-8 min-h-0 rounded-[6px] px-3 text-xs" disabled={disabled || page <= 1} onClick={() => onChange(page - 1)} type="button">Previous</button>
-        <span className="font-semibold">Page {page} of {totalPages}</span>
-        <button className="button-secondary h-8 min-h-0 rounded-[6px] px-3 text-xs" disabled={disabled || page >= totalPages} onClick={() => onChange(page + 1)} type="button">Next</button>
+        <button
+          className="flex h-8 items-center gap-1 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 text-xs font-semibold text-[var(--theme-text)] transition-all hover:bg-[var(--theme-panel-soft)] active:scale-95 disabled:active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+          disabled={disabled || page <= 1}
+          onClick={() => onChange(page - 1)}
+          type="button"
+        >
+          Previous
+        </button>
+        <span className="font-semibold text-[var(--theme-heading)] px-2">Page {page} of {totalPages || 1}</span>
+        <button
+          className="flex h-8 items-center gap-1 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-panel)] px-3 text-xs font-semibold text-[var(--theme-text)] transition-all hover:bg-[var(--theme-panel-soft)] active:scale-95 disabled:active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+          disabled={disabled || page >= totalPages}
+          onClick={() => onChange(page + 1)}
+          type="button"
+        >
+          Next
+        </button>
       </div>
     </div>
   );
@@ -642,10 +766,10 @@ export function Pagination({ page, totalPages, total, pageSize, onChange, disabl
 /* ---------------------------------------------------------------- loading */
 
 export function SkeletonBlock({ className = "" }: { className?: string }) {
-  return <span aria-hidden="true" className={`block animate-pulse rounded bg-[var(--theme-panel-soft)] ${className}`} />;
+  return <span aria-hidden="true" className={`block animate-pulse rounded-xl bg-[var(--theme-panel-soft)] ${className}`} />;
 }
 
-/** Table placeholder with the real column rhythm, so the page does not jump when rows arrive. */
+/** Table placeholder with the real column rhythm */
 export function SkeletonRows({ rows = 6, label = "Loading" }: { rows?: number; label?: string }) {
   const widths = ["w-40", "w-52", "w-16", "w-10", "w-10", "w-20", "w-14"];
   return (
@@ -661,13 +785,23 @@ export function SkeletonRows({ rows = 6, label = "Loading" }: { rows?: number; l
   );
 }
 
+export function DrawerSkeleton() {
+  return (
+    <div className="space-y-6">
+      <SkeletonBlock className="h-6 w-48" />
+      <div className="grid grid-cols-2 gap-3">
+        <SkeletonBlock className="h-16 rounded-xl" />
+        <SkeletonBlock className="h-16 rounded-xl" />
+      </div>
+      <SkeletonBlock className="h-32 rounded-xl" />
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ drawer */
 
 /**
- * Nonmodal detail panel: it slides over the right edge and leaves the table
- * usable next to it on wide screens, so an operator can keep the list as
- * reference while acting on one row. Escape closes it; on small screens it
- * takes the full width behind a scrim.
+ * Slide-over sheet for detail inspection
  */
 export function Drawer({
   open,
@@ -700,33 +834,33 @@ export function Drawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[55] flex justify-end lg:pointer-events-none">
-      <button aria-label="Close details" className="absolute inset-0 bg-neutral-950/40 backdrop-blur-[1px] lg:hidden" onClick={onClose} type="button" />
+    <div className="fixed inset-0 z-[55] flex justify-end">
+      <button aria-label="Close details" className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs transition-opacity" onClick={onClose} type="button" />
       <aside
         aria-labelledby={titleId}
         aria-modal="false"
-        className="relative flex h-full w-full max-w-[540px] flex-col border-l border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-[-18px_0_50px_rgba(15,23,42,0.18)] lg:pointer-events-auto"
+        className="relative flex h-full w-full max-w-[580px] flex-col border-l border-[var(--theme-border)] bg-[var(--theme-panel)] shadow-2xl transition-transform animate-in slide-in-from-right duration-200"
         role="dialog"
       >
-        <header className="flex items-start gap-3 border-b border-[var(--theme-border)] px-5 py-4">
+        <header className="flex items-start gap-3 border-b border-[var(--theme-border)] px-6 py-5 bg-[var(--theme-panel-soft)]/60">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-black text-[var(--theme-heading)]" id={titleId}>
+            <h2 className="truncate text-lg font-extrabold tracking-tight text-[var(--theme-heading)]" id={titleId}>
               {title}
             </h2>
-            {subtitle ? <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--theme-muted)]">{subtitle}</div> : null}
+            {subtitle ? <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-[var(--theme-muted)]">{subtitle}</div> : null}
           </div>
           <button
             aria-label="Close details"
-            className="flex size-9 shrink-0 items-center justify-center rounded-[7px] border border-[var(--theme-border)] text-[var(--theme-muted)] transition hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] text-[var(--theme-muted)] transition-all hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)] shadow-2xs active:scale-95"
             onClick={onClose}
             ref={closeRef}
             type="button"
           >
-            <Icon name="x" size={16} />
+            <Icon name="x" size={15} />
           </button>
         </header>
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">{children}</div>
-        {footer ? <footer className="border-t border-[var(--theme-border)] bg-[var(--theme-panel-tint)] px-5 py-3">{footer}</footer> : null}
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">{children}</div>
+        {footer ? <footer className="border-t border-[var(--theme-border)] bg-[var(--theme-panel-tint)] px-6 py-4">{footer}</footer> : null}
       </aside>
     </div>
   );
@@ -734,11 +868,11 @@ export function Drawer({
 
 export function DetailList({ items }: { items: Array<{ label: string; value: ReactNode }> }) {
   return (
-    <dl className="grid grid-cols-[minmax(0,128px)_1fr] gap-x-4 gap-y-2.5 text-sm">
+    <dl className="grid grid-cols-[minmax(0,128px)_1fr] gap-x-4 gap-y-3 text-sm">
       {items.map((item) => (
         <div className="contents" key={item.label}>
-          <dt className="text-xs font-bold leading-5 text-[var(--theme-muted)]">{item.label}</dt>
-          <dd className="min-w-0 leading-5 text-[var(--theme-text)]">{item.value}</dd>
+          <dt className="text-xs font-semibold leading-5 text-[var(--theme-muted)]">{item.label}</dt>
+          <dd className="min-w-0 leading-5 text-[var(--theme-text)] font-medium">{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -747,102 +881,102 @@ export function DetailList({ items }: { items: Array<{ label: string; value: Rea
 
 export function DetailStat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="rounded-[8px] border border-[var(--theme-border)] bg-[var(--theme-panel-tint)] px-3 py-2.5">
-      <p className="text-xs font-bold text-[var(--theme-muted)]">{label}</p>
-      <p className="mt-1 text-lg font-extrabold leading-none tabular-nums text-[var(--theme-heading)]">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-[var(--theme-faint)]">{hint}</p> : null}
+    <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-panel-tint)] px-4 py-3.5 shadow-2xs">
+      <p className="text-xs font-bold uppercase tracking-wider text-[var(--theme-muted)]">{label}</p>
+      <p className="mt-1 text-xl font-extrabold leading-none tabular-nums text-[var(--theme-heading)]">{value}</p>
+      {hint ? <p className="mt-1.5 text-xs text-[var(--theme-faint)]">{hint}</p> : null}
     </div>
   );
 }
 
-export function DrawerSkeleton() {
-  return (
-    <div aria-busy="true" className="space-y-4" role="status" aria-label="Loading details">
-      <SkeletonBlock className="h-4 w-2/3" />
-      <SkeletonBlock className="h-3 w-1/2" />
-      <div className="grid grid-cols-3 gap-3">
-        <SkeletonBlock className="h-16" />
-        <SkeletonBlock className="h-16" />
-        <SkeletonBlock className="h-16" />
-      </div>
-      <SkeletonBlock className="h-3 w-5/6" />
-      <SkeletonBlock className="h-3 w-4/6" />
-      <SkeletonBlock className="h-24" />
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------- misc */
-
-export function Avatar({ name, className = "size-8 text-xs" }: { name: string; className?: string }) {
+export function Avatar({ name, photo, size = 32 }: { name: string; photo?: string | null; size?: number }) {
   const initials = name
+    .trim()
     .split(/\s+/)
-    .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+
   return (
-    <span aria-hidden="true" className={`grid shrink-0 place-items-center rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] font-black text-[var(--theme-heading)] ${className}`}>
-      {initials || "?"}
+    <span
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-panel-soft)] text-xs font-bold text-[var(--theme-heading)] shadow-2xs"
+      style={{ width: size, height: size }}
+    >
+      {photo ? <img alt="" className="size-full object-cover" src={photo} /> : <span>{initials}</span>}
     </span>
   );
 }
 
-export function RelativeTime({ iso, className = "" }: { iso?: string; className?: string }) {
-  if (!iso) return <span className={className}>—</span>;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return <span className={className}>—</span>;
-  return (
-    <time className={className} dateTime={iso} title={date.toLocaleString()}>
-      {formatRelativeTime(iso)}
-    </time>
-  );
-}
-
-export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const handle = window.setTimeout(() => setCopied(false), 1_500);
-    return () => window.clearTimeout(handle);
-  }, [copied]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }
+
   return (
     <button
-      aria-label={copied ? "Copied" : `${label} ${value}`}
-      className="inline-flex h-6 items-center gap-1 rounded border border-[var(--theme-border)] px-1.5 text-[11px] font-semibold text-[var(--theme-muted)] transition hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)]"
-      onClick={() => {
-        void navigator.clipboard?.writeText(value).then(() => setCopied(true)).catch(() => undefined);
-      }}
-      title={value}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-panel)] px-2.5 py-1 text-xs font-semibold text-[var(--theme-muted)] transition-all hover:bg-[var(--theme-panel-soft)] hover:text-[var(--theme-heading)] shadow-2xs active:scale-95"
+      onClick={copy}
+      title="Copy to clipboard"
       type="button"
     >
-      <Icon name={copied ? "check" : "copy"} size={11} />
-      {copied ? "Copied" : label}
+      <Icon name={copied ? "check" : "copy"} size={13} />
+      <span>{copied ? "Copied" : label}</span>
     </button>
   );
 }
 
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function RelativeTime({ iso }: { iso: string }) {
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const handle = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(handle);
+  }, []);
+
+  return (
+    <time dateTime={iso} title={formatDate(iso)}>
+      {formatRelativeTime(iso, now)}
+    </time>
+  );
+}
+
+export function useSecondsSince(timestamp: number | null): number {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!timestamp) return;
+    setSeconds(Math.max(0, Math.floor((Date.now() - timestamp) / 1000)));
+    const handle = window.setInterval(() => {
+      setSeconds(Math.max(0, Math.floor((Date.now() - timestamp) / 1000)));
+    }, 1000);
+    return () => window.clearInterval(handle);
+  }, [timestamp]);
+
+  return seconds;
+}
+
+export function useDebouncedValue<T>(value: T, delayMs = 300): T {
+  const [debounced, setDebounced] = useState<T>(value);
+
   useEffect(() => {
     const handle = window.setTimeout(() => setDebounced(value), delayMs);
     return () => window.clearTimeout(handle);
   }, [value, delayMs]);
+
   return debounced;
-}
-
-/** Seconds since `since`, re-rendered every second while mounted; drives "updated 12s ago" labels. */
-export function useSecondsSince(since: number | null): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const handle = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(handle);
-  }, []);
-  return since === null ? 0 : Math.max(0, Math.round((now - since) / 1_000));
-}
-
-export function formatDate(iso?: string): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }

@@ -23,7 +23,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             default light theme before data-theme is set. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("evalora-theme");if(t!=="dark"&&t!=="ocean"&&t!=="light")t="light";var d=document.documentElement;d.dataset.theme=t;d.style.colorScheme=t==="dark"?"dark":"light"}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("evalora-theme");if(t!=="dark"&&t!=="ocean"&&t!=="light")t="light";var d=document.documentElement;d.dataset.theme=t;d.style.colorScheme=t==="dark"?"dark":"light";if(t==="dark"){d.classList.add("dark")}else{d.classList.remove("dark")}}catch(e){}`,
           }}
         />
       </head>

@@ -37,6 +37,11 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
     if (!mounted) return;
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light";
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
     window.localStorage.setItem("evalora-theme", theme);
   }, [theme, mounted]);
 
