@@ -527,20 +527,20 @@ export default function TemplatesPage() {
             borderColor: 'var(--theme-border)',
           }}>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-left text-sm">
-                <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{
+              <table className="w-full min-w-[600px] text-left text-xs sm:text-sm">
+                <thead className="bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sm:text-xs" style={{
                   backgroundColor: 'var(--theme-panel-soft)',
                   color: 'var(--theme-muted)',
                 }}>
                   <tr>
-                    <th className="px-5 py-3.5">Template</th>
-                    <th className="px-4 py-3.5">Category</th>
-                    <th className="px-4 py-3.5">Target Role</th>
-                    <th className="px-4 py-3.5">Modules</th>
-                    <th className="px-4 py-3.5">Questions</th>
-                    <th className="px-4 py-3.5">Last Updated</th>
-                    <th className="px-4 py-3.5">Status</th>
-                    <th className="px-5 py-3.5 text-right">Actions</th>
+                    <th className="px-2 py-2.5 sm:px-5 sm:py-3.5">Template</th>
+                    <th className="px-1.5 py-2.5 sm:px-4 sm:py-3.5">Category</th>
+                    <th className="px-1.5 py-2.5 sm:px-4 sm:py-3.5">Target Role</th>
+                    <th className="px-1.5 py-2.5 sm:px-4 sm:py-3.5">Modules</th>
+                    <th className="px-1.5 py-2.5 sm:px-4 sm:py-3.5">Questions</th>
+                    <th className="px-1.5 py-2.5 sm:px-4 sm:py-3.5">Last Updated</th>
+                    <th className="px-1.5 py-2.5 sm:px-4 sm:py-3.5">Status</th>
+                    <th className="px-2 py-2.5 text-right sm:px-5 sm:py-3.5">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100" style={{
@@ -556,66 +556,52 @@ export default function TemplatesPage() {
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}>
-                      <td className="px-5 py-4">
-                        <button className="group flex w-full items-center gap-3 text-left" onClick={() => void openMinePreview(template.id)} title="Open preview" type="button">
-                          <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${template.iconColor}`}>
-                            <Icon name={template.icon} size={20} />
+                      <td className="px-2 py-3 sm:px-5 sm:py-4">
+                        <button className="group flex w-full items-center gap-2 text-left sm:gap-3" onClick={() => void openMinePreview(template.id)} title="Open preview" type="button">
+                          <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg sm:size-10 ${template.iconColor}`}>
+                            <Icon name={template.icon} size={16} />
                           </span>
                           <div className="min-w-0">
-                            <p className="font-bold text-gray-900 group-hover:underline" style={{
+                            <p className="max-w-[110px] truncate font-bold text-gray-900 group-hover:underline sm:max-w-[250px]" style={{
                               color: 'var(--theme-heading)',
                             }}>{template.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 max-w-[250px] truncate" style={{
+                            <p className="mt-0.5 max-w-[110px] truncate text-[11px] text-gray-500 sm:max-w-[250px] sm:text-xs" style={{
                               color: 'var(--theme-muted)',
                             }}>{template.description}</p>
                           </div>
                         </button>
                       </td>
-                      <td className="px-4 py-4">
-                        <span className="tpl-chip tpl-chip-indigo inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium">
+                      <td className="px-1.5 py-3 sm:px-4 sm:py-4">
+                        <span className="tpl-chip tpl-chip-indigo inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium sm:px-2.5 sm:py-1 sm:text-xs">
                           {template.category}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-sm text-gray-700" style={{
+                      <td className="max-w-[90px] truncate px-1.5 py-3 text-xs text-gray-700 sm:max-w-none sm:px-4 sm:py-4 sm:text-sm" style={{
                         color: 'var(--theme-text)',
                       }}>{template.targetRoles}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5 text-gray-700" style={{
-                          color: 'var(--theme-text)',
-                        }}>
-                          <Icon name="clipboard" size={14} className="text-gray-400" style={{
-                            color: 'var(--theme-faint)',
-                          }} />
-                          <span className="font-medium">{template.modulesCount}</span>
-                        </div>
+                      <td className="w-8 px-1.5 py-3 text-center sm:w-10 sm:px-4 sm:py-4">
+                        <span className="font-medium">{template.modulesCount}</span>
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5 text-gray-700" style={{
-                          color: 'var(--theme-text)',
-                        }}>
-                          <Icon name="file" size={14} className="text-gray-400" style={{
-                            color: 'var(--theme-faint)',
-                          }} />
-                          <span className="font-medium">{template.questionsCount}</span>
-                        </div>
+                      <td className="w-8 px-1.5 py-3 text-center sm:w-10 sm:px-4 sm:py-4">
+                        <span className="font-medium">{template.questionsCount}</span>
                       </td>
-                      <td className="px-4 py-4 text-xs text-gray-500" style={{
+                      <td className="px-1.5 py-3 text-[10px] text-gray-500 sm:px-4 sm:py-4 sm:text-xs" style={{
                         color: 'var(--theme-muted)',
                       }}>
                         <p>{template.lastUpdate}</p>
-                        <p style={{
+                        <p className="hidden sm:block" style={{
                           color: 'var(--theme-faint)',
                         }}>by {template.updatedBy}</p>
                       </td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
+                      <td className="px-1.5 py-3 sm:px-4 sm:py-4">
+                        <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold sm:px-2.5 sm:py-1 sm:text-xs ${
                           template.status === "Active" ? "tpl-chip tpl-chip-emerald" : "tpl-chip tpl-chip-neutral"
                         }`}>
                           {template.status}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-2 py-3 text-right sm:px-5 sm:py-4">
+                        <div className="flex items-center justify-end gap-0.5 sm:gap-1">
                           <ActionButton icon="pencil" label="Edit" href={`/templates/${template.id}/edit`} />
                           <ActionButton icon="copy" label="Duplicate" onClick={() => void duplicateMine(template.id)} disabled={busyId === template.id} />
                           <ActionButton icon="trash" label="Delete" onClick={() => requestDeleteMine(template.id, template.title)} disabled={busyId === template.id || deleting} danger />
