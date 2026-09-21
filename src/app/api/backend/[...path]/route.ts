@@ -94,6 +94,13 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 
     const upstreamContentType = backendResponse.headers.get("content-type");
     if (!backendResponse.ok) {
+      // Log the raw backend error so developers can see the real rejection reason
+      // even when the proxy filters the message through PUBLIC_API_MESSAGES.
+      const rawBody = await backendResponse.clone().text().catch(() => "<unreadable>");
+      console.error(
+        `[proxy] ${request.method} ${relativePath} → ${backendResponse.status}`,
+        rawBody,
+      );
       return safeUpstreamErrorResponse(backendResponse, upstreamContentType ?? "");
     }
 

@@ -11,6 +11,7 @@ export type ModuleType =
   | "problem_solving";
 export type QuestionType = "mcq" | "scale" | "short_answer" | "coding" | "scenario" | "roleplay";
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type RecruiterVerdict = "STRONG_HIRE" | "HIRE" | "NEUTRAL" | "NO_HIRE";
 
 export interface AuthUser {
   id: string;
@@ -233,6 +234,7 @@ export interface InterviewSession {
   overallScore?: number;
   reportReady?: boolean;
   reportStatus?: "generated" | "pending";
+  recruiterVerdict?: RecruiterVerdict;
   /** Official integrity warning counters, always server-authored. */
   warningCount?: number;
   warningLimit?: number;
@@ -365,6 +367,9 @@ export interface CandidateReport {
   reviewerSummary?: string;
   advisoryNotice: string;
   generatedAt?: string;
+  recruiterVerdict?: RecruiterVerdict;
+  recruiterTags?: string[];
+  recruiterScore?: number;
   persistence?: { status: "persisted" | "skipped" | "failed"; reason?: string; evaluationCount?: number };
 }
 
@@ -374,6 +379,23 @@ export interface ReviewerNote {
   note: string;
   reviewer: { id: string; name: string };
   createdAt?: string;
+}
+
+export interface VerdictUpdatePayload {
+  verdict: RecruiterVerdict;
+  tags?: string[];
+  score?: number;
+  notes?: string;
+}
+
+export interface VerdictUpdateResponse {
+  sessionId: string;
+  recruiterVerdict: RecruiterVerdict;
+  recruiterTags?: string[];
+  recruiterScore?: number;
+  decidedAt?: string;
+  decidedBy?: { id: string; name: string; email: string };
+  notes?: ReviewerNote[];
 }
 
 export interface ModulePerformance {

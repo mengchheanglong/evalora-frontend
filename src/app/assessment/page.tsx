@@ -9,7 +9,8 @@ import { Icon } from "@/components/icons";
 import { OverviewCard } from "@/components/overview-card";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
-import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
+import { RecruiterDecisionBadge } from "@/components/recruiter-decision-badge";
+import type { AnalyticsSummary, CandidateReport, InterviewSession, RecruiterVerdict, SessionStatus } from "@/lib/types";
 
 // --- UI Types (Matches Figma Design) ---
 type SessionStatusUI = "Completed" | "In Progress" | "Scheduled" | "Expired";
@@ -27,6 +28,7 @@ interface SessionRow {
   time: string;
   timestamp: number;
   status: SessionStatusUI;
+  recruiterVerdict?: RecruiterVerdict;
 }
 
 // --- Helper: Map Backend Data to UI Structure ---
@@ -75,11 +77,13 @@ function mapSessionToRow(session: InterviewSession): SessionRow {
     time,
     timestamp: dateObj.getTime(),
     status: statusMap[session.status],
+    recruiterVerdict: session.recruiterVerdict,
   };
 }
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [reportsBySessionId, setReportsBySessionId] = useState<Record<string, CandidateReport>>({});
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -102,7 +106,16 @@ export default function SessionsPage() {
         apiGet<InterviewSession[]>("/sessions"),
         apiGet<AnalyticsSummary>("/analytics/summary"),
       ]);
+      const reports: Record<string, CandidateReport> = {};
+      await Promise.all(data.filter((session) => session.reportReady).map(async (session) => {
+        try {
+          reports[session.id] = await apiGet<CandidateReport>(`/reports/${encodeURIComponent(session.id)}`);
+        } catch {
+          // A report can be marked ready while its persistence is still settling.
+        }
+      }));
       setSessions(data.map(mapSessionToRow));
+      setReportsBySessionId(reports);
       setSummary(nextSummary);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -259,8 +272,10 @@ export default function SessionsPage() {
 
           {/* Table */}
           {filteredSessions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm whitespace-nowrap">
+            <>
+              {/* Desktop table (md+) */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-[var(--theme-panel-soft)] text-xs font-semibold text-[var(--theme-faint)] uppercase tracking-wider">
                   <tr>
                     <th className="px-5 py-3">Session ID</th>
@@ -284,6 +299,7 @@ export default function SessionsPage() {
                           <div>
                             <p className="font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</p>
                             <p className="text-xs text-[var(--theme-muted)]">{session.candidateEmail}</p>
+                            {reportsBySessionId[session.id]?.recruiterVerdict ? <RecruiterDecisionBadge verdict={reportsBySessionId[session.id].recruiterVerdict} /> : null}
                           </div>
                         </Link>
                       </td>
@@ -317,7 +333,10 @@ export default function SessionsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <StatusBadge status={session.status} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge status={session.status} />
+                          <RecruiterDecisionBadge verdict={session.recruiterVerdict} />
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -337,8 +356,37 @@ export default function SessionsPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+
+              {/* Mobile session cards (< md) */}
+              <div className="divide-y divide-[var(--theme-border)] md:hidden">
+                {filteredSessions.map((session) => (
+                  <Link className="block p-4 transition hover:bg-[var(--theme-panel-soft)]" href={`/candidates/${session.id}`} key={session.id}>
+                    <div className="flex items-start gap-3">
+                      <div className="size-10 shrink-0 rounded-full bg-[var(--theme-active)] flex items-center justify-center text-[var(--theme-active-text)] font-bold text-sm">
+                        {session.candidateName.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-bold text-[var(--theme-heading)] truncate">{session.candidateName}</p>
+                        <p className="mt-0.5 text-sm text-[var(--theme-muted)] truncate">{session.templateTitle}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <StatusBadge status={session.status} />
+                      <RecruiterDecisionBadge verdict={session.recruiterVerdict} />
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[var(--theme-faint)]">
+                      <Icon name="calendar" size={12} />
+                      <span>{session.date} · {session.time}</span>
+                    </div>
+                    <button className="button-primary mt-3 min-h-11 w-full rounded-[7px] text-sm" type="button">
+                      View Report
+                    </button>
+                  </Link>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="p-10 text-center">
               <EmptyState 
@@ -377,6 +425,7 @@ function StatusBadge({ status }: { status: SessionStatusUI }) {
     </span>
   );
 }
+
 
 function getCategoryColor(category: string) {
   const colors: Record<string, string> = {

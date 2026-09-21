@@ -171,12 +171,12 @@ export default function HomePage() {
 
       {/* STATS BAND */}
       <section className="border-y border-neutral-200 bg-neutral-50">
-        <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-y-10 px-5 py-12 sm:px-8 md:grid-cols-4 md:divide-x md:divide-neutral-200">
+        <div className="mx-auto grid max-w-[1200px] grid-cols-4 divide-x divide-neutral-200 px-3 py-8 sm:px-8 sm:py-12">
           {landingStats.map((stat) => (
-            <article className="px-4 text-center md:px-8" key={stat.label}>
-              <p className="text-2xl font-extrabold tracking-tight text-neutral-950 md:text-3xl">{stat.value}</p>
-              <p className="mt-2 text-sm font-semibold text-neutral-700">{stat.label}</p>
-              <p className="mt-1 text-xs text-neutral-400">{stat.detail}</p>
+            <article className="px-2 text-center sm:px-8" key={stat.label}>
+              <p className="text-lg font-extrabold tracking-tight text-neutral-950 sm:text-2xl md:text-3xl">{stat.value}</p>
+              <p className="mt-1.5 text-xs font-semibold text-neutral-700 sm:text-sm">{stat.label}</p>
+              <p className="mt-1 text-[10px] text-neutral-400 sm:text-xs">{stat.detail}</p>
             </article>
           ))}
         </div>
@@ -186,14 +186,50 @@ export default function HomePage() {
       <section className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-16 sm:py-20 sm:px-8" id="features">
         <div className="mx-auto max-w-[680px] text-center">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Platform</p>
-          <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
+          <h2 className="mt-3 text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
             Everything you need to evaluate with confidence
           </h2>
-          <p className="mt-4 text-base text-neutral-500">
+          <p className="mt-4 text-sm text-neutral-500 sm:text-base">
             Comprehensive assessment modules powered by AI, built to support — not replace — your hiring team.
           </p>
         </div>
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
+
+        {/* Mobile: 2 merged cards */}
+        <div className="mt-10 space-y-5 md:hidden">
+          {/* Merged card 1: AI Interview + Coding Assessment */}
+          <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+            <div className="space-y-6">
+              {landingFeatures.slice(0, 2).map((feature, index) => (
+                <div key={feature.title}>
+                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+                    <Icon name={feature.icon} size={22} />
+                  </span>
+                  <h3 className="mt-5 text-base font-bold text-neutral-900">{feature.title}</h3>
+                  <p className="mt-2 text-sm text-neutral-500">{feature.description}</p>
+                  {index === 0 && <InterviewMock />}
+                  {index === 1 && <CodingMock />}
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Merged card 2: Behavioral + Leadership + Advisory */}
+          <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+            <div className="space-y-6">
+              {landingFeatures.slice(2).map((feature) => (
+                <div key={feature.title}>
+                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+                    <Icon name={feature.icon} size={22} />
+                  </span>
+                  <h3 className="mt-5 text-base font-bold text-neutral-900">{feature.title}</h3>
+                  <p className="mt-2 text-sm text-neutral-500">{feature.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop: original separate cards */}
+        <div className="mt-10 hidden gap-5 sm:grid-cols-2 md:grid lg:grid-cols-6">
           {landingFeatures.map((feature, index) => {
             const large = index < 2;
             return (
@@ -221,14 +257,14 @@ export default function HomePage() {
         <div className="mx-auto max-w-[1200px] px-5 py-16 sm:py-20 sm:px-8">
           <div className="mx-auto max-w-[640px] text-center">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Workflow</p>
-            <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
               How Evalora works
             </h2>
-            <p className="mt-4 text-base text-neutral-500">
+            <p className="mt-4 text-sm text-neutral-500 sm:text-base">
               From template to hiring decision in four structured steps.
             </p>
           </div>
-          <ol className="mt-10 grid gap-8 sm:grid-cols-2 md:grid-cols-4">
+          <ol className="mt-10 grid grid-cols-2 gap-8 md:grid-cols-4">
             {howItWorks.map((step, index) => (
               <li key={step.title}>
                 <div className="flex items-center gap-3">
@@ -247,17 +283,17 @@ export default function HomePage() {
 
       {/* SECURITY */}
       <section className="scroll-mt-24" id="security">
-        <div className="mx-auto grid max-w-[1200px] items-start gap-12 px-5 py-16 sm:py-20 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
-          <div>
+        <div className="mx-auto grid max-w-[1200px] items-start gap-8 px-5 py-16 sm:gap-12 sm:py-20 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+          <div className="text-center lg:text-left">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Trust &amp; security</p>
-            <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl">
               Enterprise controls. Human decisions.
             </h2>
-            <p className="mt-4 max-w-[440px] text-base text-neutral-500">
+            <p className="mx-auto mt-4 max-w-[440px] text-sm text-neutral-500 sm:text-base lg:mx-0">
               Evalora is built for teams that take candidate data and fair review seriously — access is scoped, links
               are private, and AI never makes the hiring call.
             </p>
-            <div className="mt-8 flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+            <div className="mx-auto mt-8 flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600 lg:mx-0">
               <Icon className="mt-0.5 shrink-0 text-primary-700" name="shield" size={16} />
               <span>
                 <strong className="font-bold text-neutral-900">Advisory by design.</strong> AI feedback supports
@@ -265,14 +301,14 @@ export default function HomePage() {
               </span>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4">
             {securityItems.map((item) => (
-              <article className="rounded-xl border border-neutral-200 bg-white p-5" key={item.title}>
+              <article className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5" key={item.title}>
                 <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
                   <Icon name={item.icon} size={17} />
                 </span>
                 <h3 className="mt-3.5 text-sm font-bold text-neutral-900">{item.title}</h3>
-                <p className="mt-1.5 text-sm text-neutral-500">{item.description}</p>
+                <p className="mt-1.5 text-xs text-neutral-500 sm:text-sm">{item.description}</p>
               </article>
             ))}
           </div>

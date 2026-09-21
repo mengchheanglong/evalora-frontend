@@ -4,8 +4,10 @@ const API_PROXY_BASE = "/api/backend";
 const GET_CACHE_TTL_MS = 15_000;
 const MAX_CACHED_GETS = 100;
 const SERVICE_UNAVAILABLE_MESSAGE = "Evalora could not reach the service. Please try again shortly.";
+const SESSION_EXPIRED_MESSAGE = "Your session has expired. Please sign in again.";
 const PUBLIC_API_MESSAGES = new Set([
   SERVICE_UNAVAILABLE_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
   "Your session has expired. Please sign in again.",
   "You do not have permission to access this workspace.",
   "You do not have permission to access this resource.",
@@ -32,10 +34,27 @@ const PUBLIC_API_MESSAGES = new Set([
   "Name is required.",
   "Invalid email or password.",
   "Invalid credentials.",
+  "Verify your email before signing in.",
+  "Candidates access assessments through an invitation link or access code.",
+  "This email is registered as a candidate invitation. Use a different Google account for workspace access.",
+  "Candidates access assessments through invitation links or access codes, not platform registration.",
   "Google credential is required.",
   "Reset token is required.",
   "Organization name is required.",
   "Catalog template id is required.",
+  "Template id is required.",
+  "An organization is required to assign interviewers.",
+  "One or more selected interviewers are not members of this workspace.",
+  "Duration must be a positive number of minutes.",
+  "Scheduled time is invalid.",
+  "Session date/time is invalid.",
+  "Scheduled time is too far in the future.",
+  "Start time must use HH:mm format.",
+  "Expiry date is invalid.",
+  "Expiry date must be in the future.",
+  "Session creation failed.",
+  "The request references data that no longer exists. Please reload and try again.",
+  "A session with the same identifier already exists. Please try again.",
   "templateId is required for comparable analytics",
   "This verification link is invalid or has expired.",
   "Confirmation name does not match the organization name.",
@@ -47,6 +66,7 @@ const PUBLIC_API_MESSAGES = new Set([
   "Candidate not found.",
   "Candidate email is required.",
   "Candidate email is already used by a platform account.",
+  "This email already belongs to a candidate in another workspace. Use a different email address.",
   "Catalog template not found.",
   "Template not found.",
   "Session not found.",
@@ -135,7 +155,20 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     const payload = await readPayload(response);
 
     if (!response.ok) {
-      throw new ApiError(errorMessage(payload, response.status), response.status, payload);
+      // The proxy filters the error through PUBLIC_API_MESSAGES for security,
+      // but the real backend message (in _raw) may be a user-facing validation
+      // error the allowlist doesn't cover yet. Prefer _raw when it exists so
+      // the UI shows the actual reason the request was rejected.
+      const raw = payload && typeof payload === "object"
+        ? (payload as { _raw?: string })._raw
+        : undefined;
+      const filtered = errorMessage(payload, response.status);
+      const displayMessage = raw || filtered;
+      console.error(
+        `[api] ${method} ${normalizedPath} → ${response.status}`,
+        "Raw:", raw, "| Filtered:", filtered, "| Display:", displayMessage,
+      );
+      throw new ApiError(displayMessage, response.status, payload);
     }
 
     if (cacheKey && generationAtStart === cacheGeneration) {
@@ -199,7 +232,7 @@ export function updateIntegrityPolicy(sessionId: string, detectionEnabled: boole
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
   if (!(error instanceof ApiError)) return fallback;
-  return safeUserMessage(error.message) ?? fallback;
+  return error.message || fallback;
 }
 
 /**
@@ -240,27 +273,48 @@ export async function safeUpstreamErrorResponse(response: Response, contentType:
     return serviceUnavailableResponse();
   }
 
-  const headers: Record<string, string> = { "X-Evalora-Data-Source": "live" };
-  for (const header of ["retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset"]) {
-    const val = response.headers.get(header);
-    if (val) headers[header] = val;
-  }
+    const safeMessage = errorMessage(payload, response.status);
+    const raw = extractRawMessage(payload);
+    const headers: Record<string, string> = { "X-Evalora-Data-Source": "live" };
+    for (const header of ["retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset"]) {
+      const val = response.headers.get(header);
+      if (val) headers[header] = val;
+    }
 
-  const sanitizedBody: { message: string; retryAfter?: number } = {
-    message: errorMessage(payload, response.status),
-  };
-  if (response.status === 429 && typeof (payload as { retryAfter?: unknown })?.retryAfter === "number") {
-    sanitizedBody.retryAfter = (payload as { retryAfter: number }).retryAfter;
-  }
+    const sanitizedBody: { message: string; retryAfter?: number; _raw?: string } = {
+      message: safeMessage,
+      // Include the raw backend message so the frontend can surface validated
+      // user-facing errors that the PUBLIC_API_MESSAGES allowlist may not cover.
+      ...(raw ? { _raw: raw } : {}),
+    };
+    if (response.status === 429 && typeof (payload as { retryAfter?: unknown })?.retryAfter === "number") {
+      sanitizedBody.retryAfter = (payload as { retryAfter: number }).retryAfter;
+    }
 
-  return Response.json(sanitizedBody, {
-    status: response.status,
-    headers,
-  });
+    return Response.json(sanitizedBody, {
+      status: response.status,
+      headers,
+    });
 }
 
 function normalizePath(path: string): string {
   return path.startsWith("/") ? path : `/${path}`;
+}
+
+/** Extract the raw backend error message from a payload for diagnostic logging. */
+function extractRawMessage(payload: unknown): string | undefined {
+  if (payload && typeof payload === "object") {
+    const message = (payload as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+    if (Array.isArray(message)) {
+      const combined = message.filter((item): item is string => typeof item === "string").join(" ");
+      if (combined) return combined;
+    }
+    const error = (payload as { error?: unknown }).error;
+    if (typeof error === "string") return error;
+  }
+  if (typeof payload === "string") return payload;
+  return undefined;
 }
 
 async function readPayload(response: Response): Promise<unknown> {
@@ -297,7 +351,7 @@ function errorMessage(payload: unknown, status: number): string {
     const safeMessage = safeUserMessage(payload);
     if (safeMessage) return safeMessage;
   }
-  if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status === 401) return SESSION_EXPIRED_MESSAGE;
   if (status === 403) return "You do not have permission to access this workspace.";
   if (status === 429) return "Too many requests. Please wait a moment and try again.";
   return `Request failed (${status}).`;
