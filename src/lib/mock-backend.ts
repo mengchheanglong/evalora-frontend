@@ -38,6 +38,7 @@ import type {
   TemplateDraftDto,
   TemplateDraftSummary,
 } from "@/lib/template-drafts";
+import { handleMockAdminRequest } from "@/lib/mock-admin";
 
 const mockUser: AuthUser = {
   id: "user-demo-owner",
@@ -639,6 +640,12 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
   const segments = relativePath.split("/").filter(Boolean);
   const body = method === "GET" || method === "HEAD" ? undefined : await readJson(request);
 
+  // Answers useBackendHealth()'s reachability probe. In live/auto mode this path
+  // proxies straight to the real Nest API; in mock mode nothing ever calls out
+  // to it, so without this the health banner would wrongly claim the mock is
+  // "unreachable" even though every other mock route is answering normally.
+  if (relativePath === "health" && method === "GET") return json({ status: "ok", dataSource: "mock" });
+
   if (relativePath === "auth/me" && method === "GET") return json(mockUser);
   if (relativePath === "auth/me" && method === "PUT") {
     const name = String(asRecord(body).name ?? "").trim();
@@ -660,6 +667,9 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
         message: "Google sign-in successful (mock).",
       });
     }
+    // Signing in as "admin@<anything>" makes the mock account a platform admin so
+    // the Admin Hub is reachable without a live backend; any other email is the owner.
+    mockUser.role = String(input.email ?? "").trim().toLowerCase().startsWith("admin@") ? "admin" : "organization";
     return json<AuthResponse>({ user: mockUser, message: "Signed in to mock workspace." });
   }
   if (relativePath === "auth/register" && method === "POST") {
@@ -712,6 +722,10 @@ export async function handleMockBackendRequest(request: NextRequest, relativePat
     return json({ message: "Password updated. You can sign in with your new password." });
   }
   if (relativePath === "auth/logout" && method === "POST") return json({ message: "Signed out." });
+
+  if (segments[0] === "admin") {
+    return handleMockAdminRequest({ method, segments, body, searchParams: request.nextUrl.searchParams, currentUser: mockUser });
+  }
 
   if (relativePath === "organization" && method === "GET") {
     const owner = mockMembers.find((member) => member.role === "organization") ?? mockMembers[0];

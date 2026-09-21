@@ -13,6 +13,7 @@ import { PageLoader } from "@/components/ui-states";
 import { BackendHealthBanner } from "@/components/backend-health-banner";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { apiGet } from "@/lib/api";
+import { ADMIN_HOME } from "@/lib/auth-routes";
 import { ORG_LOGO_CHANGED_EVENT, orgInitials, readOrgLogo } from "@/lib/org-logo";
 import {
   readUserProfilePhoto,
@@ -20,7 +21,7 @@ import {
   USER_PROFILE_PHOTO_CHANGED_EVENT,
   userInitials,
 } from "@/lib/user-profile-photo";
-import type { WorkspaceProfile } from "@/lib/types";
+import type { UserRole, WorkspaceProfile } from "@/lib/types";
 
 type AppShellProps = {
   active: string;
@@ -50,6 +51,13 @@ const workspaceNavigation: NavigationItem[] = [
 const sharedSecondaryNavigation: NavigationItem[] = [
   { label: "Settings", href: "/settings", key: "settings", icon: "settings" },
 ];
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Platform admin",
+  organization: "Workspace owner",
+  interviewer: "Interviewer",
+  candidate: "Candidate",
+};
 
 const bottomNavItems: NavigationItem[] = [
   { label: "Home", href: "/dashboard", key: "dashboard", icon: "home" },
@@ -83,8 +91,15 @@ export function AppShell({
   const accountButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (status === "anonymous") router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
-  }, [pathname, router, status]);
+    if (status === "anonymous") {
+      router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    // Platform admins have their own console at /admin with its own shell. Only
+    // an admin who also owns a workspace can use the workspace shell; the rest
+    // are sent to the console instead of seeing an empty workspace.
+    if (status === "authenticated" && user?.role === "admin" && !user.organizationId) router.replace(ADMIN_HOME);
+  }, [pathname, router, status, user?.organizationId, user?.role]);
 
   useEffect(() => {
     if (status !== "authenticated" || !user?.organizationId) return;
@@ -169,8 +184,9 @@ export function AppShell({
     };
   }, [accountOpen]);
 
-  if (status !== "authenticated" || !user) {
-    return <main className="min-h-screen bg-[var(--theme-bg)]"><PageLoader label="Opening your workspace" /></main>;
+  const consoleOnlyAdmin = user?.role === "admin" && !user.organizationId;
+  if (status !== "authenticated" || !user || consoleOnlyAdmin) {
+    return <main className="min-h-screen bg-[var(--theme-bg)]"><PageLoader label={consoleOnlyAdmin ? "Opening the platform console" : "Opening your workspace"} /></main>;
   }
 
   async function handleLogout() {
@@ -262,6 +278,7 @@ export function AppShell({
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-[var(--theme-heading)]">{user.name}</p>
                           <p className="mt-0.5 truncate text-xs text-[var(--theme-muted)]">{user.email}</p>
+                          <p className="mt-0.5 text-xs font-semibold text-[var(--theme-faint)]">{ROLE_LABELS[user.role]}</p>
                           <span className="mt-2 inline-flex rounded-full border border-[var(--theme-border)] px-2 py-0.5 text-[10px] font-semibold text-[var(--theme-muted)]" aria-busy={subscription.status === "loading"} aria-live="polite">{planLabel}</span>
                         </div>
                       </div>
@@ -283,6 +300,19 @@ export function AppShell({
                       </div>
                     )}
                     <div className="p-1.5">
+                      {user.role === "admin" ? (
+                        // The only way from the workspace to the platform console: an
+                        // account-menu switch, never a workspace sidebar entry.
+                        <Link
+                          className="flex h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-xs font-semibold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)]"
+                          href={ADMIN_HOME}
+                          onClick={() => setAccountOpen(false)}
+                          role="menuitem"
+                        >
+                          <Icon className="text-amber-500" name="shield" size={15} />
+                          Platform console
+                        </Link>
+                      ) : null}
                       <Link className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-xs font-semibold text-[var(--theme-text)] transition hover:bg-[var(--theme-panel-soft)] focus-visible:outline-2 focus-visible:outline-primary" href="/settings" onClick={() => setAccountOpen(false)} role="menuitem">
                         <Icon name="settings" size={16} />
                         Settings
