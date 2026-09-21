@@ -1,5 +1,0 @@
-[33m32c7569[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/recruiter-verdict/front[m[33m, [m[1;31morigin/feature/recruiter-verdict/front[m[33m)[m feat(pages): wire verdict API and add badges to candidate lists
-[33m46589ca[m feat(ui): add decision selector, tags, and rating form to ReviewerCard
-[33m9679d98[m feat(ui): add recruiter verdict badge to report hero section
-[33m8aff6ec[m feat(types): add recruiter verdict and tags to CandidateReport
-[33m7eefaa8[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/integrity-monitoring/frontend[m[33m)[m Merge pull request #24 from mengchheanglong/feat/rate-limit-ui-handling

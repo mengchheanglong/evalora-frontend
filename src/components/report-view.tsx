@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/icons";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import type { CandidateReport, RecruiterVerdict, ReviewerNote } from "@/lib/types";
+import { RecruiterDecisionHeroBadge } from "@/components/recruiter-decision-badge";
 
-type VerdictPayload = {
-  verdict?: RecruiterVerdict;
-  tags: string[];
-  notes: string;
+export type VerdictPayload = {
+  verdict: RecruiterVerdict;
+  tags?: string[];
+  notes?: string;
 };
 
 type ReportViewProps = {
@@ -17,14 +18,25 @@ type ReportViewProps = {
   notes: ReviewerNote[];
   onAddNote: (note: string) => Promise<boolean>;
   savingNote: boolean;
-  onSaveVerdict?: (payload: VerdictPayload) => Promise<boolean> | boolean | void;
   onViewInterview?: () => void;
   /** When false, the identity block (avatar/name) is hidden — used where a
    *  profile header already shows the candidate (e.g. the candidate detail tab). */
   showIdentity?: boolean;
+  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; notes?: string }) => Promise<boolean>;
+  savingVerdict?: boolean;
 };
 
-export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveVerdict, onViewInterview, showIdentity = true }: ReportViewProps) {
+export function ReportView({
+  report,
+  role,
+  notes,
+  onAddNote,
+  savingNote,
+  onViewInterview,
+  showIdentity = true,
+  onSaveVerdict,
+  savingVerdict,
+}: ReportViewProps) {
   const score = Math.round(report.overallScore * 20);
   const meta = scoreMeta(score);
   const moduleEntries = Object.entries(report.moduleScores);
@@ -33,7 +45,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveV
     <div className="space-y-4">
       {/* Hero */}
       <section className="card overflow-hidden rounded-xl border-[var(--theme-border)] shadow-[var(--shadow-card)]">
-        <div className="grid gap-4 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-4 p-4 text-center sm:text-left lg:grid-cols-[1fr_auto] lg:items-center lg:text-left">
           {showIdentity ? (
             <div className="flex flex-wrap items-center gap-3">
               <span className={`grid size-12 shrink-0 place-items-center rounded-[9px] bg-linear-to-br text-lg font-bold shadow-sm ${candidateAvatarTone(report.candidateName)}`}>
@@ -58,9 +70,9 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveV
               </div>
             </div>
           )}
-          <div className="flex items-center gap-4 lg:border-l lg:border-[var(--theme-border)] lg:pl-4">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 lg:border-l lg:border-[var(--theme-border)] lg:pl-4">
             <ScoreRing score={score} />
-            <div>
+            <div className="text-center sm:text-left">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Recommendation</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
@@ -72,6 +84,7 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveV
               </div>
               <p className="mt-1.5 max-w-[210px] text-xs text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
             </div>
+            <RecruiterDecisionHeroBadge verdict={report.recruiterVerdict} />
           </div>
         </div>
       </section>
@@ -99,13 +112,13 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onSaveV
           </SectionCard>
 
           <ReviewerCard
-            initialTags={report.recruiterTags}
-            initialVerdict={report.recruiterVerdict}
             notes={notes}
             onAddNote={onAddNote}
             onSaveVerdict={onSaveVerdict}
+            report={report}
             reviewerSummary={report.reviewerSummary}
             savingNote={savingNote}
+            savingVerdict={savingVerdict}
           />
         </div>
 
@@ -153,43 +166,95 @@ export function ReportGeneratePrompt({ completed, generating, onGenerate }: { co
   );
 }
 
-function ReviewerCard({ initialTags, initialVerdict, notes, onAddNote, onSaveVerdict, savingNote, reviewerSummary }: {
-  initialTags?: string[];
-  initialVerdict?: RecruiterVerdict;
+const DECISION_BUTTONS: Array<{
+  value: RecruiterVerdict;
+  label: string;
+  icon: IconName;
+  isSelected: (v?: RecruiterVerdict) => boolean;
+  activeStyle: string;
+}> = [
+  {
+    value: "HIRE",
+    label: "Approve",
+    icon: "check",
+    isSelected: (v) => v === "HIRE" || v === "STRONG_HIRE",
+    activeStyle: "bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-300",
+  },
+  {
+    value: "NO_HIRE",
+    label: "Reject",
+    icon: "chevron",
+    isSelected: (v) => v === "NO_HIRE",
+    activeStyle: "bg-rose-50 text-rose-700 border-rose-300 ring-1 ring-rose-300",
+  },
+  {
+    value: "NEUTRAL",
+    label: "Pending",
+    icon: "clock",
+    isSelected: (v) => v === "NEUTRAL",
+    activeStyle: "bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-300",
+  },
+];
+
+const DEFAULT_TAGS = ["Strong Problem Solving", "Great Communication", "Needs System Design Depth", "Culture Add"];
+
+// Local hero badge wrapper is now handled by RecruiterDecisionHeroBadge
+// (imported above). No local VerdictBadge needed.
+
+function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, onSaveVerdict, savingVerdict }: {
   notes: ReviewerNote[];
   onAddNote: (note: string) => Promise<boolean>;
-  onSaveVerdict?: (payload: VerdictPayload) => Promise<boolean> | boolean | void;
   savingNote: boolean;
   reviewerSummary?: string;
+  report: CandidateReport;
+  onSaveVerdict?: (payload: { verdict: RecruiterVerdict; tags?: string[]; notes?: string }) => Promise<boolean>;
+  savingVerdict?: boolean;
 }) {
-  const [verdict, setVerdict] = useState<RecruiterVerdict | undefined>(initialVerdict);
-  const [tags, setTags] = useState<string[]>(initialTags ?? []);
-  const [text, setText] = useState("");
-  const [customTag, setCustomTag] = useState("");
-  const [savingVerdict, setSavingVerdict] = useState(false);
-
-  const quickTags = ["Strong Problem Solving", "Great Communication", "Needs System Design Depth", "Culture Add"];
+  const [noteText, setNoteText] = useState("");
+  const [verdict, setVerdict] = useState<RecruiterVerdict | undefined>(report.recruiterVerdict);
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => report.recruiterTags ?? []);
+  const [customTagInput, setCustomTagInput] = useState("");
+  const [verdictNotice, setVerdictNotice] = useState("");
+  const [verdictError, setVerdictError] = useState("");
 
   function toggleTag(tag: string) {
-    setTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
+    setSelectedTags((current) => current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]);
   }
 
   function addCustomTag() {
-    const tag = customTag.trim();
-    if (tag && !tags.includes(tag)) setTags((current) => [...current, tag]);
-    setCustomTag("");
+    const trimmed = customTagInput.trim();
+    if (trimmed && !selectedTags.includes(trimmed)) {
+      setSelectedTags((current) => [...current, trimmed]);
+    }
+    setCustomTagInput("");
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  function handleCustomTagKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      addCustomTag();
+    }
+  }
+
+  async function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSavingVerdict(true);
-    try {
-      const saved = onSaveVerdict
-        ? await onSaveVerdict({ verdict, tags, notes: text })
-        : await onAddNote(text);
-      if (saved !== false) setText("");
-    } finally {
-      setSavingVerdict(false);
+    if (await onAddNote(noteText)) setNoteText("");
+  }
+
+  async function submitVerdict() {
+    if (!verdict || !onSaveVerdict) return;
+    setVerdictError("");
+    setVerdictNotice("");
+    const ok = await onSaveVerdict({
+      verdict,
+      tags: selectedTags.length ? selectedTags : undefined,
+      notes: noteText.trim() || undefined,
+    });
+    if (ok) {
+      setVerdictNotice("Recruiter decision recorded.");
+      if (noteText.trim()) setNoteText("");
+    } else {
+      setVerdictError("Unable to save decision. Please try again.");
     }
   }
 
@@ -199,81 +264,111 @@ function ReviewerCard({ initialTags, initialVerdict, notes, onAddNote, onSaveVer
         <p className="mb-3 rounded-[8px] bg-[var(--color-primary-50)] px-3 py-2.5 text-sm text-[var(--color-primary-700)]">{reviewerSummary}</p>
       ) : null}
 
-      <form onSubmit={submit}>
-        <div className="space-y-3 border-b border-[var(--theme-border)] pb-3">
-          <div>
-            <p className="mb-1.5 text-xs font-semibold text-[var(--theme-heading)]">Hiring Decision</p>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { value: "HIRE" as const, label: "Approve", activeStyle: "bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-300" },
-                { value: "NO_HIRE" as const, label: "Reject", activeStyle: "bg-rose-50 text-rose-700 border-rose-300 ring-1 ring-rose-300" },
-                { value: "NEUTRAL" as const, label: "Pending", activeStyle: "bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-300" },
-              ]).map((option) => {
-                const selected = option.value === verdict || (option.value === "HIRE" && verdict === "STRONG_HIRE");
-                return (
-                  <button
-                    aria-pressed={selected}
-                    className={`flex items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
-                      selected
-                        ? option.activeStyle
-                        : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
-                    }`}
-                    key={option.value}
-                    onClick={() => setVerdict(option.value)}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+      {verdictNotice ? <p className="mb-3 rounded-[8px] bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">{verdictNotice}</p> : null}
+      {verdictError ? <p className="mb-3 rounded-[8px] bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{verdictError}</p> : null}
 
-          <div>
-            <p className="mb-1.5 text-xs font-semibold text-[var(--theme-heading)]">Quick tags</p>
-            <div className="flex flex-wrap gap-1.5">
-              {quickTags.map((tag) => (
+      {/* Decision selector */}
+      {onSaveVerdict ? (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-bold text-[var(--theme-heading)]">Hiring Decision</p>
+          <div className="flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:gap-2">
+            {DECISION_BUTTONS.map((option) => {
+              const selected = option.isSelected(verdict);
+              return (
                 <button
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition ${tags.includes(tag) ? "bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-[var(--color-primary-300)]" : "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)] hover:text-[var(--theme-heading)]"}`}
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
+                  aria-pressed={selected}
+                  className={`flex min-h-11 items-center justify-center gap-1.5 rounded-[7px] border px-2.5 py-2 text-xs font-semibold transition ${
+                    selected
+                      ? option.activeStyle
+                      : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]"
+                  }`}
+                  key={option.value}
+                  onClick={() => setVerdict(option.value)}
                   type="button"
                 >
-                  + {tag}
+                  <Icon name={option.icon} size={12} /> {option.label}
                 </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Quick tags */}
+      {onSaveVerdict ? (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-bold text-[var(--theme-heading)]">Tags</p>
+          <div className="flex flex-wrap gap-1.5">
+            {DEFAULT_TAGS.map((tag) => (
+              <button
+                aria-pressed={selectedTags.includes(tag)}
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                  selectedTags.includes(tag)
+                    ? "border-[var(--color-primary-500)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)]"
+                    : "border-[var(--theme-border)] text-[var(--theme-muted)] hover:border-[var(--color-primary-300)]"
+                }`}
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                type="button"
+              >
+                {selectedTags.includes(tag) ? tag : `+ ${tag}`}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            <input
+              className="control h-8 min-w-0 flex-1 rounded-[6px] px-2 text-xs"
+              onChange={(event) => setCustomTagInput(event.target.value)}
+              onKeyDown={handleCustomTagKeyDown}
+              placeholder="Add custom tag…"
+              value={customTagInput}
+            />
+            <button className="min-h-11 min-w-11 rounded-[6px] border border-[var(--theme-border)] px-3 text-xs font-semibold text-[var(--theme-muted)] transition hover:border-[var(--color-primary-300)] hover:text-[var(--color-primary-700)]" onClick={addCustomTag} type="button">Add</button>
+          </div>
+          {selectedTags.length ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {selectedTags.map((tag) => (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-50)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary-700)]" key={tag}>
+                  {tag}
+                  <button aria-label={`Remove ${tag}`} className="ml-0.5 rounded-full p-0.5 text-[var(--color-primary-400)] hover:text-[var(--color-primary-700)]" onClick={() => toggleTag(tag)} type="button">×</button>
+                </span>
               ))}
             </div>
-            <div className="mt-2 flex gap-2">
-              <input
-                className="control h-8 min-w-0 flex-1 rounded-[7px] text-xs"
-                onChange={(event) => setCustomTag(event.target.value)}
-                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomTag(); } }}
-                placeholder="Add custom tag"
-                value={customTag}
-              />
-              <button className="h-8 rounded-[7px] border border-[var(--theme-border)] px-2.5 text-xs font-semibold text-[var(--theme-muted)] hover:text-[var(--theme-heading)]" onClick={addCustomTag} type="button">Add</button>
-            </div>
-          </div>
-
-          
+          ) : null}
         </div>
+      ) : null}
 
-        <label className="mt-3 block text-xs font-semibold text-[var(--theme-heading)]" htmlFor="reviewer-notes">Private notes</label>
+      {/* Private note textarea */}
+      <form onSubmit={submitNote}>
+        <label className="mb-1.5 block text-xs font-semibold text-[var(--theme-heading)]" htmlFor="reviewer-notes">Private notes</label>
         <textarea
-          className="control min-h-[84px] rounded-[8px] text-sm"
-          maxLength={1000}
+          className="control min-h-32 rounded-[8px] text-sm"
           id="reviewer-notes"
-          onChange={(event) => setText(event.target.value)}
+          maxLength={1000}
+          name="note"
+          onChange={(event) => setNoteText(event.target.value)}
           placeholder="Add a private note about this candidate…"
-          value={text}
+          value={noteText}
         />
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-[var(--text-micro)] text-[var(--theme-faint)]">{text.length} / 1000</span>
+          <span className="text-[var(--text-micro)] text-[var(--theme-faint)]">{noteText.length} / 1000</span>
+          <button className="button-primary h-9 rounded-[7px] px-4 !bg-primary-600 text-xs hover:!bg-primary-700 disabled:opacity-60" disabled={savingNote || !noteText.trim()} type="submit">
+            {savingNote ? "Saving…" : "Save note"}
+          </button>
         </div>
-        <button className="button-primary mt-3 h-9 w-full rounded-[7px] px-4 !bg-primary-600 text-xs hover:!bg-primary-700 disabled:opacity-60" disabled={savingNote || savingVerdict} type="submit">
-          {savingVerdict ? "Saving…" : "Submit Decision & Notes"}
-        </button>
       </form>
+
+      {/* Submit decision button */}
+      {onSaveVerdict ? (
+        <button
+          className="sticky bottom-4 z-10 mt-3 block w-full rounded-[7px] bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-700 disabled:opacity-60 sm:static sm:mt-3 sm:shadow-sm sm:text-xs sm:py-2.5"
+          disabled={savingVerdict || !verdict}
+          onClick={() => void submitVerdict()}
+          type="button"
+        >
+          {savingVerdict ? "Saving decision…" : "Submit Decision & Notes"}
+        </button>
+      ) : null}
 
       {notes.length ? (
         <ul className="mt-3 space-y-2.5 border-t border-[var(--theme-border)] pt-3">
@@ -345,8 +440,8 @@ function ScoreRing({ score }: { score: number }) {
   const clamped = Math.max(0, Math.min(100, score));
   const circumference = 2 * Math.PI * 15.5;
   return (
-    <div className="relative grid size-18 shrink-0 place-items-center">
-      <svg className="size-18 -rotate-90" viewBox="0 0 36 36">
+    <div className="relative grid size-28 shrink-0 place-items-center sm:size-18">
+      <svg className="size-28 -rotate-90 sm:size-18" viewBox="0 0 36 36">
         <circle className="text-[var(--theme-panel-soft)]" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" strokeWidth="3.2" />
         <circle
           className={`${meta.ring} transition-all duration-700`}

@@ -203,7 +203,9 @@ test("proxy policy preserves safe JSON 4xx responses", async () => {
   );
 
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { message: "Email must be a valid address." });
+  const body = await response.json();
+  assert.equal(body.message, "Email must be a valid address.");
+  assert.equal(body._raw, "Email must be a valid address.");
 });
 
 test("technical JSON 4xx messages never become user-facing", async () => {
@@ -263,7 +265,9 @@ test("proxy policy reconstructs a minimal sanitized JSON 4xx payload", async () 
   );
 
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { message: "Email must be a valid address." });
+  const body = await response.json();
+  assert.equal(body.message, "Email must be a valid address.");
+  assert.equal(body._raw, "Email must be a valid address.");
 });
 
 test("proxy policy replaces technical JSON 4xx messages with a safe status message", async () => {
@@ -273,7 +277,9 @@ test("proxy policy replaces technical JSON 4xx messages with a safe status messa
   );
 
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { message: "Request failed (400)." });
+  const body = await response.json();
+  assert.equal(body.message, "Request failed (400).");
+  assert.equal(body._raw, "Unable to read C:\\private\\service.sock");
 });
 
 test("mutation origin policy accepts browser-visible localhost and LAN hosts", () => {

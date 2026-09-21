@@ -9,7 +9,7 @@ import { LiveInterviewRoom } from "@/components/live-interview-room";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, ReviewerNote, SessionStatus } from "@/lib/types";
+import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, RecruiterVerdict, ReviewerNote, SessionStatus } from "@/lib/types";
 
 export default function CandidateDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +21,7 @@ export default function CandidateDetailPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [savingVerdict, setSavingVerdict] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState(false);
@@ -83,7 +84,8 @@ export default function CandidateDetailPage() {
     }
   }
 
-  async function saveVerdict(payload: { verdict?: CandidateReport["recruiterVerdict"]; tags: string[]; score?: number; notes: string }): Promise<boolean> {
+  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }): Promise<boolean> {
+    setSavingVerdict(true);
     setError("");
     try {
       await apiPatch(`/reports/${encodeURIComponent(id)}/verdict`, payload);
@@ -91,8 +93,10 @@ export default function CandidateDetailPage() {
       await loadCandidate();
       return true;
     } catch (requestError) {
-      setError(getErrorMessage(requestError, "Unable to save the recruiter decision."));
+      setError(getErrorMessage(requestError, "Unable to save decision."));
       return false;
+    } finally {
+      setSavingVerdict(false);
     }
   }
 
@@ -153,6 +157,7 @@ export default function CandidateDetailPage() {
               report={report}
               role={session.targetRole ?? template.roleType}
               savingNote={savingNote}
+              savingVerdict={savingVerdict}
               showIdentity={false}
             />
           ) : (
@@ -211,13 +216,13 @@ function Tabs({ active, onChange, reportReady }: { active: TabId; onChange: (tab
     { id: "report" as const, label: "Report", icon: "file" as const },
   ];
   return (
-    <div className="flex gap-1 border-b border-[var(--theme-border)]">
+    <div className="flex gap-1 overflow-x-auto border-b border-[var(--theme-border)] flex-nowrap">
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
           <button
             aria-current={isActive ? "page" : undefined}
-            className={`relative flex items-center gap-1.5 px-3 pb-2.5 pt-1 text-xs font-bold transition-colors ${isActive ? "text-[var(--color-primary-700)]" : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)]"}`}
+            className={`relative flex min-w-fit items-center gap-1.5 px-3 pb-2.5 pt-1 text-xs font-bold transition-colors ${isActive ? "text-[var(--color-primary-700)]" : "text-[var(--theme-muted)] hover:text-[var(--theme-heading)]"}`}
             key={tab.id}
             onClick={() => onChange(tab.id)}
             type="button"
