@@ -6,6 +6,12 @@ import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars"
 import type { CandidateReport, RecruiterVerdict, ReviewerNote } from "@/lib/types";
 import { RecruiterDecisionHeroBadge } from "@/components/recruiter-decision-badge";
 
+export type VerdictPayload = {
+  verdict: RecruiterVerdict;
+  tags?: string[];
+  notes?: string;
+};
+
 type ReportViewProps = {
   report: CandidateReport;
   role?: string;
@@ -20,7 +26,17 @@ type ReportViewProps = {
   savingVerdict?: boolean;
 };
 
-export function ReportView({ report, role, notes, onAddNote, savingNote, onViewInterview, showIdentity = true, onSaveVerdict, savingVerdict }: ReportViewProps) {
+export function ReportView({
+  report,
+  role,
+  notes,
+  onAddNote,
+  savingNote,
+  onViewInterview,
+  showIdentity = true,
+  onSaveVerdict,
+  savingVerdict,
+}: ReportViewProps) {
   const score = Math.round(report.overallScore * 20);
   const meta = scoreMeta(score);
   const moduleEntries = Object.entries(report.moduleScores);
@@ -58,9 +74,14 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
             <ScoreRing score={score} />
             <div className="text-center sm:text-left">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--theme-faint)]">Recommendation</p>
-              <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
-                <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
-              </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
+                  <span className={`size-2 rounded-full ${meta.dot}`} /> {meta.label}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${recruiterVerdictMeta(report.recruiterVerdict).badge}`}>
+                  <span className={`size-2 rounded-full ${recruiterVerdictMeta(report.recruiterVerdict).dot}`} /> {recruiterVerdictMeta(report.recruiterVerdict).label}
+                </span>
+              </div>
               <p className="mt-1.5 max-w-[210px] text-xs text-[var(--theme-faint)]">Synthesized across {moduleEntries.length || "all"} assessment modules.</p>
             </div>
             <RecruiterDecisionHeroBadge verdict={report.recruiterVerdict} />
@@ -89,6 +110,16 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
               </button>
             ) : null}
           </SectionCard>
+
+          <ReviewerCard
+            notes={notes}
+            onAddNote={onAddNote}
+            onSaveVerdict={onSaveVerdict}
+            report={report}
+            reviewerSummary={report.reviewerSummary}
+            savingNote={savingNote}
+            savingVerdict={savingVerdict}
+          />
         </div>
 
         {/* Right: qualitative + reviewer */}
@@ -104,16 +135,6 @@ export function ReportView({ report, role, notes, onAddNote, savingNote, onViewI
               <ul className="space-y-2.5">{report.improvementAreas.map((item, index) => <SignalItem accent="muted" icon="chevron" key={index}>{item}</SignalItem>)}</ul>
             ) : <Empty>No development areas flagged.</Empty>}
           </SectionCard>
-
-          <ReviewerCard
-            notes={notes}
-            onAddNote={onAddNote}
-            reviewerSummary={report.reviewerSummary}
-            savingNote={savingNote}
-            report={report}
-            onSaveVerdict={onSaveVerdict}
-            savingVerdict={savingVerdict}
-          />
         </div>
       </div>
 
@@ -319,8 +340,10 @@ function ReviewerCard({ notes, onAddNote, savingNote, reviewerSummary, report, o
 
       {/* Private note textarea */}
       <form onSubmit={submitNote}>
+        <label className="mb-1.5 block text-xs font-semibold text-[var(--theme-heading)]" htmlFor="reviewer-notes">Private notes</label>
         <textarea
           className="control min-h-32 rounded-[8px] text-sm"
+          id="reviewer-notes"
           maxLength={1000}
           name="note"
           onChange={(event) => setNoteText(event.target.value)}
@@ -444,6 +467,13 @@ function scoreMeta(score: number) {
   if (score >= 80) return { label: "Strong Potential", ring: "text-[var(--color-primary-500)]", bar: "bg-[var(--color-primary-500)]", badge: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-[var(--color-primary-300)]", dot: "bg-[var(--color-primary-500)]" };
   if (score >= 60) return { label: "Promising", ring: "text-[var(--color-primary-400)]", bar: "bg-[var(--color-primary-400)]", badge: "bg-[var(--color-primary-50)] text-[var(--color-primary-600)] ring-[var(--color-primary-100)]", dot: "bg-[var(--color-primary-400)]" };
   return { label: "Needs Review", ring: "text-[var(--theme-muted)]", bar: "bg-[var(--theme-muted)]", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
+}
+
+function recruiterVerdictMeta(verdict?: CandidateReport["recruiterVerdict"]) {
+  if (verdict === "STRONG_HIRE" || verdict === "HIRE") return { label: "Approved", badge: "bg-emerald-100 text-emerald-800 ring-emerald-200", dot: "bg-emerald-600" };
+  if (verdict === "NO_HIRE") return { label: "Rejected", badge: "bg-rose-100 text-rose-800 ring-rose-200", dot: "bg-rose-600" };
+  if (verdict === "NEUTRAL") return { label: "Pending", badge: "bg-amber-100 text-amber-800 ring-amber-200", dot: "bg-amber-600" };
+  return { label: "Decision: Pending Review", badge: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)] ring-[var(--theme-border)]", dot: "bg-[var(--theme-muted)]" };
 }
 
 function formatDate(value?: string) {

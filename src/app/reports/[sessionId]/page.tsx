@@ -8,7 +8,7 @@ import { Icon } from "@/components/icons";
 import { ReportGeneratePrompt, ReportView } from "@/components/report-view";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { ApiError, apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api";
-import type { CandidateReport, InterviewSession, RecruiterVerdict, ReviewerNote, VerdictUpdatePayload, VerdictUpdateResponse } from "@/lib/types";
+import type { CandidateReport, InterviewSession, RecruiterVerdict, ReviewerNote } from "@/lib/types";
 
 export default function ReportPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -78,25 +78,14 @@ export default function ReportPage() {
     }
   }
 
-  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; notes?: string }): Promise<boolean> {
+  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }): Promise<boolean> {
     setSavingVerdict(true);
     setError("");
     setNotice("");
     try {
-      const result = await apiPatch<VerdictUpdateResponse>(`/reports/${encodeURIComponent(sessionId)}/verdict`, payload as VerdictUpdatePayload);
-      if (report) {
-        setReport({
-          ...report,
-          recruiterVerdict: result.recruiterVerdict,
-          recruiterTags: result.recruiterTags,
-          recruiterScore: result.recruiterScore,
-          decidedAt: result.decidedAt,
-        });
-      }
-      if (result.notes?.length) {
-        setNotes((current) => [...result.notes!, ...current]);
-      }
+      await apiPatch(`/reports/${encodeURIComponent(sessionId)}/verdict`, payload);
       setNotice("Recruiter decision recorded.");
+      await loadReport();
       return true;
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to save decision."));
@@ -133,7 +122,7 @@ export default function ReportPage() {
           {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
           {report
-            ?            <ReportView notes={notes} onAddNote={addNote} onSaveVerdict={saveVerdict} report={report} role={session.targetRole} savingNote={savingNote} savingVerdict={savingVerdict} />
+            ? <ReportView notes={notes} onAddNote={addNote} onSaveVerdict={saveVerdict} report={report} role={session.targetRole} savingNote={savingNote} savingVerdict={savingVerdict} />
             : <ReportGeneratePrompt completed={session.status === "completed"} generating={generating} onGenerate={() => void generateReport()} />}
         </div>
       ) : null}

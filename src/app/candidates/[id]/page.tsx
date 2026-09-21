@@ -9,7 +9,7 @@ import { LiveInterviewRoom } from "@/components/live-interview-room";
 import { ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
-import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, RecruiterVerdict, ReviewerNote, SessionStatus, VerdictUpdatePayload, VerdictUpdateResponse } from "@/lib/types";
+import type { AssessmentTemplate, CandidateReport, CandidateResponse, InterviewSession, RecruiterVerdict, ReviewerNote, SessionStatus } from "@/lib/types";
 
 export default function CandidateDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +23,7 @@ export default function CandidateDetailPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [savingVerdict, setSavingVerdict] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showInterview, setShowInterview] = useState(false);
@@ -83,23 +84,13 @@ export default function CandidateDetailPage() {
     }
   }
 
-  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; notes?: string }): Promise<boolean> {
+  async function saveVerdict(payload: { verdict: RecruiterVerdict; tags?: string[]; score?: number; notes?: string }): Promise<boolean> {
     setSavingVerdict(true);
     setError("");
     try {
-      const result = await apiPatch<VerdictUpdateResponse>(`/reports/${encodeURIComponent(id)}/verdict`, payload as VerdictUpdatePayload);
-      if (report) {
-        setReport({
-          ...report,
-          recruiterVerdict: result.recruiterVerdict,
-          recruiterTags: result.recruiterTags,
-          recruiterScore: result.recruiterScore,
-          decidedAt: result.decidedAt,
-        });
-      }
-      if (result.notes?.length) {
-        setNotes((current) => [...result.notes!, ...current]);
-      }
+      await apiPatch(`/reports/${encodeURIComponent(id)}/verdict`, payload);
+      setNotice("Recruiter decision recorded.");
+      await loadCandidate();
       return true;
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to save decision."));
@@ -123,6 +114,7 @@ export default function CandidateDetailPage() {
       {!loading && session && template ? (
         <div className="space-y-4">
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
+          {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
           {copied ? <InlineAlert tone="success">Private invitation link copied.</InlineAlert> : null}
           <ProfileHero session={session} template={template} />
           <Tabs active={activeTab} onChange={setActiveTab} reportReady={Boolean(report)} />

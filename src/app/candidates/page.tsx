@@ -11,12 +11,13 @@ import { EmptyState, ErrorState, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, getErrorMessage } from "@/lib/api";
 import { candidateAvatarTone, candidateInitials } from "@/lib/candidate-avatars";
 import { RecruiterDecisionBadge } from "@/components/recruiter-decision-badge";
-import type { AnalyticsSummary, InterviewSession, SessionStatus } from "@/lib/types";
+import type { AnalyticsSummary, CandidateReport, InterviewSession, SessionStatus } from "@/lib/types";
 
 const CANDIDATES_PER_PAGE = 8;
 
 export default function CandidatesPage() {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [reportsBySessionId, setReportsBySessionId] = useState<Record<string, CandidateReport>>({});
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | SessionStatus>("all");
@@ -41,7 +42,16 @@ export default function CandidatesPage() {
         apiGet<InterviewSession[]>("/sessions"),
         apiGet<AnalyticsSummary>("/analytics/summary"),
       ]);
+      const reports: Record<string, CandidateReport> = {};
+      await Promise.all(nextSessions.filter((session) => session.reportReady).map(async (session) => {
+        try {
+          reports[session.id] = await apiGet<CandidateReport>(`/reports/${encodeURIComponent(session.id)}`);
+        } catch {
+          // A report can be marked ready while its persistence is still settling.
+        }
+      }));
       setSessions(nextSessions);
+      setReportsBySessionId(reports);
       setSummary(nextSummary);
       if (syncQueryFromUrl) setQuery(new URLSearchParams(window.location.search).get("q") ?? "");
     } catch (requestError) {
@@ -201,6 +211,7 @@ export default function CandidatesPage() {
                                 <span>
                                   <span className="block text-xs font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</span>
                                   <span className="mt-0.5 block text-xs text-[var(--theme-muted)]">{session.candidateEmail ?? "No email"}</span>
+                                  {reportsBySessionId[session.id]?.recruiterVerdict ? <RecruiterDecisionBadge verdict={reportsBySessionId[session.id].recruiterVerdict} /> : null}
                                 </span>
                                 </Link>
                               </div>
@@ -280,6 +291,7 @@ function CandidateStats({ summary }: { summary: AnalyticsSummary }) {
     </section>
   );
 }
+
 
 type FiltersPanelProps = {
   statusFilter: "all" | SessionStatus;
