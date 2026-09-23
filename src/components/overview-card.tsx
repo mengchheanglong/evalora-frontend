@@ -11,6 +11,9 @@ type OverviewCardProps = {
   progress?: number | null;
   status?: string;
   emphasis?: "default" | "attention" | "quiet";
+  /** Mobile-first compact typography; upgrades at `sm` so md+ desktop pixels are untouched.
+   *  `true` = stat-box density (title text-sm); `"dense"` = even tighter (title text-xs). */
+  compact?: boolean | "dense";
 };
 
 export function OverviewCard({
@@ -23,10 +26,15 @@ export function OverviewCard({
   progress,
   status,
   emphasis = "default",
+  compact = false,
 }: OverviewCardProps) {
   const safeProgress = typeof progress === "number" && Number.isFinite(progress)
     ? Math.max(0, Math.min(100, progress))
     : null;
+  const dense = compact === "dense";
+  const titleText = !compact ? "text-xs" : dense ? "text-xs" : "text-sm sm:text-xs";
+  const valueText = compact ? "text-xl sm:text-2xl" : "text-2xl";
+  const detailText = !compact ? "text-xs" : dense ? "text-[10px] sm:text-xs" : "text-xs sm:text-xs";
 
   return (
     <article
@@ -50,19 +58,19 @@ export function OverviewCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-xs font-bold text-[var(--theme-text)]">{label}</p>
+            <p className={`${titleText} font-bold text-[var(--theme-text)]`}>{label}</p>
             {status ? (
               <span className="rounded-full bg-[var(--theme-panel-soft)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--theme-muted)]">
                 {status}
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-2xl font-extrabold leading-none text-[var(--theme-heading)]">{value}</p>
-          <p className="mt-1.5 text-xs font-medium text-[var(--theme-muted)]">{detail}</p>
+          <p className={`mt-1 ${valueText} font-extrabold leading-none text-[var(--theme-heading)]`}>{value}</p>
+          <p className={`mt-1.5 ${detailText} font-medium text-[var(--theme-muted)]`}>{detail}</p>
         </div>
       </div>
       {safeProgress !== null ? (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--theme-panel-soft)]" aria-hidden="true">
+        <div className={`mt-3 overflow-hidden rounded-full bg-[var(--theme-panel-soft)] ${compact ? "h-1 sm:h-1.5" : "h-1.5"}`} aria-hidden="true">
           <div className="h-full rounded-full" style={{ width: `${safeProgress}%`, backgroundColor: accent }} />
         </div>
       ) : null}

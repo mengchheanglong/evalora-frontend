@@ -232,29 +232,60 @@ export default function CandidatesPage() {
                     </table>
                   </div>
 
-                  {/* Mobile candidate cards (< md) */}
-                  <div className="divide-y divide-[var(--theme-border)] md:hidden">
-                    {paginatedCandidates.map((session) => (
-                      <Link className="block p-4 transition hover:bg-[var(--theme-panel-soft)]/70" href={`/candidates/${session.id}`} key={session.id}>
-                        <div className="flex items-start gap-3">
-                          <span className={`flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-sm font-bold ${candidateAvatarTone(session.candidateName)}`}>
-                            {candidateInitials(session.candidateName)}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-base font-bold text-[var(--theme-heading)] truncate">{session.candidateName}</p>
-                            <p className="mt-0.5 text-sm text-[var(--theme-muted)] truncate">{session.targetRole ?? "Not specified"}</p>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <StatusBadge status={session.status} />
-                          <RecruiterDecisionBadge verdict={session.recruiterVerdict} />
-                          {session.overallScore !== undefined ? <ScoreCircle score={session.overallScore} /> : null}
-                        </div>
-                        <button className="button-primary mt-3 min-h-11 w-full rounded-[7px] text-sm" type="button">
-                          View Report
-                        </button>
-                      </Link>
-                    ))}
+                  {/* Mobile compact table (< md) */}
+                  <div className="md:hidden">
+                    <table className="w-full table-fixed text-left">
+                      <thead className="bg-[var(--theme-panel-soft)] text-[9px] font-semibold uppercase text-[var(--theme-faint)] [&_th]:break-words [&_th]:[hyphens:auto]">
+                        <tr>
+                          <th className="px-2 py-2">Candidate</th>
+                          <th className="w-[52px] px-0.5 py-2">Position</th>
+                          <th className="w-[52px] px-0.5 py-2">Latest Session</th>
+                          <th className="w-[46px] px-0.5 py-2">Status</th>
+                          <th className="w-[26px] px-0.5 py-2">Over&shy;all Score</th>
+                          <th className="w-[36px] px-0.5 py-2">Added On</th>
+                          <th className="w-[36px] px-0.5 py-2 text-right">Ac&shy;tions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--theme-border)]">
+                        {paginatedCandidates.map((session) => (
+                          <tr className="align-top transition-colors hover:bg-[var(--theme-panel-soft)]/70" key={session.id}>
+                            <td className="px-2 py-2.5">
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <span className={`flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-[10px] font-bold ${candidateAvatarTone(session.candidateName)}`}>
+                                  {candidateInitials(session.candidateName)}
+                                </span>
+                                <Link className="group block min-w-0" href={`/candidates/${session.id}`}>
+                                  <span className="block truncate text-[11px] font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</span>
+                                  <span className="block truncate text-[10px] text-[var(--theme-muted)]">{session.candidateEmail ?? "No email"}</span>
+                                </Link>
+                              </div>
+                            </td>
+                            <td className="px-1 py-2.5 text-[11px] text-[var(--theme-text)]">
+                              <span className="block truncate" title={session.targetRole ?? "Not specified"}>{session.targetRole ?? "Not specified"}</span>
+                            </td>
+                            <td className="px-1 py-2.5 text-[11px] text-[var(--theme-text)]">
+                              <span className="block truncate" title={session.templateTitle ?? "Assessment"}>{session.templateTitle ?? "Assessment"}</span>
+                              <span className="block text-[9px] text-[var(--theme-muted)]">{formatDate(session.updatedAt ?? session.createdAt)}</span>
+                            </td>
+                            <td className="px-1 py-2.5">
+                              <span className="inline-flex max-w-full items-center">
+                                <StatusBadge compact="tiny" status={session.status} />
+                              </span>
+                              <span className="mt-0.5 flex max-w-full">
+                                <RecruiterDecisionBadge className="max-w-full truncate text-[9px]" verdict={session.recruiterVerdict} />
+                              </span>
+                            </td>
+                            <td className="px-0.5 py-2.5 text-right"><ScoreCircle score={session.overallScore} small /></td>
+                            <td className="px-0.5 py-2.5 text-[9px] text-[var(--theme-muted)]">{formatDate(session.createdAt)}</td>
+                            <td className="px-0.5 py-2.5 align-middle text-right">
+                              <div className="flex justify-end">
+                                <button aria-label={`Delete ${session.candidateName}`} className="flex size-9 items-center justify-center text-[var(--theme-faint)] transition hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === session.id} onClick={() => setPendingDelete(session)} type="button">{deletingId === session.id ? <span className="size-3 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" /> : <Icon name="trash" size={14} />}</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
                   <Pagination
@@ -283,11 +314,11 @@ export default function CandidatesPage() {
 
 function CandidateStats({ summary }: { summary: AnalyticsSummary }) {
   return (
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <OverviewCard detail={`${summary.totalSessions} assessment sessions`} icon="users" label="Candidates" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" value={summary.totalCandidates.toLocaleString()} />
-      <OverviewCard detail={`${summary.pendingAssessments} awaiting start · ${summary.inProgressAssessments} in progress`} icon="clock" label="Active assessments" tone="text-amber-500" accent="#f59e0b" value={summary.activeAssessments.toLocaleString()} />
-      <OverviewCard detail={`${summary.reportReadyAssessments} completed reports ready for review`} emphasis={summary.reportsPending > 0 ? "attention" : "quiet"} icon="report" label="Reports pending" tone="text-amber-600" accent="#f59e0b" value={summary.reportsPending.toLocaleString()} />
-      <OverviewCard detail="Assessment access ended before completion" emphasis="quiet" icon="shield" label="Expired sessions" tone="text-[var(--theme-muted)]" accent="var(--theme-muted)" value={summary.expiredAssessments.toLocaleString()} />
+    <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <OverviewCard compact detail={`${summary.totalSessions} assessment sessions`} icon="users" label="Candidates" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" value={summary.totalCandidates.toLocaleString()} />
+      <OverviewCard compact detail={`${summary.pendingAssessments} awaiting start · ${summary.inProgressAssessments} in progress`} icon="clock" label="Active assessments" tone="text-amber-500" accent="#f59e0b" value={summary.activeAssessments.toLocaleString()} />
+      <OverviewCard compact detail={`${summary.reportReadyAssessments} completed reports ready for review`} emphasis={summary.reportsPending > 0 ? "attention" : "quiet"} icon="report" label="Reports pending" tone="text-amber-600" accent="#f59e0b" value={summary.reportsPending.toLocaleString()} />
+      <OverviewCard compact detail="Assessment access ended before completion" emphasis="quiet" icon="shield" label="Expired sessions" tone="text-[var(--theme-muted)]" accent="var(--theme-muted)" value={summary.expiredAssessments.toLocaleString()} />
     </section>
   );
 }
@@ -389,18 +420,19 @@ function Pagination({ total, page, pageSize, onPageChange }: { total: number; pa
   );
 }
 
-function StatusBadge({ status }: { status: SessionStatus }) {
+function StatusBadge({ status, compact = false }: { status: SessionStatus; compact?: boolean | "tiny" }) {
   const style = { not_started: "bg-[var(--theme-panel-soft)] text-[var(--theme-muted)]", in_progress: "bg-[var(--theme-active)] text-[var(--theme-active-text)]", completed: "bg-[var(--color-primary-50)] text-[var(--color-primary-700)]", expired: "bg-[var(--theme-panel-soft)] text-[var(--theme-faint)]" }[status];
   const label = { not_started: "Not Started", in_progress: "In Assessment", completed: "Completed", expired: "Expired" }[status];
-  return <span className={`rounded-[5px] px-2 py-1 text-xs font-semibold ${style}`}>{label}</span>;
+  const sizing = compact === "tiny" ? "max-w-full truncate px-1 py-0.5 text-[9px]" : compact ? "max-w-[80px] truncate px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-xs";
+  return <span className={`rounded-[5px] font-semibold ${sizing} ${style}`}>{label}</span>;
 }
 // VerdictBadge replaced by shared RecruiterDecisionBadge component.
-function ScoreCircle({ score }: { score?: number }) {
+function ScoreCircle({ score, small = false }: { score?: number; small?: boolean }) {
   if (score === undefined) return <span className="text-[var(--text-caption)] font-semibold text-[var(--theme-faint)]">-</span>;
   const value = Math.round(score <= 5 ? score * 20 : score);
   return (
-    <span className="grid size-8 place-items-center rounded-full text-xs font-bold text-[var(--color-primary-700)]" style={{ background: `conic-gradient(var(--color-primary-500) ${value * 3.6}deg, var(--theme-panel-soft) 0deg)` }}>
-      <span className="grid size-6 place-items-center rounded-full bg-[var(--theme-panel)]">{value}%</span>
+    <span className="grid place-items-center rounded-full text-[var(--color-primary-700)]" style={{ width: small ? 24 : 32, height: small ? 24 : 32, background: `conic-gradient(var(--color-primary-500) ${value * 3.6}deg, var(--theme-panel-soft) 0deg)` }}>
+      <span className="grid place-items-center rounded-full bg-[var(--theme-panel)]" style={{ width: small ? 18 : 24, height: small ? 18 : 24, fontSize: small ? 8 : 12 }}>{value}%</span>
     </span>
   );
 }
