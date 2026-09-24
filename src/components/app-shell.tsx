@@ -59,14 +59,6 @@ const ROLE_LABELS: Record<UserRole, string> = {
   candidate: "Candidate",
 };
 
-const bottomNavItems: NavigationItem[] = [
-  { label: "Home", href: "/dashboard", key: "dashboard", icon: "home" },
-  { label: "Sessions", href: "/assessment", key: "session", icon: "message" },
-  { label: "Candidates", href: "/candidates", key: "candidates", icon: "user" },
-  { label: "Analytics", href: "/analytics", key: "analytics", icon: "analytics" },
-  { label: "Settings", href: "/settings", key: "settings", icon: "settings" },
-];
-
 export function AppShell({
   active,
   title,
@@ -334,7 +326,7 @@ export function AppShell({
           </div>
         </header>
 
-        <div className="px-4 py-6 pb-20 sm:px-6 sm:pb-6 lg:py-7 lg:pb-7 xl:px-8">
+        <div className="px-4 py-6 sm:px-6 lg:py-7 xl:px-8">
           <BackendHealthBanner />
           {showPageHeader ? (
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -358,27 +350,6 @@ export function AppShell({
         </div>
       </section>
 
-      {/* Mobile bottom navigation bar */}
-      {!hideSidebar ? (
-        <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--theme-border)] bg-[var(--theme-panel)] backdrop-blur-xl lg:hidden">
-          <div className="flex h-16 items-center justify-around px-1">
-            {bottomNavItems.map((item) => {
-              const isActive = active === item.key;
-              return (
-                <Link
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1 text-center transition ${isActive ? "text-[var(--color-primary-700)]" : "text-[var(--theme-muted)]"}`}
-                  href={item.href}
-                  key={item.key}
-                >
-                  <Icon className={isActive ? "text-[var(--color-primary-700)]" : ""} name={item.icon} size={20} />
-                  <span className="text-[10px] font-semibold leading-tight">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-      ) : null}
     </main>
   );
 }

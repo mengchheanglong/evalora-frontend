@@ -12,10 +12,10 @@ export function SubscriptionPlans() {
     <section aria-labelledby="pricing-heading" className="mx-auto max-w-[1200px] scroll-mt-24 px-5 py-16 sm:px-8 sm:py-20" id="pricing">
       <div className="mx-auto max-w-[680px] text-center">
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Simple pricing</p>
-        <h2 className="mt-3 text-4xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950" id="pricing-heading">
+        <h2 className="mt-3 text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-neutral-950 sm:text-4xl" id="pricing-heading">
           Choose the right plan for your team
         </h2>
-        <p className="mt-4 text-base text-neutral-500">
+        <p className="mt-4 text-sm text-neutral-500 sm:text-base">
           Everything you need to run fair, efficient, and insightful interviews — at any scale.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -48,14 +48,14 @@ export function SubscriptionPlans() {
                 Most Popular
               </span>
             )}
-            <h3 className={`w-fit rounded-lg px-3 py-1.5 text-sm font-bold ${plan.accent}`} id={`plan-${plan.id}`}>{plan.name}</h3>
+            <h3 className={`w-fit rounded-lg px-3 py-1.5 text-sm font-bold sm:text-sm ${plan.accent}`} id={`plan-${plan.id}`}>{plan.name}</h3>
             <p className="mt-4 min-h-12 text-sm leading-6 text-neutral-500">{plan.description}</p>
             <div aria-atomic="true" aria-live="polite" className="mt-6">
               <p className="flex flex-wrap items-baseline gap-1.5">
-                <span className="text-5xl font-extrabold tracking-tight text-neutral-950">${plan.monthlyPrice[billing]}</span>
-                <span className="text-sm text-neutral-500">/ month</span>
+                <span className="text-3xl font-extrabold tracking-tight text-neutral-950 sm:text-5xl">${plan.monthlyPrice[billing]}</span>
+                <span className="text-xs text-neutral-500 sm:text-sm">/ month</span>
               </p>
-              <p className="mt-2 text-xs text-neutral-500">
+              <p className="mt-2 text-[11px] text-neutral-500 sm:text-xs">
                 {billing === "annual" ? `$${(plan.monthlyPrice.annual * 12).toLocaleString("en-US")} billed annually` : "Billed monthly"}
               </p>
             </div>
@@ -67,9 +67,9 @@ export function SubscriptionPlans() {
             >
               {plan.action}
             </ButtonLink>
-            <ul className="mb-6 mt-7 space-y-3 border-t border-neutral-100 pt-6">
+            <ul className="mb-6 mt-7 space-y-2 border-t border-neutral-100 pt-6 sm:space-y-3 sm:pt-6">
               {plan.features.map((feature) => (
-                <li className="flex items-start gap-2.5 text-sm leading-6 text-neutral-700" key={feature}>
+                <li className="flex items-start gap-2 text-sm leading-5 text-neutral-700 sm:gap-2.5 sm:leading-6" key={feature}>
                   <span aria-hidden="true" className={`mt-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full ${plan.accent}`}>
                     <Icon name="check" size={12} />
                   </span>
@@ -77,7 +77,7 @@ export function SubscriptionPlans() {
                 </li>
               ))}
             </ul>
-            <p className="mt-auto border-t border-neutral-100 pt-5 text-xs leading-5 text-neutral-500">{plan.footer}</p>
+            <p className="mt-auto border-t border-neutral-100 pt-5 text-[11px] leading-4 text-neutral-500 sm:text-xs sm:leading-5">{plan.footer}</p>
           </article>
         ))}
       </div>

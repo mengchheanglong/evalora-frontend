@@ -365,7 +365,9 @@ export default function UsersAndRolesPage() {
               <EmptyState title="No members yet" description="Your workspace members will appear here." />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Desktop members table (md+) — unchanged; hidden on mobile. */}
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="bg-white text-xs font-bold text-neutral-500">
                   <tr className="border-b border-neutral-100">
@@ -427,6 +429,59 @@ export default function UsersAndRolesPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile members table (< md) — all 4 columns fit at 393px, no horizontal scroll. */}
+            <div className="md:hidden">
+              <table className="w-full table-fixed text-left text-[11px]">
+                <thead className="text-[9px] font-semibold uppercase tracking-wide text-neutral-500">
+                  <tr className="border-b border-neutral-100">
+                    <th className="w-[90px] px-2 py-2">Person</th>
+                    <th className="px-1 py-2">Email</th>
+                    <th className="w-[64px] px-1 py-2">Role</th>
+                    <th className="w-[60px] px-1 py-2">Joined</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {members.map((member) => {
+                    const isCurrentUser = member.isCurrentUser || member.id === user?.id;
+                    const roleTone = member.role === "organization"
+                      ? "bg-violet-50 text-violet-700 border-violet-100"
+                      : member.role === "interviewer"
+                        ? "bg-sky-50 text-sky-700 border-sky-100"
+                        : "bg-neutral-50 text-neutral-700 border-neutral-200";
+                    return (
+                      <tr key={member.id}>
+                        <td className="px-2 py-2.5">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-primary-50 text-[9px] font-black text-primary-700">
+                              {member.profilePhoto || (isCurrentUser && currentUserPhoto) ? (
+                                <img alt="" className="size-full object-cover" src={member.profilePhoto || currentUserPhoto} />
+                              ) : (
+                                userInitials(member.name)
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-bold text-neutral-900" title={member.name}>{member.name}</span>
+                            {isCurrentUser ? (
+                              <span className="shrink-0 rounded bg-primary-50 px-1 py-0.5 text-[9px] font-bold text-primary-700">You</span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-1 py-2.5 font-medium text-neutral-600">
+                          <span className="block truncate" title={member.email}>{member.email}</span>
+                        </td>
+                        <td className="px-1 py-2.5">
+                          <span className={`inline-flex max-w-full items-center truncate rounded border px-1 py-0.5 text-[9px] font-bold ${roleTone}`}>{member.roleLabel}</span>
+                        </td>
+                        <td className="px-1 py-2.5 text-[9px] text-neutral-500">
+                          {member.createdAt ? new Date(member.createdAt).toLocaleDateString() : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            </>
           )}
         </section>
 

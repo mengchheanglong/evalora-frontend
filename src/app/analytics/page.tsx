@@ -151,9 +151,10 @@ function AnalyticsContent({
   return (
     <div className="space-y-6">
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-1">
           <OverviewCard
             accent="var(--color-chart-1)"
+            compact="dense"
             detail={`${summary.completedAssessments} of ${summary.closedAssessments} candidates finished before their window closed`}
             icon="check"
             label="Candidates who finished"
@@ -163,6 +164,7 @@ function AnalyticsContent({
           />
           <OverviewCard
             accent="var(--color-chart-2)"
+            compact="dense"
             detail={`${summary.reportReadyAssessments} of ${summary.completedAssessments} completed assessments have a report`}
             icon="report"
             label="Reports ready"
@@ -213,27 +215,42 @@ function AnalyticsContent({
         ) : evidenceError ? (
           <div className="mt-5"><ErrorState message={evidenceError} /></div>
         ) : (
-          <div className="mt-5 grid gap-5 xl:grid-cols-2">
-            <ChartCard
-              caption={sampleNote(reportCount, "completed assessment")}
-              title={scoreTitle(scoreDistribution, reportCount)}
-            >
-              <ScoreBars buckets={scoreDistribution} />
-            </ChartCard>
-            <ChartCard
-              caption={sampleNote(moduleSampleSize(modulePerformance), "completed assessment")}
-              title={moduleTitle(modulePerformance)}
-            >
-              <ModuleBars modules={modulePerformance} />
-            </ChartCard>
-            <ChartCard
-              caption={sampleNote(duration?.sampleSize ?? 0, "completed assessment")}
-              className="xl:col-span-2"
-              title={durationTitle(duration)}
-            >
-              <CountBars items={duration?.buckets ?? []} />
-            </ChartCard>
-          </div>
+          <>
+            {/* Desktop: three separate evidence boxes (stacked at md, two columns at xl). */}
+            <div className="mt-5 hidden gap-5 md:grid xl:grid-cols-2">
+              <ChartCard
+                caption={sampleNote(reportCount, "completed assessment")}
+                title={scoreTitle(scoreDistribution, reportCount)}
+              >
+                <ScoreBars buckets={scoreDistribution} />
+              </ChartCard>
+              <ChartCard
+                caption={sampleNote(moduleSampleSize(modulePerformance), "completed assessment")}
+                title={moduleTitle(modulePerformance)}
+              >
+                <ModuleBars modules={modulePerformance} />
+              </ChartCard>
+              <ChartCard
+                caption={sampleNote(duration?.sampleSize ?? 0, "completed assessment")}
+                className="xl:col-span-2"
+                title={durationTitle(duration)}
+              >
+                <CountBars items={duration?.buckets ?? []} />
+              </ChartCard>
+            </div>
+            {/* Mobile: the same three boxes merged into one stacked card. */}
+            <div className="mt-5 divide-y divide-[var(--theme-border)] rounded-[10px] border border-[var(--theme-border)] bg-[var(--theme-panel)] p-4 shadow-[var(--theme-shadow)] md:hidden">
+              <EvidenceSection title={scoreTitle(scoreDistribution, reportCount)} caption={sampleNote(reportCount, "completed assessment")}>
+                <ScoreBars buckets={scoreDistribution} />
+              </EvidenceSection>
+              <EvidenceSection title={moduleTitle(modulePerformance)} caption={sampleNote(moduleSampleSize(modulePerformance), "completed assessment")}>
+                <ModuleBars modules={modulePerformance} />
+              </EvidenceSection>
+              <EvidenceSection title={durationTitle(duration)} caption={sampleNote(duration?.sampleSize ?? 0, "completed assessment")}>
+                <CountBars items={duration?.buckets ?? []} />
+              </EvidenceSection>
+            </div>
+          </>
         )}
       </section>
 
@@ -265,6 +282,17 @@ function ChartCard({ title, caption, className = "", children }: { title: string
       <p className="mt-1 text-xs leading-4 text-[var(--theme-muted)]">{caption}</p>
       <div className="mt-4">{children}</div>
     </article>
+  );
+}
+
+/** Mobile-only section of the merged evidence card — same content as a ChartCard, no chrome. */
+function EvidenceSection({ title, caption, children }: { title: string; caption: string; children: React.ReactNode }) {
+  return (
+    <section className="py-4 first:pt-0 last:pb-0">
+      <h3 className="text-sm font-extrabold leading-5 text-[var(--theme-heading)]">{title}</h3>
+      <p className="mt-1 text-xs leading-4 text-[var(--theme-muted)]">{caption}</p>
+      <div className="mt-4">{children}</div>
+    </section>
   );
 }
 

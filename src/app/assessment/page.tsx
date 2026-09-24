@@ -198,14 +198,14 @@ export default function SessionsPage() {
     <AppShell active="session" title="" description="">
       <div className="space-y-6">
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:items-start sm:gap-4">
+          <div className="min-w-0 flex-1">
             <h1 className="text-3xl font-bold text-[var(--theme-heading)]">Interview Sessions</h1>
             <p className="text-sm text-[var(--theme-muted)] mt-1">
               Create, manage, and monitor all candidate interview sessions.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
             <Link href="/assessment/create" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[var(--color-primary-500)] bg-[var(--color-primary-500)] px-5 text-sm font-bold text-[var(--theme-panel)] shadow-sm transition hover:border-[var(--color-primary-600)] hover:bg-[var(--color-primary-600)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-ring)]">
               <Icon name="plus" size={16} /> New Session
             </Link>
@@ -213,11 +213,11 @@ export default function SessionsPage() {
         </div>
 
         {summary ? (
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <OverviewCard label="Awaiting start" value={summary.pendingAssessments.toLocaleString()} detail="Invitation sent; candidate has not started" icon="calendar" tone="text-amber-500" accent="#f59e0b" />
-            <OverviewCard label="In progress" value={summary.inProgressAssessments.toLocaleString()} detail="Candidates actively completing assessments" icon="clock" tone="text-sky-500" accent="#0ea5e9" />
-            <OverviewCard label="Reports pending" value={summary.reportsPending.toLocaleString()} detail="Completed sessions still awaiting a report" emphasis={summary.reportsPending > 0 ? "attention" : "quiet"} icon="more" tone="text-amber-600" accent="#f59e0b" />
-            <OverviewCard label="Reports ready" value={summary.reportReadyAssessments.toLocaleString()} detail={`${summary.completedAssessments} completed assessments`} progress={summary.reportCoverageRate == null ? null : summary.reportCoverageRate * 100} icon="report" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
+          <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <OverviewCard compact label="Awaiting start" value={summary.pendingAssessments.toLocaleString()} detail="Invitation sent; candidate has not started" icon="calendar" tone="text-amber-500" accent="#f59e0b" />
+            <OverviewCard compact label="In progress" value={summary.inProgressAssessments.toLocaleString()} detail="Candidates actively completing assessments" icon="clock" tone="text-sky-500" accent="#0ea5e9" />
+            <OverviewCard compact label="Reports pending" value={summary.reportsPending.toLocaleString()} detail="Completed sessions still awaiting a report" emphasis={summary.reportsPending > 0 ? "attention" : "quiet"} icon="more" tone="text-amber-600" accent="#f59e0b" />
+            <OverviewCard compact label="Reports ready" value={summary.reportReadyAssessments.toLocaleString()} detail={`${summary.completedAssessments} completed assessments`} progress={summary.reportCoverageRate == null ? null : summary.reportCoverageRate * 100} icon="report" tone="text-[var(--color-chart-1)]" accent="var(--color-chart-1)" />
           </section>
         ) : null}
 
@@ -359,32 +359,69 @@ export default function SessionsPage() {
                 </table>
               </div>
 
-              {/* Mobile session cards (< md) */}
-              <div className="divide-y divide-[var(--theme-border)] md:hidden">
-                {filteredSessions.map((session) => (
-                  <Link className="block p-4 transition hover:bg-[var(--theme-panel-soft)]" href={`/candidates/${session.id}`} key={session.id}>
-                    <div className="flex items-start gap-3">
-                      <div className="size-10 shrink-0 rounded-full bg-[var(--theme-active)] flex items-center justify-center text-[var(--theme-active-text)] font-bold text-sm">
-                        {session.candidateName.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-base font-bold text-[var(--theme-heading)] truncate">{session.candidateName}</p>
-                        <p className="mt-0.5 text-sm text-[var(--theme-muted)] truncate">{session.templateTitle}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <StatusBadge status={session.status} />
-                      <RecruiterDecisionBadge verdict={session.recruiterVerdict} />
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[var(--theme-faint)]">
-                      <Icon name="calendar" size={12} />
-                      <span>{session.date} · {session.time}</span>
-                    </div>
-                    <button className="button-primary mt-3 min-h-11 w-full rounded-[7px] text-sm" type="button">
-                      View Report
-                    </button>
-                  </Link>
-                ))}
+              {/* Mobile compact table (< md) */}
+              <div className="md:hidden">
+                <table className="w-full table-fixed text-left">
+                  <thead className="bg-[var(--theme-panel-soft)] text-[9px] font-semibold uppercase text-[var(--theme-faint)] [&_th]:break-words [&_th]:[hyphens:auto]">
+                    <tr>
+                      <th className="w-[44px] px-0.5 py-2">Ses&shy;sion ID</th>
+                      <th className="px-1 py-2">Candidate</th>
+                      <th className="w-[46px] px-0.5 py-2">Tem&shy;plate</th>
+                      <th className="w-[56px] px-0.5 py-2">Inter&shy;viewer</th>
+                      <th className="w-[42px] px-0.5 py-2">Session Date &amp; Time</th>
+                      <th className="w-[50px] px-0.5 py-2">Status</th>
+                      <th className="w-[40px] px-0.5 py-2 text-right">Ac&shy;tions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--theme-border)]">
+                    {filteredSessions.map((session) => (
+                      <tr className="align-top transition-colors hover:bg-[var(--theme-panel-soft)]" key={session.id}>
+                        <td className="px-2 py-2.5 font-mono text-[11px] text-[var(--theme-muted)]">
+                          <span className="block truncate" title={session.sessionId}>{session.sessionId}</span>
+                        </td>
+                        <td className="min-w-0 px-2 py-2.5">
+                          <Link className="group block min-w-0" href={`/candidates/${session.id}`}>
+                            <span className="block truncate text-[11px] font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</span>
+                            <span className="block truncate text-[10px] text-[var(--theme-muted)]">{session.candidateEmail}</span>
+                          </Link>
+                        </td>
+                        <td className="px-2 py-2.5 text-[11px] text-[var(--theme-text)]">
+                          <span className="block truncate" title={session.templateTitle}>{session.templateTitle}</span>
+                        </td>
+                        <td className="px-2 py-2.5 text-[11px] text-[var(--theme-text)]">
+                          <span className="block truncate" title={`${session.interviewerName} · ${session.interviewerRole}`}>{session.interviewerName}</span>
+                        </td>
+                        <td className="px-2 py-2.5 text-[9px] leading-tight text-[var(--theme-muted)]">
+                          <span className="block">{session.date}</span>
+                          <span className="block">{session.time}</span>
+                        </td>
+                        <td className="px-2 py-2.5">
+                          <span className="inline-flex max-w-full items-center">
+                            <StatusBadge compact="tiny" status={session.status} />
+                          </span>
+                          <span className="mt-0.5 flex max-w-full">
+                            <RecruiterDecisionBadge className="max-w-full truncate text-[9px]" verdict={session.recruiterVerdict} />
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 align-middle text-right">
+                          <div className="flex items-center justify-end">
+                            <button
+                              aria-label={`Delete ${session.candidateName}'s session`}
+                              className="flex size-9 items-center justify-center text-[var(--theme-faint)] transition-colors hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={deletingId === session.id}
+                              onClick={() => setPendingDelete(session)}
+                              type="button"
+                            >
+                              {deletingId === session.id
+                                ? <span className="block size-4 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" />
+                                : <Icon name="trash" size={16} />}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </>
           ) : (
@@ -412,15 +449,16 @@ export default function SessionsPage() {
   );
 }
 
-function StatusBadge({ status }: { status: SessionStatusUI }) {
+function StatusBadge({ status, compact = false }: { status: SessionStatusUI; compact?: boolean | "tiny" }) {
   const styles: Record<SessionStatusUI, string> = {
     Completed: "text-emerald-700 bg-emerald-50 border-emerald-100",
     "In Progress": "text-sky-700 bg-sky-50 border-sky-100",
     Scheduled: "text-amber-700 bg-amber-50 border-amber-100",
     Expired: "text-[var(--theme-muted)] bg-[var(--theme-panel-soft)] border-[var(--theme-border)]",
   };
+  const sizing = compact === "tiny" ? "max-w-full truncate px-1.5 py-0.5 text-[9px]" : compact ? "max-w-[80px] truncate px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs";
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${styles[status]}`}>
+    <span className={`inline-flex items-center rounded-md border font-semibold ${sizing} ${styles[status]}`}>
       {status}
     </span>
   );

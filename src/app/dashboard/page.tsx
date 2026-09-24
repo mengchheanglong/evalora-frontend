@@ -148,7 +148,42 @@ function OverviewContent({
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      {/* Mobile: merged overview card */}
+      <section className="lg:hidden">
+        <article className="card rounded-[10px] p-4 sm:p-5">
+          <h2 className="mb-3 text-base font-extrabold text-[var(--theme-heading)]">Overview</h2>
+          <div className="divide-y divide-[var(--theme-border)]">
+            {/* Needs attention */}
+            <div className="py-4 first:pt-0 last:pb-0">
+              <h3 className="mb-2 text-base font-bold text-[var(--theme-heading)]">Needs attention</h3>
+              <div className="space-y-1">
+                <AttentionRow count={summary.reportsPending} href="/candidates" icon="report" label="Reports pending" note="Completed, no report generated" />
+                <AttentionRow count={summary.pendingAssessments} href="/assessment" icon="calendar" label="Awaiting start" note="Invited, not yet opened" />
+                <AttentionRow count={summary.expiredAssessments} href="/assessment" icon="clock" label="Expired" note="Window closed before completion" />
+              </div>
+            </div>
+            {/* Next active assessments */}
+            <div className="py-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h3 className="text-base font-bold text-[var(--theme-heading)]">Next active assessments</h3>
+                <Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/assessment">View sessions</Link>
+              </div>
+              {upcoming.length ? <UpcomingList items={upcoming} /> : <EmptyState description="New invitations and active sessions will appear here." title="No active assessments" />}
+            </div>
+            {/* Newly ready reports */}
+            <div className="py-4 last:pb-0">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h3 className="text-base font-bold text-[var(--theme-heading)]">Newly ready reports</h3>
+                <Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/candidates">View candidates</Link>
+              </div>
+              {readyReports.length ? <ReadyReportList items={readyReports} /> : <EmptyState description="Completed sessions with persisted reports will appear here." title="No newly ready reports" />}
+            </div>
+          </div>
+        </article>
+      </section>
+
+      {/* Desktop: trend + attention in grid */}
+      <section className="hidden grid-cols-1 gap-5 xl:grid xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <Panel>
           <PanelHeader
             action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/analytics">Full analytics</Link>}
@@ -191,7 +226,8 @@ function OverviewContent({
         </Panel>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
+      {/* Desktop: assessments + reports in grid */}
+      <section className="hidden grid-cols-1 gap-5 xl:grid xl:grid-cols-2">
         <Panel>
           <PanelHeader action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/assessment">View sessions</Link>} title="Next active assessments" />
           {upcoming.length ? <UpcomingList items={upcoming} /> : <EmptyState description="New invitations and active sessions will appear here." title="No active assessments" />}
