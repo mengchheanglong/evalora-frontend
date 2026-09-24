@@ -7,10 +7,11 @@ import { CandidateLiveCamera, type CameraStatus, type MediaConnectionQuality } f
 import { SessionTranscriptView } from "@/components/session-transcript";
 import { useInterviewSocket } from "@/components/use-interview-socket";
 import type { LiveCaption } from "@/features/live-video/live-captions";
-import { apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import { ApiError, apiGet, apiPost, getErrorMessage, retryAfterMsFromError } from "@/lib/api";
 import type { InterviewerFollowUp } from "@/lib/types";
 
-const POLL_MS = 10_000;
+/** Follow-up polling cadence. Never poll faster than 4s — the rate limiter's dev floor. */
+const POLL_MS = 5_000;
 type WorkspaceTab = "questions" | "captions" | "notes" | "chat";
 type Props = { sessionId: string; onClose: () => void };
 
@@ -41,6 +42,8 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [notes, setNotes] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [reconnectNotice, setReconnectNotice] = useState("");
+  const [sendCooldownSeconds, setSendCooldownSeconds] = useState(0);
   const [splitPosition, setSplitPosition] = useState(50); // percentage for left panel
   const [isDraggingSplitter, setIsDraggingSplitter] = useState(false);
   const splitterRef = useRef<HTMLDivElement | null>(null);
@@ -66,31 +69,98 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
 
 
 
+  const pollInFlightRef = useRef(false);
+  const rateLimitUntilRef = useRef(0);
+  const resumeTimerRef = useRef<number | null>(null);
+  const pollStartedRef = useRef(false);
+  const sendCooldownTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
+    // React StrictMode mounts effects twice in development; the ref keeps a
+    // single interval per mount cycle so polling never doubles.
+    if (pollStartedRef.current) return;
+    pollStartedRef.current = true;
+
     let active = true;
     async function load() {
+      if (!active || pollInFlightRef.current) return;              // skip tick while previous poll is in flight
+      if (Date.now() < rateLimitUntilRef.current) return;          // paused after a 429
+
+      pollInFlightRef.current = true;
       try {
         const items = await apiGet<InterviewerFollowUp[]>(`/interviewer-follow-ups/session/${encodeURIComponent(sessionId)}`);
         if (active) setFollowUps(items);
-      } catch { /* best-effort live polling */ }
+      } catch (requestError) {
+        if (requestError instanceof ApiError && requestError.status === 429) {
+          // Stop polling immediately; schedule exactly ONE resume after the
+          // server's Retry-After delay — never retry every second.
+          const waitMs = retryAfterMsFromError(requestError);
+          rateLimitUntilRef.current = Date.now() + waitMs;
+          setReconnectNotice("Live updates paused — too many requests. Reconnecting…");
+          if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+          resumeTimerRef.current = window.setTimeout(() => {
+            resumeTimerRef.current = null;
+            rateLimitUntilRef.current = 0;
+            setReconnectNotice("");
+            void load();
+          }, waitMs);
+        }
+        /* other errors: best-effort live polling */
+      } finally {
+        pollInFlightRef.current = false;
+      }
     }
     void load();
     const timer = setInterval(load, POLL_MS);
-    return () => { active = false; clearInterval(timer); };
+    return () => {
+      active = false;
+      pollStartedRef.current = false;
+      clearInterval(timer);
+      if (resumeTimerRef.current !== null) { window.clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null; }
+    };
   }, [sessionId]);
 
+  const startSendCooldown = useCallback((seconds: number) => {
+    setSendCooldownSeconds(seconds);
+    if (sendCooldownTimerRef.current !== null) window.clearTimeout(sendCooldownTimerRef.current);
+    const tick = (remaining: number) => {
+      sendCooldownTimerRef.current = window.setTimeout(() => {
+        if (remaining <= 1) {
+          sendCooldownTimerRef.current = null;
+          setSendCooldownSeconds(0);
+          setError("");
+        } else {
+          setSendCooldownSeconds(remaining - 1);
+          tick(remaining - 1);
+        }
+      }, 1000);
+    };
+    tick(seconds);
+  }, []);
+
+  useEffect(() => () => {
+    if (sendCooldownTimerRef.current !== null) window.clearTimeout(sendCooldownTimerRef.current);
+  }, []);
+
   const sendQuestion = useCallback(async () => {
-    if (question.trim().length < 3 || sending) return;
+    if (question.trim().length < 3 || sending || sendCooldownSeconds > 0) return;
     setSending(true);
     setError("");
     try {
       await apiPost(`/interviewer-follow-ups/session/${encodeURIComponent(sessionId)}`, { questionText: question.trim(), required, idempotencyKey: idempotencyKey.current });
       setQuestion("");
       setFollowUps(await apiGet<InterviewerFollowUp[]>(`/interviewer-follow-ups/session/${encodeURIComponent(sessionId)}`));
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "Could not send question."));
+    } catch (requestError) {      if (requestError instanceof ApiError && requestError.status === 429) {
+        // No automatic rapid retries: announce the wait and hold the button
+        // disabled until the server's Retry-After delay has elapsed.
+        const seconds = Math.max(1, Math.round(retryAfterMsFromError(requestError) / 1000));
+        setError(`Too many requests - wait ${seconds} seconds`);
+        startSendCooldown(seconds);
+      } else {
+        setError(getErrorMessage(requestError, "Could not send question."));
+      }
     } finally { setSending(false); }
-  }, [question, required, sending, sessionId]);
+  }, [question, required, sendCooldownSeconds, sending, sessionId, startSendCooldown]);
 
   function handleKeyDown(event: React.KeyboardEvent) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); void sendQuestion(); }
@@ -236,11 +306,19 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
               <button aria-label="Close panel" className="grid size-7 place-items-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900" onClick={() => setWorkspaceTab(null)} type="button"><Icon name="x" size={15} /></button>
             </div>
             <div className="live-interview-panel min-h-0 flex-1 overflow-y-auto bg-white text-gray-900">
-              {workspaceTab === "questions" ? <QuestionsPanel error={error} followUps={followUps} handleKeyDown={handleKeyDown} question={question} required={required} sending={sending} setQuestion={setQuestion} setRequired={setRequired} sendQuestion={sendQuestion} /> : null}
+              {workspaceTab === "questions" ? <QuestionsPanel cooldownSeconds={sendCooldownSeconds} error={error} followUps={followUps} handleKeyDown={handleKeyDown} question={question} required={required} sending={sending} setQuestion={setQuestion} setRequired={setRequired} sendQuestion={sendQuestion} /> : null}
               {workspaceTab === "captions" ? <CaptionsPanel cameraStatus={candidateCameraStatus} captions={liveCaptions} microphoneState={candidateMicrophoneState} /> : null}
               {workspaceTab === "notes" ? <NotesPanel notes={notes} updateNotes={updateNotes} /> : null}
               {workspaceTab === "chat" ? <EmptyChat /> : null}
             </div>
+          </div>
+        ) : null}
+
+        {/* Non-blocking reconnect notice while follow-up polling is paused after a 429 */}
+        {reconnectNotice ? (
+          <div aria-live="polite" className="absolute bottom-20 left-4 z-40 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-sm" role="status">
+            <Icon name="clock" size={12} />
+            {reconnectNotice}
           </div>
         ) : null}
 
@@ -257,14 +335,15 @@ export function LiveInterviewRoom({ sessionId, onClose }: Props) {
 }
 
 type QuestionsPanelProps = {
+  cooldownSeconds: number;
   error: string; followUps: InterviewerFollowUp[]; handleKeyDown: (event: React.KeyboardEvent) => void;
   question: string; required: boolean; sending: boolean;
   setQuestion: (value: string) => void; setRequired: (value: boolean) => void; sendQuestion: () => Promise<void>;
 };
 
-function QuestionsPanel({ error, followUps, handleKeyDown, question, required, sending, setQuestion, setRequired, sendQuestion }: QuestionsPanelProps) {
+function QuestionsPanel({ cooldownSeconds, error, followUps, handleKeyDown, question, required, sending, setQuestion, setRequired, sendQuestion }: QuestionsPanelProps) {
   return <div className="p-4">
-    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">Send follow-up</p><textarea className="mt-2 min-h-[96px] w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs outline-none focus:border-[var(--color-primary-400)] focus:bg-white" disabled={sending} maxLength={2000} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask the candidate a follow-up question…" value={question} />{error ? <p className="mt-1.5 text-[11px] text-rose-600">{error}</p> : null}<div className="mt-2 flex items-center justify-between"><label className="flex items-center gap-2 text-[11px] text-neutral-500"><input checked={required} className="accent-[var(--color-primary-600)]" onChange={(event) => setRequired(event.target.checked)} type="checkbox" />Response required</label><button className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary-600)] px-3 py-2 text-[11px] font-bold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-40" disabled={sending || question.trim().length < 3} onClick={() => void sendQuestion()} type="button"><Icon name="paperPlane" size={12} />{sending ? "Sending…" : "Send"}</button></div>
+    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">Send follow-up</p><textarea className="mt-2 min-h-[96px] w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs outline-none focus:border-[var(--color-primary-400)] focus:bg-white" disabled={sending} maxLength={2000} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask the candidate a follow-up question…" value={question} />{error ? <p className="mt-1.5 text-[11px] text-rose-600">{error}</p> : null}<div className="mt-2 flex items-center justify-between"><label className="flex items-center gap-2 text-[11px] text-neutral-500"><input checked={required} className="accent-[var(--color-primary-600)]" onChange={(event) => setRequired(event.target.checked)} type="checkbox" />Response required</label><button className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary-600)] px-3 py-2 text-[11px] font-bold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-40" disabled={sending || cooldownSeconds > 0 || question.trim().length < 3} onClick={() => void sendQuestion()} type="button"><Icon name="paperPlane" size={12} />{sending ? "Sending…" : cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s` : "Send"}</button></div>
     <div className="my-4 border-t border-neutral-200" /><div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">Previous questions</p><span className="text-[10px] text-neutral-400">{followUps.length}</span></div><div className="mt-2 space-y-2">{followUps.length ? followUps.map((item) => <article className="rounded-lg border border-neutral-200 bg-neutral-50 p-2.5" key={item.id}><div className="flex items-start justify-between gap-2"><p className="text-[11px] font-semibold leading-4 text-neutral-800">{item.questionText}</p><span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${item.status === "answered" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"}`}>{item.status}</span></div>{item.answerText ? <p className="mt-1.5 text-[11px] leading-4 text-neutral-500">{item.answerText}</p> : null}</article>) : <p className="py-8 text-center text-[11px] text-neutral-400">No follow-ups sent yet.</p>}</div>
   </div>;
 }

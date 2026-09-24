@@ -110,13 +110,49 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
 export class ApiError extends Error {
   readonly status: number;
   readonly details: unknown;
+  /** Seconds the server asked the client to wait before retrying (429 responses only). */
+  readonly retryAfter?: number;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(message: string, status: number, details?: unknown, retryAfter?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.details = details;
+    this.retryAfter = retryAfter;
   }
+}
+
+/** Reads the server's retry delay from a 429 payload or the Retry-After header. */
+function readRetryAfterSeconds(payload: unknown, response: Response): number | undefined {
+  if (payload && typeof payload === "object") {
+    const fromBody = (payload as { retryAfter?: unknown }).retryAfter;
+    if (typeof fromBody === "number" && Number.isFinite(fromBody) && fromBody > 0) {
+      return Math.ceil(fromBody);
+    }
+  }
+
+  const header = response.headers.get("retry-after");
+  if (header) {
+    const numeric = Number(header);
+    if (Number.isFinite(numeric) && numeric > 0) return Math.ceil(numeric);
+    const dateMs = Date.parse(header);
+    if (!Number.isNaN(dateMs)) return Math.max(1, Math.ceil((dateMs - Date.now()) / 1000));
+  }
+
+  return undefined;
+}
+
+/**
+ * Milliseconds to wait before the next attempt after a 429, taken from
+ * ApiError.retryAt (server Retry-After / payload) or a safe fallback.
+ */
+export function retryAfterMsFromError(error: unknown, fallbackSeconds = 15): number {
+  const seconds =
+    error instanceof ApiError && typeof error.retryAfter === "number" && error.retryAfter > 0
+      ? error.retryAfter
+      : fallbackSeconds;
+
+  return Math.max(1, seconds) * 1000;
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
@@ -168,7 +204,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
         `[api] ${method} ${normalizedPath} → ${response.status}`,
         "Raw:", raw, "| Filtered:", filtered, "| Display:", displayMessage,
       );
-      throw new ApiError(displayMessage, response.status, payload);
+      throw new ApiError(displayMessage, response.status, payload, readRetryAfterSeconds(payload, response));
     }
 
     if (cacheKey && generationAtStart === cacheGeneration) {

@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ConnectionPill, PresenceChips } from "@/components/realtime-indicators";
 import { EmptyState, ErrorState, InlineAlert } from "@/components/ui-states";
 import { useInterviewSocket } from "@/components/use-interview-socket";
-import { apiGet, apiPost, getErrorMessage, updateIntegrityPolicy } from "@/lib/api";
+import { ApiError, apiGet, apiPost, getErrorMessage, retryAfterMsFromError, updateIntegrityPolicy } from "@/lib/api";
 
 
 import type {
@@ -24,7 +24,8 @@ import type {
 } from "@/lib/types";
 
 const REFRESH_DEBOUNCE_MS = 600;
-const LIVE_RECONCILE_MS = 3_000;
+/** Live reconcile cadence. Never poll faster than 4s — the rate limiter's dev floor. */
+const TRANSCRIPT_POLL_MS = 5_000;
 const QUESTION_MAX = 2_000;
 
 type Props = {
@@ -106,6 +107,12 @@ export function SessionTranscriptView({
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const refreshTimer = useRef<number | null>(null);
+  // Timestamp until which polling must stay paused after a 429 (Retry-After).
+  const rateLimitUntilRef = useRef(0);
+  // Guards against React StrictMode dev double-effects spawning two intervals.
+  const reconcileStartedRef = useRef(false);
+  const [rateLimitResumeAt, setRateLimitResumeAt] = useState(0);
+  const [rateLimitNotice, setRateLimitNotice] = useState("");
 
   const [composerFor, setComposerFor] =
     useState<string | null>(null);
@@ -154,6 +161,16 @@ export function SessionTranscriptView({
       } catch (requestError) {
         if (!current()) return;
 
+        if (isRateLimitError(requestError)) {
+          // Stop polling immediately; a dedicated effect resumes exactly ONCE
+          // after the server's Retry-After delay — never retry every second.
+          const resumeAt = Date.now() + retryAfterMsFromError(requestError);
+          rateLimitUntilRef.current = resumeAt;
+          setRateLimitResumeAt(resumeAt);
+          setRateLimitNotice("Live updates paused — too many requests. Reconnecting…");
+          return;
+        }
+
         if (!background) {
           setError(
             getErrorMessage(
@@ -174,6 +191,24 @@ export function SessionTranscriptView({
     },
     [onStatusChange, sessionId],
   );
+
+  // One scheduled resume after a 429. State-driven so cleanup is automatic
+  // and a new 429 simply replaces the pending timer.
+  useEffect(() => {
+    if (!rateLimitResumeAt) return;
+
+    const timer = window.setTimeout(
+      () => {
+        rateLimitUntilRef.current = 0;
+        setRateLimitResumeAt(0);
+        setRateLimitNotice("");
+        void load(true);
+      },
+      Math.max(0, rateLimitResumeAt - Date.now()),
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [load, rateLimitResumeAt]);
 
   useEffect(() => {
     void load();
@@ -237,11 +272,23 @@ export function SessionTranscriptView({
       return;
     }
 
+    // React StrictMode mounts effects twice in development; the ref keeps a
+    // single interval per mount cycle so polling never doubles.
+    if (reconcileStartedRef.current) {
+      return;
+    }
+    reconcileStartedRef.current = true;
+
     const reconcile = () => {
       if (document.visibilityState !== "visible") {
         return;
       }
 
+      if (Date.now() < rateLimitUntilRef.current) {
+        return;
+      }
+
+      // Skip this tick while the previous poll is still in flight (dedupe).
       if (!controller.current) {
         void load(true);
       }
@@ -249,7 +296,7 @@ export function SessionTranscriptView({
 
     const timer = window.setInterval(
       reconcile,
-      LIVE_RECONCILE_MS,
+      TRANSCRIPT_POLL_MS,
     );
 
     document.addEventListener(
@@ -258,6 +305,7 @@ export function SessionTranscriptView({
     );
 
     return () => {
+      reconcileStartedRef.current = false;
       window.clearInterval(timer);
       document.removeEventListener(
         "visibilitychange",
@@ -325,6 +373,20 @@ export function SessionTranscriptView({
 
 return (
   <div className="space-y-4">
+
+    {/* =====================================================
+        RATE-LIMIT NOTICE (non-blocking)
+        ===================================================== */}
+      {rateLimitNotice ? (
+        <p
+          aria-live="polite"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800"
+          role="status"
+        >
+          <Icon name="clock" size={12} />
+          {rateLimitNotice}
+        </p>
+      ) : null}
 
     {/* =====================================================
         FLOATING LIVE CONNECTION STATUS
@@ -1163,12 +1225,18 @@ function LiveFollowUpComposer({
 
       await onSent();
     } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Question was not sent. Your draft is preserved.",
-        ),
-      );
+      if (isRateLimitError(requestError)) {
+        setError(
+          `Too many requests — wait ${Math.round(retryAfterMsFromError(requestError) / 1000)} seconds.`,
+        );
+      } else {
+        setError(
+          getErrorMessage(
+            requestError,
+            "Question was not sent. Your draft is preserved.",
+          ),
+        );
+      }
     } finally {
       setSending(false);
     }
@@ -1269,6 +1337,11 @@ function LiveFollowUpComposer({
 /* ============================================================
    HELPERS
    ============================================================ */
+
+/** True when an error is the API wrapper's 429 rate-limit response. */
+function isRateLimitError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 429;
+}
 
 function cryptoRandomId(): string {
   if (
