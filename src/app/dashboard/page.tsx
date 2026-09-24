@@ -183,7 +183,7 @@ function OverviewContent({
       </section>
 
       {/* Desktop: trend + attention in grid */}
-      <section className="hidden grid-cols-1 gap-5 xl:grid xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      <section className="hidden lg:grid lg:grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <Panel>
           <PanelHeader
             action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/analytics">Full analytics</Link>}
@@ -227,7 +227,7 @@ function OverviewContent({
       </section>
 
       {/* Desktop: assessments + reports in grid */}
-      <section className="hidden grid-cols-1 gap-5 xl:grid xl:grid-cols-2">
+      <section className="hidden lg:grid lg:grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel>
           <PanelHeader action={<Link className="text-xs font-bold text-[var(--color-primary-700)]" href="/assessment">View sessions</Link>} title="Next active assessments" />
           {upcoming.length ? <UpcomingList items={upcoming} /> : <EmptyState description="New invitations and active sessions will appear here." title="No active assessments" />}

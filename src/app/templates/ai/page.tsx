@@ -340,7 +340,7 @@ export default function TemplateAiBuilderPage() {
     };
   }
 
-  async function handleSave(): Promise<TemplateDraftDto | null> {
+  async function handleSave(opts?: { andExit?: boolean }): Promise<TemplateDraftDto | null> {
     const problem = validateDraft();
     if (problem) {
       setError(problem);
@@ -350,18 +350,21 @@ export default function TemplateAiBuilderPage() {
     setSaving(true);
     const versionAtSave = editVersionRef.current;
     try {
-      const dto = await updateDraft(draftId, buildPatchBody());
-      if (editVersionRef.current === versionAtSave) {
-        hydrate(dto, { scroll: false, keepCollapsed: true });
-        setNotice("Draft saved. Weights were re-balanced to total 100%.");
-      } else {
-        // The reviewer kept typing while the request was in flight. Replacing
-        // their state with the server copy would silently delete those edits,
-        // so keep the editor as-is and leave it marked unsaved.
-        setServerDraft(dto);
-        setNotice("Draft saved, but you have newer edits — save again to keep them.");
+      let dto = serverDraft;
+      if (dirty) {
+        dto = await updateDraft(draftId, buildPatchBody());
+        if (editVersionRef.current === versionAtSave) {
+          hydrate(dto, { scroll: false, keepCollapsed: true });
+        } else {
+          setServerDraft(dto);
+        }
       }
       void refreshDrafts();
+      if (opts?.andExit) {
+        router.push("/templates");
+        return dto;
+      }
+      setNotice(dirty ? "Draft saved. Weights were re-balanced to total 100%." : "Draft is saved. You can find it in Recent drafts or Workspace templates.");
       return dto;
     } catch (err) {
       setError(getErrorMessage(err, "Unable to save the draft."));
@@ -756,12 +759,32 @@ export default function TemplateAiBuilderPage() {
               >
                 <Icon className="rotate-90" name="chevron" size={14} /> Back
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <span className="text-xs text-[var(--theme-muted)]">{dirty ? "Unsaved changes" : "All changes saved"}</span>
-                <button className="button-secondary h-10 px-4 text-xs" disabled={saving || publishing || !dirty} onClick={() => void handleSave()} type="button">
-                  {saving ? "Saving…" : "Save draft"}
+                <button
+                  className="button-secondary h-10 px-4 text-xs inline-flex items-center gap-1.5"
+                  disabled={saving || publishing}
+                  onClick={() => void handleSave()}
+                  title="Save current draft progress"
+                  type="button"
+                >
+                  <Icon name="file" size={14} /> {saving ? "Saving…" : "Save draft"}
                 </button>
-                <button className="session-blue-button h-10 px-5 text-xs" disabled={saving || publishing} onClick={() => setPublishOpen(true)} type="button">
+                <button
+                  className="button-secondary h-10 px-4 text-xs"
+                  disabled={saving || publishing}
+                  onClick={() => void handleSave({ andExit: true })}
+                  title="Save draft and return to templates"
+                  type="button"
+                >
+                  Save & Exit
+                </button>
+                <button
+                  className="session-blue-button h-10 px-5 text-xs inline-flex items-center gap-1.5"
+                  disabled={saving || publishing}
+                  onClick={() => setPublishOpen(true)}
+                  type="button"
+                >
                   <Icon name="check" size={16} /> {publishing ? "Publishing…" : "Publish template"}
                 </button>
               </div>

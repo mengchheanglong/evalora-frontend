@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon, type IconName } from "@/components/icons";
 import { EmptyState, ErrorState, InlineAlert, PageLoader } from "@/components/ui-states";
 import { apiDelete, apiGet, apiPost, getErrorMessage } from "@/lib/api";
+import { discardDraft, listDrafts, type TemplateDraftSummary } from "@/lib/template-drafts";
 import type { AssessmentTemplate, CatalogTemplateSummary, Question, QuestionType } from "@/lib/types";
 
 // ==========================================
@@ -41,6 +42,7 @@ interface TemplateRow {
   lastUpdate: string;
   updatedBy: string;
   status: TemplateStatus;
+  isDraft?: boolean;
   icon: IconName;
   iconColor: string;
 }
@@ -83,8 +85,36 @@ function mapTemplateToRow(template: AssessmentTemplate): TemplateRow {
     lastUpdate,
     updatedBy,
     status: "Active",
+    isDraft: false,
     icon,
     iconColor,
+  };
+}
+
+function mapDraftToRow(draft: TemplateDraftSummary): TemplateRow {
+  let category: TemplateCategory = "General";
+  const roleLower = (draft.roleType || "").toLowerCase();
+  if (roleLower.includes("developer") || roleLower.includes("engineer") || roleLower.includes("data") || roleLower.includes("technical")) category = "Technical";
+  else if (roleLower.includes("behavioral")) category = "Behavioral";
+  else if (roleLower.includes("lead") || roleLower.includes("manager")) category = "Leadership";
+  else if (roleLower.includes("communication")) category = "Communication";
+
+  const lastUpdate = draft.updatedAt ? new Date(draft.updatedAt).toLocaleDateString() : "N/A";
+
+  return {
+    id: draft.id,
+    title: draft.title,
+    description: `AI draft · ${draft.source === "document" ? "From document" : "From prompt"}`,
+    category,
+    targetRoles: draft.roleType || "General Role",
+    modulesCount: draft.moduleCount,
+    questionsCount: draft.questionCount,
+    lastUpdate,
+    updatedBy: "AI Assistant",
+    status: "Draft",
+    isDraft: true,
+    icon: "sparkle",
+    iconColor: "tpl-icon tpl-icon-violet",
   };
 }
 
@@ -170,6 +200,7 @@ export default function TemplatesPage() {
   const [mainTab, setMainTab] = useState<MainTab>("library");
   const [catalog, setCatalog] = useState<CatalogTemplateSummary[]>([]);
   const [mine, setMine] = useState<AssessmentTemplate[]>([]);
+  const [drafts, setDrafts] = useState<TemplateDraftSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -213,12 +244,14 @@ export default function TemplatesPage() {
     setLoading(true);
     setError("");
     try {
-      const [nextCatalog, nextMine] = await Promise.all([
+      const [nextCatalog, nextMine, nextDrafts] = await Promise.all([
         apiGet<CatalogTemplateSummary[]>("/templates/catalog"),
         apiGet<AssessmentTemplate[]>("/templates"),
+        listDrafts().catch(() => []),
       ]);
       setCatalog(nextCatalog);
       setMine(nextMine);
+      setDrafts(nextDrafts.filter((d) => d.status === "draft"));
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -249,12 +282,16 @@ export default function TemplatesPage() {
 
   const filteredMine = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return mine.filter((item) => {
-      if (!matchesRoleFilter(item.roleType, roleFilter)) return false;
+    const rows: TemplateRow[] = [
+      ...drafts.map(mapDraftToRow),
+      ...mine.map(mapTemplateToRow),
+    ];
+    return rows.filter((item) => {
+      if (!matchesRoleFilter(item.targetRoles, roleFilter)) return false;
       if (!q) return true;
-      return item.title.toLowerCase().includes(q) || item.roleType.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
+      return item.title.toLowerCase().includes(q) || item.targetRoles.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
     });
-  }, [mine, searchQuery, roleFilter]);
+  }, [mine, drafts, searchQuery, roleFilter]);
 
   const previewQuestionCount = useMemo(() => {
     if (!preview) return 0;
@@ -385,6 +422,17 @@ export default function TemplatesPage() {
     } finally {
       setDeleting(false);
       setBusyId("");
+    }
+  }
+
+  async function handleDiscardDraft(id: string) {
+    if (!window.confirm("Discard this AI draft?")) return;
+    try {
+      await discardDraft(id);
+      setDrafts((current) => current.filter((d) => d.id !== id));
+      setNotice("Draft discarded.");
+    } catch (err) {
+      setError(getErrorMessage(err, "Unable to discard that draft."));
     }
   }
 
@@ -546,7 +594,7 @@ export default function TemplatesPage() {
                 <tbody className="divide-y divide-gray-100" style={{
                   borderColor: 'var(--theme-border)',
                 }}>
-                  {filteredMine.map(mapTemplateToRow).map((template) => (
+                  {filteredMine.map((template) => (
                     <tr key={template.id} className="hover:bg-gray-50 transition-colors" style={{
                       borderColor: 'var(--theme-border)',
                     }}
@@ -557,7 +605,18 @@ export default function TemplatesPage() {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}>
                       <td className="px-2 py-3 sm:px-5 sm:py-4">
-                        <button className="group flex w-full items-center gap-2 text-left sm:gap-3" onClick={() => void openMinePreview(template.id)} title="Open preview" type="button">
+                        <button
+                          className="group flex w-full items-center gap-2 text-left sm:gap-3"
+                          onClick={() => {
+                            if (template.isDraft) {
+                              router.push(`/templates/ai?draft=${encodeURIComponent(template.id)}`);
+                            } else {
+                              void openMinePreview(template.id);
+                            }
+                          }}
+                          title={template.isDraft ? "Resume AI Draft" : "Open preview"}
+                          type="button"
+                        >
                           <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg sm:size-10 ${template.iconColor}`}>
                             <Icon name={template.icon} size={16} />
                           </span>
@@ -595,16 +654,25 @@ export default function TemplatesPage() {
                       </td>
                       <td className="px-1.5 py-3 sm:px-4 sm:py-4">
                         <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold sm:px-2.5 sm:py-1 sm:text-xs ${
-                          template.status === "Active" ? "tpl-chip tpl-chip-emerald" : "tpl-chip tpl-chip-neutral"
+                          template.status === "Active" ? "tpl-chip tpl-chip-emerald" : "tpl-chip tpl-chip-violet"
                         }`}>
                           {template.status}
                         </span>
                       </td>
                       <td className="px-2 py-3 text-right sm:px-5 sm:py-4">
                         <div className="flex items-center justify-end gap-0.5 sm:gap-1">
-                          <ActionButton icon="pencil" label="Edit" href={`/templates/${template.id}/edit`} />
-                          <ActionButton icon="copy" label="Duplicate" onClick={() => void duplicateMine(template.id)} disabled={busyId === template.id} />
-                          <ActionButton icon="trash" label="Delete" onClick={() => requestDeleteMine(template.id, template.title)} disabled={busyId === template.id || deleting} danger />
+                          {template.isDraft ? (
+                            <>
+                              <ActionButton icon="sparkle" label="Resume" href={`/templates/ai?draft=${encodeURIComponent(template.id)}`} />
+                              <ActionButton icon="trash" label="Discard" onClick={() => void handleDiscardDraft(template.id)} danger />
+                            </>
+                          ) : (
+                            <>
+                              <ActionButton icon="pencil" label="Edit" href={`/templates/${template.id}/edit`} />
+                              <ActionButton icon="copy" label="Duplicate" onClick={() => void duplicateMine(template.id)} disabled={busyId === template.id} />
+                              <ActionButton icon="trash" label="Delete" onClick={() => requestDeleteMine(template.id, template.title)} disabled={busyId === template.id || deleting} danger />
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -194,7 +194,7 @@ export function AppShell({
   const accountLabel = isOwner ? orgInitials(displayOrgName) : userInitials(user.name);
 
   return (
-    <main className={`min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_1fr]"}`}>
+    <main className={`min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] ${hideSidebar ? "" : "lg:grid lg:grid-cols-[244px_minmax(0,1fr)]"}`}>
       {!hideSidebar ? (
         <>
           <aside className="sticky top-0 hidden h-screen border-r border-[var(--theme-border)] bg-[var(--theme-panel)] lg:flex lg:flex-col">

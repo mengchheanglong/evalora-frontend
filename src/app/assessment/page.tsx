@@ -359,69 +359,67 @@ export default function SessionsPage() {
                 </table>
               </div>
 
-              {/* Mobile compact table (< md) */}
-              <div className="md:hidden">
-                <table className="w-full table-fixed text-left">
-                  <thead className="bg-[var(--theme-panel-soft)] text-[9px] font-semibold uppercase text-[var(--theme-faint)] [&_th]:break-words [&_th]:[hyphens:auto]">
-                    <tr>
-                      <th className="w-[44px] px-0.5 py-2">Ses&shy;sion ID</th>
-                      <th className="px-1 py-2">Candidate</th>
-                      <th className="w-[46px] px-0.5 py-2">Tem&shy;plate</th>
-                      <th className="w-[56px] px-0.5 py-2">Inter&shy;viewer</th>
-                      <th className="w-[42px] px-0.5 py-2">Session Date &amp; Time</th>
-                      <th className="w-[50px] px-0.5 py-2">Status</th>
-                      <th className="w-[40px] px-0.5 py-2 text-right">Ac&shy;tions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--theme-border)]">
-                    {filteredSessions.map((session) => (
-                      <tr className="align-top transition-colors hover:bg-[var(--theme-panel-soft)]" key={session.id}>
-                        <td className="px-2 py-2.5 font-mono text-[11px] text-[var(--theme-muted)]">
-                          <span className="block truncate" title={session.sessionId}>{session.sessionId}</span>
-                        </td>
-                        <td className="min-w-0 px-2 py-2.5">
-                          <Link className="group block min-w-0" href={`/candidates/${session.id}`}>
-                            <span className="block truncate text-[11px] font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</span>
-                            <span className="block truncate text-[10px] text-[var(--theme-muted)]">{session.candidateEmail}</span>
-                          </Link>
-                        </td>
-                        <td className="px-2 py-2.5 text-[11px] text-[var(--theme-text)]">
-                          <span className="block truncate" title={session.templateTitle}>{session.templateTitle}</span>
-                        </td>
-                        <td className="px-2 py-2.5 text-[11px] text-[var(--theme-text)]">
-                          <span className="block truncate" title={`${session.interviewerName} · ${session.interviewerRole}`}>{session.interviewerName}</span>
-                        </td>
-                        <td className="px-2 py-2.5 text-[9px] leading-tight text-[var(--theme-muted)]">
-                          <span className="block">{session.date}</span>
-                          <span className="block">{session.time}</span>
-                        </td>
-                        <td className="px-2 py-2.5">
-                          <span className="inline-flex max-w-full items-center">
-                            <StatusBadge compact="tiny" status={session.status} />
+              {/* Mobile Cards List (< md) */}
+              <div className="divide-y divide-[var(--theme-border)] md:hidden">
+                {filteredSessions.map((session) => (
+                  <article className="p-3.5 transition-colors hover:bg-[var(--theme-panel-soft)]/50" key={session.id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-[var(--theme-panel-soft)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--theme-muted)]">
+                            {session.sessionId}
                           </span>
-                          <span className="mt-0.5 flex max-w-full">
-                            <RecruiterDecisionBadge className="max-w-full truncate text-[9px]" verdict={session.recruiterVerdict} />
+                          <span className="text-[10px] text-[var(--theme-faint)]">
+                            {session.category}
                           </span>
-                        </td>
-                        <td className="px-2 py-2.5 align-middle text-right">
-                          <div className="flex items-center justify-end">
-                            <button
-                              aria-label={`Delete ${session.candidateName}'s session`}
-                              className="flex size-9 items-center justify-center text-[var(--theme-faint)] transition-colors hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={deletingId === session.id}
-                              onClick={() => setPendingDelete(session)}
-                              type="button"
-                            >
-                              {deletingId === session.id
-                                ? <span className="block size-4 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" />
-                                : <Icon name="trash" size={16} />}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                        <Link className="group mt-1 block" href={`/candidates/${session.id}`}>
+                          <h3 className="truncate text-xs font-bold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">
+                            {session.candidateName}
+                          </h3>
+                          <p className="truncate text-[11px] text-[var(--theme-muted)]">
+                            {session.candidateEmail}
+                          </p>
+                        </Link>
+                      </div>
+                      <div className="shrink-0 flex flex-col items-end gap-1">
+                        <StatusBadge compact="tiny" status={session.status} />
+                        {session.recruiterVerdict ? (
+                          <RecruiterDecisionBadge className="max-w-[130px] truncate text-[9px]" verdict={session.recruiterVerdict} />
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px]">
+                      <span className="font-semibold text-[var(--theme-text)] truncate max-w-[180px]">
+                        {session.templateTitle}
+                      </span>
+                      <span className="text-[var(--theme-faint)]">·</span>
+                      <span className="text-[var(--theme-muted)] truncate max-w-[160px]">
+                        {session.interviewerName}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--theme-border)]/50 pt-2.5">
+                      <span className="text-[10px] text-[var(--theme-faint)]">
+                        {session.date} · {session.time}
+                      </span>
+                      <button
+                        aria-label={`Delete ${session.candidateName}'s session`}
+                        className="flex size-8 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-faint)] transition hover:border-rose-300 hover:bg-rose-500/10 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={deletingId === session.id}
+                        onClick={() => setPendingDelete(session)}
+                        type="button"
+                      >
+                        {deletingId === session.id ? (
+                          <span className="block size-3 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" />
+                        ) : (
+                          <Icon name="trash" size={13} />
+                        )}
+                      </button>
+                    </div>
+                  </article>
+                ))}
               </div>
             </>
           ) : (

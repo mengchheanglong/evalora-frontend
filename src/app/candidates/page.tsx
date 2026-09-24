@@ -232,60 +232,63 @@ export default function CandidatesPage() {
                     </table>
                   </div>
 
-                  {/* Mobile compact table (< md) */}
-                  <div className="md:hidden">
-                    <table className="w-full table-fixed text-left">
-                      <thead className="bg-[var(--theme-panel-soft)] text-[9px] font-semibold uppercase text-[var(--theme-faint)] [&_th]:break-words [&_th]:[hyphens:auto]">
-                        <tr>
-                          <th className="px-2 py-2">Candidate</th>
-                          <th className="w-[52px] px-0.5 py-2">Position</th>
-                          <th className="w-[52px] px-0.5 py-2">Latest Session</th>
-                          <th className="w-[46px] px-0.5 py-2">Status</th>
-                          <th className="w-[26px] px-0.5 py-2">Over&shy;all Score</th>
-                          <th className="w-[36px] px-0.5 py-2">Added On</th>
-                          <th className="w-[36px] px-0.5 py-2 text-right">Ac&shy;tions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--theme-border)]">
-                        {paginatedCandidates.map((session) => (
-                          <tr className="align-top transition-colors hover:bg-[var(--theme-panel-soft)]/70" key={session.id}>
-                            <td className="px-2 py-2.5">
-                              <div className="flex min-w-0 items-center gap-1.5">
-                                <span className={`flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-[10px] font-bold ${candidateAvatarTone(session.candidateName)}`}>
-                                  {candidateInitials(session.candidateName)}
-                                </span>
-                                <Link className="group block min-w-0" href={`/candidates/${session.id}`}>
-                                  <span className="block truncate text-[11px] font-semibold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">{session.candidateName}</span>
-                                  <span className="block truncate text-[10px] text-[var(--theme-muted)]">{session.candidateEmail ?? "No email"}</span>
-                                </Link>
-                              </div>
-                            </td>
-                            <td className="px-1 py-2.5 text-[11px] text-[var(--theme-text)]">
-                              <span className="block truncate" title={session.targetRole ?? "Not specified"}>{session.targetRole ?? "Not specified"}</span>
-                            </td>
-                            <td className="px-1 py-2.5 text-[11px] text-[var(--theme-text)]">
-                              <span className="block truncate" title={session.templateTitle ?? "Assessment"}>{session.templateTitle ?? "Assessment"}</span>
-                              <span className="block text-[9px] text-[var(--theme-muted)]">{formatDate(session.updatedAt ?? session.createdAt)}</span>
-                            </td>
-                            <td className="px-1 py-2.5">
-                              <span className="inline-flex max-w-full items-center">
-                                <StatusBadge compact="tiny" status={session.status} />
-                              </span>
-                              <span className="mt-0.5 flex max-w-full">
-                                <RecruiterDecisionBadge className="max-w-full truncate text-[9px]" verdict={session.recruiterVerdict} />
-                              </span>
-                            </td>
-                            <td className="px-0.5 py-2.5 text-right"><ScoreCircle score={session.overallScore} small /></td>
-                            <td className="px-0.5 py-2.5 text-[9px] text-[var(--theme-muted)]">{formatDate(session.createdAt)}</td>
-                            <td className="px-0.5 py-2.5 align-middle text-right">
-                              <div className="flex justify-end">
-                                <button aria-label={`Delete ${session.candidateName}`} className="flex size-9 items-center justify-center text-[var(--theme-faint)] transition hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === session.id} onClick={() => setPendingDelete(session)} type="button">{deletingId === session.id ? <span className="size-3 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" /> : <Icon name="trash" size={14} />}</button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  {/* Mobile Cards List (< md) */}
+                  <div className="divide-y divide-[var(--theme-border)] md:hidden">
+                    {paginatedCandidates.map((session) => (
+                      <article className="p-3.5 transition-colors hover:bg-[var(--theme-panel-soft)]/50" key={session.id}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <span className={`flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br text-xs font-bold ${candidateAvatarTone(session.candidateName)}`}>
+                              {candidateInitials(session.candidateName)}
+                            </span>
+                            <div className="min-w-0">
+                              <Link className="group block" href={`/candidates/${session.id}`}>
+                                <h3 className="truncate text-xs font-bold text-[var(--theme-heading)] group-hover:text-[var(--color-primary-700)]">
+                                  {session.candidateName}
+                                </h3>
+                                <p className="truncate text-[11px] text-[var(--theme-muted)]">
+                                  {session.candidateEmail ?? "No email"}
+                                </p>
+                              </Link>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <ScoreCircle score={session.overallScore} small />
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                          <span className="font-semibold text-[var(--theme-text)]">{session.targetRole ?? "Not specified"}</span>
+                          <span className="text-[var(--theme-faint)]">·</span>
+                          <span className="truncate max-w-[180px] text-[var(--theme-muted)]">{session.templateTitle ?? "Assessment"}</span>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--theme-border)]/50 pt-2.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <StatusBadge compact="tiny" status={session.status} />
+                            {session.recruiterVerdict ? (
+                              <RecruiterDecisionBadge className="max-w-[140px] truncate text-[9px]" verdict={session.recruiterVerdict} />
+                            ) : null}
+                            <span className="text-[10px] text-[var(--theme-faint)]">
+                              {formatDate(session.createdAt)}
+                            </span>
+                          </div>
+                          <button
+                            aria-label={`Delete ${session.candidateName}`}
+                            className="flex size-8 items-center justify-center rounded-[6px] border border-[var(--theme-border)] text-[var(--theme-faint)] transition hover:border-rose-300 hover:bg-rose-500/10 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={deletingId === session.id}
+                            onClick={() => setPendingDelete(session)}
+                            type="button"
+                          >
+                            {deletingId === session.id ? (
+                              <span className="size-3 animate-spin rounded-full border-2 border-[var(--theme-border)] border-t-[var(--color-primary-500)]" />
+                            ) : (
+                              <Icon name="trash" size={13} />
+                            )}
+                          </button>
+                        </div>
+                      </article>
+                    ))}
                   </div>
 
                   <Pagination
